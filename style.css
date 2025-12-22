@@ -39,6 +39,218 @@ body {
     font-size: 0.9em;
 }
 
+.view-toggle {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.view-btn {
+    padding: 10px 20px;
+    background: #f5f5f5;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: #666;
+}
+
+.view-btn:hover {
+    background: #e9ecef;
+    border-color: #667eea;
+}
+
+.view-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+}
+
+.calendar-section {
+    margin-bottom: 20px;
+}
+
+.calendar-section.hidden {
+    display: none;
+}
+
+.list-section.hidden {
+    display: none;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.calendar-header h2 {
+    color: #333;
+    font-size: 1.5em;
+    margin: 0;
+}
+
+.nav-btn {
+    padding: 10px 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.nav-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+.calendar-day-header {
+    text-align: center;
+    font-weight: bold;
+    color: #667eea;
+    padding: 10px;
+    font-size: 0.9em;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+    min-height: 60px;
+}
+
+.calendar-day:hover {
+    background: #f0f0f0;
+    border-color: #667eea;
+    transform: scale(1.05);
+}
+
+.calendar-day.empty {
+    background: transparent;
+    border: none;
+    cursor: default;
+}
+
+.calendar-day.today {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+    font-weight: bold;
+}
+
+.calendar-day.today .day-number {
+    color: white;
+}
+
+.calendar-day.selected {
+    border: 3px solid #e74c3c;
+    background: #fff5f5;
+}
+
+.day-number {
+    font-size: 1em;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.todo-indicator {
+    font-size: 0.7em;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-top: 4px;
+    font-weight: bold;
+}
+
+.todo-indicator.active {
+    background: #667eea;
+    color: white;
+}
+
+.todo-indicator.completed {
+    background: #95a5a6;
+    color: white;
+}
+
+.date-input {
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 0.9em;
+    transition: border-color 0.3s;
+    min-width: 150px;
+}
+
+.date-input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.selected-date-info {
+    background: #e8f4f8;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.selected-date-info.hidden {
+    display: none;
+}
+
+.selected-date-info p {
+    color: #333;
+    margin: 0;
+    font-weight: 500;
+}
+
+#selectedDateText {
+    color: #667eea;
+    font-weight: bold;
+}
+
+.clear-date-btn {
+    padding: 8px 15px;
+    background: #95a5a6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.clear-date-btn:hover {
+    background: #7f8c8d;
+}
+
 .input-section {
     margin-bottom: 20px;
 }
@@ -46,6 +258,7 @@ body {
 .input-wrapper {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 #todoInput {
@@ -157,6 +370,25 @@ body {
     border-radius: 10px;
     transition: all 0.3s;
     animation: slideIn 0.3s ease-out;
+    gap: 10px;
+}
+
+.todo-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.todo-date {
+    font-size: 0.85em;
+    color: #667eea;
+    font-weight: 500;
+}
+
+.todo-date.today {
+    color: #e74c3c;
+    font-weight: bold;
 }
 
 @keyframes slideIn {
@@ -245,6 +477,10 @@ body {
     display: none;
 }
 
+.todo-item.editing .todo-content {
+    display: none;
+}
+
 .todo-item.editing .edit-input {
     display: block;
     flex: 1;
@@ -252,10 +488,22 @@ body {
     border: 2px solid #667eea;
     border-radius: 6px;
     font-size: 1em;
-    margin-right: 10px;
+}
+
+.todo-item.editing .edit-date-input {
+    display: block;
+    padding: 8px;
+    border: 2px solid #667eea;
+    border-radius: 6px;
+    font-size: 0.9em;
+    min-width: 150px;
 }
 
 .edit-input {
+    display: none;
+}
+
+.edit-date-input {
     display: none;
 }
 
@@ -291,6 +539,10 @@ body {
         flex-direction: column;
     }
 
+    .date-input {
+        width: 100%;
+    }
+
     .add-btn {
         width: 100%;
     }
@@ -308,6 +560,29 @@ body {
     .clear-btn {
         width: 100%;
     }
+
+    .calendar-day {
+        min-height: 50px;
+        padding: 5px;
+    }
+
+    .day-number {
+        font-size: 0.9em;
+    }
+
+    .todo-indicator {
+        font-size: 0.6em;
+        padding: 1px 4px;
+    }
+
+    .selected-date-info {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .clear-date-btn {
+        width: 100%;
+    }
 }
 
 /* iOS Safari optimizations */
@@ -315,6 +590,7 @@ body {
     /* iOS-specific styles */
     input, button, textarea {
         -webkit-appearance: none;
+        appearance: none;
         -webkit-tap-highlight-color: transparent;
     }
     
@@ -325,6 +601,7 @@ body {
     
     #todoInput, .edit-input {
         -webkit-appearance: none;
+        appearance: none;
         border-radius: 10px;
     }
     

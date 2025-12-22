@@ -5,33 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Todo App">
     <meta name="theme-color" content="#667eea">
+    <meta name="description" content="A modern Todo List app with calendar features">
     <title>Todo App</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
     <div class="container">
         <header class="app-header">
             <h1>📝 My Todo App</h1>
             <p class="subtitle">Stay organized and productive</p>
+            <div class="view-toggle">
+                <button id="listViewBtn" class="view-btn active">📋 List</button>
+                <button id="calendarViewBtn" class="view-btn">📅 Calendar</button>
+            </div>
         </header>
 
-        <div class="input-section">
-            <div class="input-wrapper">
-                <input 
-                    type="text" 
-                    id="todoInput" 
-                    placeholder="Add a new task..." 
-                    autocomplete="off"
-                >
-                <button id="addBtn" class="add-btn">Add</button>
+        <div id="calendarSection" class="calendar-section hidden">
+            <div class="calendar-header">
+                <button id="prevMonth" class="nav-btn">←</button>
+                <h2 id="currentMonth"></h2>
+                <button id="nextMonth" class="nav-btn">→</button>
             </div>
+            <div id="calendar" class="calendar"></div>
         </div>
+
+        <div id="listSection" class="list-section">
+            <div class="input-section">
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="todoInput" 
+                        placeholder="Add a new task..." 
+                        autocomplete="off"
+                    >
+                    <input 
+                        type="date" 
+                        id="todoDate" 
+                        class="date-input"
+                        title="Optional: Set a due date"
+                    >
+                    <button id="addBtn" class="add-btn">Add</button>
+                </div>
+            </div>
 
         <div class="filter-section">
             <button class="filter-btn active" data-filter="all">All</button>
             <button class="filter-btn" data-filter="active">Active</button>
             <button class="filter-btn" data-filter="completed">Completed</button>
+            <button class="filter-btn" data-filter="today">Today</button>
+            <button class="filter-btn" data-filter="upcoming">Upcoming</button>
         </div>
 
         <div class="stats">
@@ -45,6 +73,11 @@
 
         <div id="emptyState" class="empty-state">
             <p>✨ No tasks yet. Add one above to get started!</p>
+        </div>
+
+        <div id="selectedDateInfo" class="selected-date-info hidden">
+            <p>📅 Showing tasks for: <span id="selectedDateText"></span></p>
+            <button id="clearDateFilter" class="clear-date-btn">Clear Date Filter</button>
         </div>
     </div>
 
