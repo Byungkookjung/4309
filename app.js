@@ -25,6 +25,11 @@ const nextMonthBtn = document.getElementById('nextMonth');
 const selectedDateInfo = document.getElementById('selectedDateInfo');
 const selectedDateText = document.getElementById('selectedDateText');
 const clearDateFilterBtn = document.getElementById('clearDateFilter');
+const calendarTasks = document.getElementById('calendarTasks');
+const calendarTasksTitle = document.getElementById('calendarTasksTitle');
+const calendarTasksCount = document.getElementById('calendarTasksCount');
+const calendarTasksList = document.getElementById('calendarTasksList');
+const calendarTasksEmpty = document.getElementById('calendarTasksEmpty');
 
 // Load todos from localStorage
 function loadTodos() {
@@ -34,6 +39,7 @@ function loadTodos() {
     }
     renderTodos();
     renderCalendar();
+    renderCalendarTasks();
 }
 
 // Save todos to localStorage
@@ -44,7 +50,9 @@ function saveTodos() {
 // Format date for display
 function formatDate(dateString) {
     if (!dateString) return '';
-    const date = new Date(dateString);
+    // Parse date string as local date to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -60,8 +68,12 @@ function formatDateForInput(date) {
 function isToday(dateString) {
     if (!dateString) return false;
     const today = new Date();
-    const date = new Date(dateString);
-    return date.toDateString() === today.toDateString();
+    today.setHours(0, 0, 0, 0);
+    // Parse date string as local date to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setHours(0, 0, 0, 0);
+    return date.getTime() === today.getTime();
 }
 
 // Check if date is in the future
@@ -69,7 +81,9 @@ function isUpcoming(dateString) {
     if (!dateString) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const date = new Date(dateString);
+    // Parse date string as local date to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     date.setHours(0, 0, 0, 0);
     return date > today;
 }
@@ -95,6 +109,7 @@ function addTodo() {
     saveTodos();
     renderTodos();
     renderCalendar();
+    renderCalendarTasks();
 }
 
 // Delete todo
@@ -103,6 +118,7 @@ function deleteTodo(id) {
     saveTodos();
     renderTodos();
     renderCalendar();
+    renderCalendarTasks();
 }
 
 // Toggle todo completion
@@ -113,6 +129,7 @@ function toggleTodo(id) {
     saveTodos();
     renderTodos();
     renderCalendar();
+    renderCalendarTasks();
 }
 
 // Edit todo
@@ -133,6 +150,7 @@ function editTodo(id, newText, newDate = null) {
     saveTodos();
     renderTodos();
     renderCalendar();
+    renderCalendarTasks();
 }
 
 // Clear completed todos
@@ -141,6 +159,7 @@ function clearCompleted() {
     saveTodos();
     renderTodos();
     renderCalendar();
+    renderCalendarTasks();
 }
 
 // Filter todos
@@ -198,6 +217,82 @@ function getFilteredTodos() {
     return filtered;
 }
 
+// Render tasks for selected date inside calendar view
+function renderCalendarTasks() {
+    // If no date selected, show prompt
+    if (!selectedDate) {
+        calendarTasksTitle.textContent = 'Select a date to view tasks';
+        calendarTasksCount.textContent = '';
+        calendarTasksList.innerHTML = '';
+        calendarTasksEmpty.textContent = 'Select a date to view tasks.';
+        calendarTasksEmpty.classList.remove('hidden');
+        return;
+    }
+
+    const selectedDateStr = formatDateForInput(selectedDate);
+    const dayTodos = todos.filter(todo => todo.dueDate === selectedDateStr);
+
+    calendarTasksTitle.textContent = `Tasks for ${formatDate(selectedDateStr)}`;
+    calendarTasksCount.textContent = dayTodos.length ? `${dayTodos.length} task${dayTodos.length === 1 ? '' : 's'}` : '';
+
+    if (dayTodos.length === 0) {
+        calendarTasksList.innerHTML = '';
+        calendarTasksEmpty.textContent = 'No tasks for this date. Add one in the list view.';
+        calendarTasksEmpty.classList.remove('hidden');
+        return;
+    }
+
+    calendarTasksEmpty.classList.add('hidden');
+    calendarTasksList.innerHTML = '';
+
+    dayTodos
+        .sort((a, b) => a.completed - b.completed) // active first
+        .forEach(todo => {
+            const li = document.createElement('li');
+            li.className = 'calendar-task-item';
+
+            const text = document.createElement('span');
+            text.className = 'calendar-task-text';
+            text.textContent = todo.text;
+
+            const status = document.createElement('span');
+            status.className = `calendar-task-status ${todo.completed ? 'completed' : 'active'}`;
+            status.textContent = todo.completed ? 'Completed' : 'Active';
+
+            const actions = document.createElement('div');
+            actions.className = 'calendar-task-actions';
+
+            const toggleBtn = document.createElement('button');
+            toggleBtn.textContent = todo.completed ? 'Mark Active' : 'Complete';
+            toggleBtn.className = 'calendar-task-btn';
+            toggleBtn.addEventListener('click', () => toggleTodo(todo.id));
+
+            const editBtn = document.createElement('button');
+            editBtn.textContent = 'Edit';
+            editBtn.className = 'calendar-task-btn secondary';
+            editBtn.addEventListener('click', () => {
+                const newText = prompt('Edit task', todo.text);
+                if (newText !== null) {
+                    editTodo(todo.id, newText, todo.dueDate);
+                }
+            });
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.className = 'calendar-task-btn danger';
+            deleteBtn.addEventListener('click', () => deleteTodo(todo.id));
+
+            actions.appendChild(toggleBtn);
+            actions.appendChild(editBtn);
+            actions.appendChild(deleteBtn);
+
+            li.appendChild(text);
+            li.appendChild(status);
+            li.appendChild(actions);
+            calendarTasksList.appendChild(li);
+        });
+}
+
 // Render todos
 function renderTodos() {
     const filteredTodos = getFilteredTodos();
@@ -210,6 +305,13 @@ function renderTodos() {
     if (filteredTodos.length === 0) {
         emptyState.classList.remove('hidden');
         todoList.style.display = 'none';
+        // Update empty state message based on filter
+        const emptyStateText = emptyState.querySelector('p');
+        if (selectedDate) {
+            emptyStateText.textContent = `✨ No tasks for ${formatDate(formatDateForInput(selectedDate))}. Add one above!`;
+        } else {
+            emptyStateText.textContent = '✨ No tasks yet. Add one above to get started!';
+        }
     } else {
         emptyState.classList.add('hidden');
         todoList.style.display = 'block';
@@ -392,9 +494,9 @@ function renderCalendar() {
             
             // Update filter buttons
             filterBtns.forEach(btn => btn.classList.remove('active'));
-            
             renderTodos();
             renderCalendar();
+            renderCalendarTasks();
         });
         
         calendar.appendChild(dayCell);
@@ -411,6 +513,7 @@ function switchView(view) {
         calendarViewBtn.classList.add('active');
         listViewBtn.classList.remove('active');
         renderCalendar();
+        renderCalendarTasks();
     } else {
         calendarSection.classList.add('hidden');
         listSection.classList.remove('hidden');
@@ -436,6 +539,7 @@ function clearDateFilter() {
     selectedDateInfo.classList.add('hidden');
     renderTodos();
     renderCalendar();
+    renderCalendarTasks();
 }
 
 // Escape HTML to prevent XSS

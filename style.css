@@ -170,6 +170,116 @@ body {
     background: #fff5f5;
 }
 
+.calendar-tasks {
+    margin-top: 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid #e0e0e0;
+}
+
+.calendar-tasks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 10px;
+}
+
+.calendar-tasks-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 1.1em;
+}
+
+.calendar-tasks-header span {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.calendar-tasks-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+}
+
+.calendar-task-item {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+}
+
+.calendar-task-text {
+    color: #333;
+    font-size: 0.95em;
+    word-break: break-word;
+}
+
+.calendar-task-status {
+    font-size: 0.85em;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.calendar-task-status.active {
+    background: #667eea;
+    color: white;
+}
+
+.calendar-task-status.completed {
+    background: #95a5a6;
+    color: white;
+}
+
+.calendar-task-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.calendar-task-btn {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 8px;
+    background: #667eea;
+    color: white;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.calendar-task-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.2);
+}
+
+.calendar-task-btn.secondary {
+    background: #3498db;
+}
+
+.calendar-task-btn.danger {
+    background: #e74c3c;
+}
+
+.calendar-tasks-empty {
+    text-align: center;
+    color: #666;
+    padding: 12px;
+    background: #fff;
+    border: 1px dashed #e0e0e0;
+    border-radius: 10px;
+}
+
 .day-number {
     font-size: 1em;
     font-weight: bold;
@@ -564,6 +674,20 @@ body {
     .calendar-day {
         min-height: 50px;
         padding: 5px;
+    }
+
+    .calendar-tasks {
+        padding: 12px;
+    }
+
+    .calendar-task-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .calendar-task-status {
+        width: 100%;
+        text-align: center;
     }
 
     .day-number {
