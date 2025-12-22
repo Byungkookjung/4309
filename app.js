@@ -4,6 +4,8 @@ let currentFilter = 'all';
 let currentView = 'list'; // 'list' or 'calendar'
 let currentDate = new Date();
 let selectedDate = null; // For filtering by specific date
+let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+let editExpenseIndex = null;
 
 // DOM elements
 const todoInput = document.getElementById('todoInput');
@@ -25,6 +27,15 @@ const nextMonthBtn = document.getElementById('nextMonth');
 const selectedDateInfo = document.getElementById('selectedDateInfo');
 const selectedDateText = document.getElementById('selectedDateText');
 const clearDateFilterBtn = document.getElementById('clearDateFilter');
+const accountBookBtn = document.getElementById('accountBookBtn');
+const accountBookSection = document.getElementById('accountBookSection');
+const expenseForm = document.getElementById('expenseForm');
+const expenseList = document.getElementById('expenseList');
+const addCategoryBtn = document.getElementById('addCategoryBtn');
+const newCategoryInput = document.getElementById('newCategory');
+const categorySelect = document.getElementById('category');
+const showCategoryInputBtn = document.getElementById('showCategoryInputBtn');
+const categoryInputWrapper = document.getElementById('categoryInputWrapper');
 
 // Load todos from localStorage
 function loadTodos() {
@@ -445,6 +456,48 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// Render expenses
+function renderExpenses() {
+    expenseList.innerHTML = '';
+    const emptyState = document.getElementById('emptyExpenseState');
+    if (expenses.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+    } else {
+        emptyState.classList.add('hidden');
+    }
+    expenses.forEach((item, idx) => {
+        const li = document.createElement('li');
+        li.textContent = `${item.date} | ${item.category} | $${item.amount} | ${item.memo}`;
+        li.style.cursor = 'pointer';
+        li.onclick = function() {
+            document.getElementById('amount').value = item.amount;
+            document.getElementById('expenseDate').value = item.date;
+            document.getElementById('category').value = item.category;
+            document.getElementById('memo').value = item.memo;
+            editExpenseIndex = idx;
+            document.querySelector('#expenseForm button[type="submit"]').textContent = 'Save';
+        };
+        expenseList.appendChild(li);
+    });
+}
+
+// Show/hide sections
+function showSection(section) {
+    listSection.classList.add('hidden');
+    calendarSection.classList.add('hidden');
+    accountBookSection.classList.add('hidden');
+    if (section === 'list') listSection.classList.remove('hidden');
+    if (section === 'calendar') calendarSection.classList.remove('hidden');
+    if (section === 'accountbook') accountBookSection.classList.remove('hidden');
+}
+
+// Set active view button
+function setActiveViewBtn(activeBtn) {
+    [listViewBtn, calendarViewBtn, accountBookBtn].forEach(btn => btn.classList.remove('active'));
+    activeBtn.classList.add('active');
+}
+
 // Event listeners
 addBtn.addEventListener('click', addTodo);
 
@@ -462,16 +515,73 @@ filterBtns.forEach(btn => {
     });
 });
 
-listViewBtn.addEventListener('click', () => switchView('list'));
-calendarViewBtn.addEventListener('click', () => switchView('calendar'));
+accountBookBtn.addEventListener('click', () => {
+    showSection('accountbook');
+    setActiveViewBtn(accountBookBtn);
+});
+listViewBtn.addEventListener('click', () => {
+    showSection('list');
+    setActiveViewBtn(listViewBtn);
+});
+calendarViewBtn.addEventListener('click', () => {
+    showSection('calendar');
+    setActiveViewBtn(calendarViewBtn);
+});
 
 prevMonthBtn.addEventListener('click', () => navigateMonth('prev'));
 nextMonthBtn.addEventListener('click', () => navigateMonth('next'));
 
 clearDateFilterBtn.addEventListener('click', clearDateFilter);
 
-// Set today's date as default in date picker
-todoDateInput.value = formatDateForInput(new Date());
+expenseForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const amount = document.getElementById('amount').value;
+    const date = document.getElementById('expenseDate').value;
+    const category = document.getElementById('category').value;
+    const memo = document.getElementById('memo').value;
+    if (editExpenseIndex !== null) {
+        expenses[editExpenseIndex] = { amount, date, category, memo };
+        editExpenseIndex = null;
+        document.querySelector('#expenseForm button[type="submit"]').textContent = 'Add';
+    } else {
+        expenses.push({ amount, date, category, memo });
+    }
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    renderExpenses();
+    expenseForm.reset();
+});
 
-// Initialize app
-loadTodos();
+document.addEventListener('DOMContentLoaded', function() {
+    const categorySelect = document.getElementById('category');
+    const categoryInputWrapper = document.getElementById('categoryInputWrapper');
+    const newCategoryInput = document.getElementById('newCategory');
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+
+    categorySelect.addEventListener('change', function() {
+        if (categorySelect.value === '__add_new__') {
+            categoryInputWrapper.style.display = 'inline-flex';
+            newCategoryInput.focus();
+        } else {
+            categoryInputWrapper.style.display = 'none';
+        }
+    });
+    addCategoryBtn.addEventListener('click', function() {
+        const newCat = newCategoryInput.value.trim();
+        if (newCat && !Array.from(categorySelect.options).some(opt => opt.value.toLowerCase() === newCat.toLowerCase())) {
+            const option = document.createElement('option');
+            option.value = newCat;
+            option.textContent = newCat;
+            categorySelect.insertBefore(option, categorySelect.querySelector('option[value="__add_new__"]'));
+            categorySelect.value = newCat;
+            newCategoryInput.value = '';
+        }
+        categoryInputWrapper.style.display = 'none';
+    });
+
+    // Set today's date as default in date picker
+    todoDateInput.value = formatDateForInput(new Date());
+
+    // Initialize app
+    loadTodos();
+    renderExpenses();
+});

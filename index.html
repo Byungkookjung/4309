@@ -16,6 +16,7 @@
             <div class="view-toggle">
                 <button id="listViewBtn" class="view-btn active">📋 List</button>
                 <button id="calendarViewBtn" class="view-btn">📅 Calendar</button>
+                <button id="accountBookBtn" class="view-btn">💰 Account Book</button>
             </div>
         </header>
 
@@ -43,7 +44,7 @@
                         class="date-input"
                         title="Optional: Set a due date"
                     >
-                    <button id="addBtn" class="add-btn">Add</button>
+                    <button id="addBtn" class="add-btn view-btn">Add</button>
                 </div>
             </div>
 
@@ -72,6 +73,31 @@
             <p>📅 Showing tasks for: <span id="selectedDateText"></span></p>
             <button id="clearDateFilter" class="clear-date-btn">Clear Date Filter</button>
         </div>
+    </div>
+
+    <div id="accountBookSection" class="accountbook-section hidden">
+        <h2>Account Book</h2>
+        <form id="expenseForm">
+            <input type="number" id="amount" placeholder="Amount" required>
+            <input type="date" id="expenseDate" required>
+            <select id="category">
+                <option value="Food">Food</option>
+                <option value="Transport">Transport</option>
+                <option value="Living">Living</option>
+                <option value="__add_new__">Add new category...</option>
+            </select>
+            <span id="categoryInputWrapper" style="display:none; gap:4px; align-items:center;">
+                <input type="text" id="newCategory" placeholder="New Category" style="width:120px;" />
+                <button type="button" id="addCategoryBtn" class="view-btn" style="padding: 0 10px;">＋</button>
+            </span>
+            <input type="text" id="memo" placeholder="Memo">
+            <button type="submit" class="view-btn">Add</button>
+        </form>
+        <ul id="expenseList"></ul>
+        <div id="emptyExpenseState" class="empty-state">
+            <p>✨ No expenses yet. Add one above to get started!</p>
+        </div>
+        <input type="hidden" id="editIndex" value="">
     </div>
 
     <script src="app.js"></script>

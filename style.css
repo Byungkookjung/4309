@@ -19,8 +19,10 @@ body {
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    max-width: 600px;
-    width: 100%;
+    max-width: 1200px;
+    min-width: 340px;
+    min-height: 480px;
+    width: 95vw;
 }
 
 .app-header {
@@ -507,6 +509,111 @@ body {
     display: none;
 }
 
+.accountbook-section {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 30px;
+    max-width: 1100px;
+    min-width: 700px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 600px;
+}
+
+.accountbook-section.hidden {
+    display: none;
+}
+
+.accountbook-section h2 {
+    margin-bottom: 28px;
+    font-size: 2rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+#expenseForm {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    width: 100%;
+    justify-content: center;
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#expenseForm input[type="number"],
+#expenseForm input[type="date"],
+#expenseForm input[type="text"],
+#expenseForm select {
+    background: #f7fafc;
+    border: 2px solid #e2e8f0;
+    color: #4a5568;
+    font-size: 1rem;
+    font-weight: 400;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: border 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    min-width: 160px;
+    max-width: 300px;
+}
+
+#expenseForm input[type="text"]#memo {
+    min-width: 200px;
+    max-width: 340px;
+}
+
+#expenseForm input[type="text"]#newCategory {
+    min-width: 160px;
+    max-width: 220px;
+}
+
+#expenseForm button {
+    min-width: 50px;
+    max-width: 70px;
+}
+
+#expenseForm button.view-btn {
+    height: 40px;
+    font-size: 1rem;
+    font-weight: 500;
+    background: #667eea;
+    color: #fff;
+    border: 2px solid #667eea;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    transition: background 0.2s, color 0.2s, border 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+#expenseForm button.view-btn:hover {
+    background: #5a67d8;
+    color: #fff;
+    border-color: #5a67d8;
+}
+
+#expenseForm button.view-btn:active {
+    background: #667eea;
+    color: #fff;
+    border-color: #667eea;
+}
+
+#expenseForm input,
+#expenseForm select {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex-basis: 0;
+    box-sizing: border-box;
+}
+
 /* Scrollbar styling */
 .todo-list::-webkit-scrollbar {
     width: 8px;
@@ -526,63 +633,84 @@ body {
     background: #764ba2;
 }
 
+@media (max-width: 900px) {
+  .container {
+    max-width: 98vw;
+    min-width: 0;
+    padding: 12px;
+  }
+  .accountbook-section {
+    max-width: 98vw;
+    min-width: 0;
+    padding: 16px;
+  }
+  #expenseForm {
+    max-width: 98vw;
+    flex-wrap: wrap;
+    gap: 8px 0;
+  }
+  #expenseForm input,
+  #expenseForm select {
+    max-width: 160px;
+    min-width: 80px;
+  }
+  #expenseForm input[type="text"]#memo {
+    max-width: 180px;
+    min-width: 100px;
+  }
+  #expenseForm input[type="text"]#newCategory {
+    max-width: 120px;
+    min-width: 80px;
+  }
+}
+
 @media (max-width: 600px) {
-    .container {
-        padding: 20px;
-    }
+  .container {
+    max-width: 100vw;
+    min-width: 0;
+    padding: 4px;
+  }
+  .accountbook-section {
+    max-width: 100vw;
+    min-width: 0;
+    padding: 6px;
+  }
+  #expenseForm {
+    flex-direction: column;
+    align-items: stretch;
+    max-width: 100vw;
+    gap: 6px;
+  }
+  #expenseForm input,
+  #expenseForm select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  #expenseForm button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
 
-    .app-header h1 {
-        font-size: 2em;
-    }
-
-    .input-wrapper {
-        flex-direction: column;
-    }
-
-    .date-input {
-        width: 100%;
-    }
-
-    .add-btn {
-        width: 100%;
-    }
-
-    .filter-section {
-        flex-wrap: wrap;
-    }
-
-    .stats {
-        flex-direction: column;
-        gap: 10px;
-        align-items: stretch;
-    }
-
-    .clear-btn {
-        width: 100%;
-    }
-
-    .calendar-day {
-        min-height: 50px;
-        padding: 5px;
-    }
-
-    .day-number {
-        font-size: 0.9em;
-    }
-
-    .todo-indicator {
-        font-size: 0.6em;
-        padding: 1px 4px;
-    }
-
-    .selected-date-info {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .clear-date-btn {
-        width: 100%;
-    }
+@media (max-width: 1100px) {
+  .container {
+    max-width: 98vw;
+    min-width: 340px;
+  }
+  .accountbook-section {
+    max-width: 98vw;
+    min-width: 340px;
+  }
+  #expenseForm {
+    max-width: 98vw;
+  }
+  #expenseForm input,
+  #expenseForm select {
+    max-width: 100%;
+  }
 }
 
 /* iOS Safari optimizations */
