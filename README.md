@@ -59,20 +59,7 @@ A modern, feature-rich Todo List application built with HTML, CSS, and JavaScrip
 
 ## Installation
 
-### Quick Start (Web Browser)
 Just open `index.html` in any modern web browser. Your tasks will be saved automatically in your browser's local storage.
-
-### 📱 Install as Mobile App (PWA)
-
-**This app can be installed on your phone like a native app!**
-
-1. **Generate Icons**: Open `create-icons.html` in your browser and download the icons
-2. **Host the app**: Use a free service like Netlify, or run a local server
-3. **Install on phone**: 
-   - **Android**: Chrome → Menu → "Add to Home screen"
-   - **iPhone**: Safari → Share → "Add to Home Screen"
-
-📖 **See `INSTALL_GUIDE.md` for detailed step-by-step instructions!**
 
 ## Testing on Mobile/Emulator
 

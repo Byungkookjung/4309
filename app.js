@@ -473,27 +473,5 @@ clearDateFilterBtn.addEventListener('click', clearDateFilter);
 // Set today's date as default in date picker
 todoDateInput.value = formatDateForInput(new Date());
 
-// Register Service Worker for PWA
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-            .then((registration) => {
-                console.log('Service Worker registered:', registration);
-            })
-            .catch((error) => {
-                console.log('Service Worker registration failed:', error);
-            });
-    });
-}
-
-// Show install prompt (if available)
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    // You can show a custom install button here if desired
-    console.log('App can be installed');
-});
-
 // Initialize app
 loadTodos();
