@@ -31,6 +31,17 @@ const calendarTasksCount = document.getElementById('calendarTasksCount');
 const calendarTasksList = document.getElementById('calendarTasksList');
 const calendarTasksEmpty = document.getElementById('calendarTasksEmpty');
 
+// --- Plan Calculator (store under 'planItems') ---
+const planLabelInput = document.getElementById('planLabel');
+const planUnitInput = document.getElementById('planUnit');
+const planQtyInput = document.getElementById('planQty');
+const addPlanBtn = document.getElementById('addPlanBtn');
+const planListEl = document.getElementById('planList');
+const planTotalEl = document.getElementById('planTotal');
+const clearPlanBtn = document.getElementById('clearPlanBtn');
+
+let planItems = [];
+
 // Load todos from localStorage
 function loadTodos() {
     const storedTodos = localStorage.getItem('todos');
@@ -45,6 +56,17 @@ function loadTodos() {
 // Save todos to localStorage
 function saveTodos() {
     localStorage.setItem('todos', JSON.stringify(todos));
+}
+
+// Load plan items from localStorage
+function loadPlanItems() {
+    const raw = localStorage.getItem('planItems');
+    planItems = raw ? JSON.parse(raw) : [];
+}
+
+// Save plan items to localStorage
+function savePlanItems() {
+    localStorage.setItem('planItems', JSON.stringify(planItems));
 }
 
 // Format date for display
@@ -549,6 +571,77 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// Format currency
+function formatCurrency(num) {
+    return '$' + Number(num || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+// Calculate total plan amount
+function calculatePlanTotal() {
+    return planItems.reduce((sum, it) => sum + (Number(it.unit || 0) * Number(it.qty || 0)), 0);
+}
+
+// Render plan items
+function renderPlan() {
+    planListEl.innerHTML = '';
+    planItems.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'plan-item';
+        li.dataset.id = item.id;
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = `${item.label || ''} — ${item.qty} × ${formatCurrency(item.unit)}`;
+        const amount = document.createElement('div');
+        amount.className = 'amount';
+        const total = Number(item.unit) * Number(item.qty);
+        amount.textContent = formatCurrency(total);
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', () => {
+            planItems = planItems.filter(p => p.id !== item.id);
+            savePlanItems();
+            renderPlan();
+        });
+        actions.appendChild(delBtn);
+
+        li.appendChild(meta);
+        li.appendChild(amount);
+        li.appendChild(actions);
+        planListEl.appendChild(li);
+    });
+
+    const total = calculatePlanTotal();
+    planTotalEl.textContent = formatCurrency(total);
+}
+
+// Add plan item
+function addPlanItem() {
+    const label = (planLabelInput.value || '').trim();
+    const unit = parseFloat(planUnitInput.value);
+    const qty = parseInt(planQtyInput.value, 10);
+
+    if (!label || isNaN(unit) || isNaN(qty) || qty <= 0 || unit < 0) {
+        alert('Please enter valid label, unit amount and quantity.');
+        return;
+    }
+
+    const item = {
+        id: Date.now(),
+        label,
+        unit: Number(unit.toFixed(2)),
+        qty: qty
+    };
+    planItems.push(item);
+    savePlanItems();
+    planLabelInput.value = '';
+    planUnitInput.value = '';
+    planQtyInput.value = '';
+    renderPlan();
+}
+
 // Event listeners
 addBtn.addEventListener('click', addTodo);
 
@@ -574,8 +667,15 @@ nextMonthBtn.addEventListener('click', () => navigateMonth('next'));
 
 clearDateFilterBtn.addEventListener('click', clearDateFilter);
 
-// Set today's date as default in date picker
-todoDateInput.value = formatDateForInput(new Date());
+// Add navigation for Expense Ledger button
+{
+    const ledgerBtn = document.getElementById('ledgerBtn');
+    if (ledgerBtn) {
+        ledgerBtn.addEventListener('click', () => {
+            window.location.href = 'ledger.html';
+        });
+    }
+}
 
 // Initialize app
 loadTodos();
