@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Expense Ledger</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="container">
+        <header class="app-header">
+            <h1>💰 Expense Ledger</h1>
+            <p class="subtitle">Add income & expenses and see monthly totals</p>
+            <!-- Plan toggle + Back button -->
+            <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; align-items:center;">
+                <button id="planToggleBtn" class="view-btn">🧾 Plan Calculator</button>
+                <a href="index.html" style="text-decoration:none;">
+                    <button id="backToTodoBtn" class="ledger-btn">Back to Todo App</button>
+                </a>
+            </div>
+        </header>
+
+        <main class="ledger-container">
+            <form id="ledgerForm" class="ledger-form" onsubmit="return false;">
+                <div class="field">
+                    <label>Type</label>
+                    <select id="entryType">
+                        <option value="income">Income</option>
+                        <option value="expense">Expense</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>Amount</label>
+                    <input id="entryAmount" type="number" step="0.01" min="0" placeholder="0.00" />
+                </div>
+
+                <div class="field">
+                    <label>Date</label>
+                    <input id="entryDate" type="date" />
+                </div>
+
+                <div class="field" style="flex:1; min-width:180px;">
+                    <label>Description</label>
+                    <input id="entryDesc" type="text" placeholder="Salary, Coffee, Rent..." />
+                </div>
+
+                <!-- Move Add button into a proper field so it aligns -->
+                <div class="field action">
+                    <label aria-hidden="true">&nbsp;</label>
+                    <button id="addEntryBtn" class="ledger-add-btn">Add Entry</button>
+                </div>
+            </form>
+
+            <div class="ledger-controls">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <label for="monthPicker">View month:</label>
+                    <input id="monthPicker" class="month-picker" type="month" />
+                    <!-- New: initial balance input -->
+                    <label for="initialBalance" style="margin-left:10px;">Initial balance:</label>
+                    <input id="initialBalance" type="number" step="0.01" class="month-picker" style="min-width:120px;" />
+                </div>
+                <div>
+                    <a href="index.html"><button class="ledger-btn">Back to Todo App</button></a>
+                </div>
+            </div>
+
+            <!-- New: summary showing account balance & upcoming expenses -->
+            <div class="ledger-summary" style="display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                    <div>Account balance:</div>
+                    <div id="accountBalance" style="font-weight:800;">$0.00</div>
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                    <div>Upcoming expenses (future):</div>
+                    <div id="upcomingTotal" style="font-weight:700;color:#e74c3c;">$0.00</div>
+                </div>
+
+                <div>
+                    <div style="font-weight:600; margin-bottom:6px;">Next scheduled expenses</div>
+                    <ul id="upcomingList" class="ledger-list" style="max-height:140px;overflow:auto;"></ul>
+                </div>
+            </div>
+
+            <div class="ledger-totals" aria-live="polite">
+                <div class="totals-left">
+                    <div>Income: <span id="totalIncome">$0.00</span></div>
+                    <div>Expense: <span id="totalExpense">$0.00</span></div>
+                </div>
+                <div>
+                    Net: <span id="netAmount" class="net positive">$0.00</span>
+                </div>
+            </div>
+
+            <ul id="ledgerList" class="ledger-list" aria-live="polite"></ul>
+
+            <!-- New: Plan Calculator section (hidden by default) -->
+            <section id="planSection" class="plan-section" style="display:none; margin-top:12px;">
+                <h3>Plan Calculator</h3>
+                <div class="plan-form">
+                    <input id="planLabel" type="text" placeholder="Item (e.g. Rent)" />
+                    <input id="planUnit" type="number" step="0.01" placeholder="Unit amount (e.g. 810)" />
+                    <input id="planQty" type="number" step="1" min="1" placeholder="Qty (e.g. 4)" />
+                    <button id="addPlanBtn" class="ledger-add-btn">Add Plan Item</button>
+                </div>
+
+                <ul id="planList" class="plan-list"></ul>
+
+                <div class="plan-total">
+                    Total planned: <span id="planTotal">$0.00</span>
+                    <button id="clearPlanBtn" class="clear-btn" style="margin-left:12px;">Clear</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="ledger.js"></script>
+</body>
+</html>

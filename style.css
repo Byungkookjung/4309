@@ -751,3 +751,310 @@ body {
         -webkit-overflow-scrolling: touch;
     }
 }
+
+/* Footer section for ledger button */
+.footer-section {
+    margin-top: 18px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Ledger button style (matches app look, English label) */
+.ledger-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.18s, box-shadow 0.18s;
+}
+
+.ledger-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(102,126,234,0.25);
+}
+
+/* Ledger page styles */
+.ledger-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 10px 0 0 0;
+}
+
+.ledger-form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+    align-items: flex-end; /* ensure fields align baseline, action can override */
+}
+
+.ledger-form .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 120px;
+}
+
+.ledger-form .field.action {
+    align-self: flex-end;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.ledger-form input[type="number"],
+.ledger-form input[type="date"],
+.ledger-form input[type="text"],
+.ledger-form select {
+    padding: 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.95em;
+}
+
+.ledger-add-btn {
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.ledger-add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(32, 201, 151, 0.15);
+}
+
+.ledger-controls {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.month-picker {
+    padding: 8px;
+    border-radius: 8px;
+    border: 2px solid #e0e0e0;
+    background: white;
+}
+
+.ledger-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.ledger-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.ledger-item .meta {
+    font-size: 0.9em;
+    color: #333;
+}
+
+.ledger-item .amount {
+    font-weight: 700;
+    min-width: 100px;
+    text-align: right;
+}
+
+.ledger-item.income .amount {
+    color: #2ecc71;
+}
+
+.ledger-item.expense .amount {
+    color: #e74c3c;
+}
+
+.ledger-item .actions {
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+}
+
+.ledger-action-btn {
+    padding:6px 10px;
+    border-radius:6px;
+    border:none;
+    cursor:pointer;
+    font-size:0.85em;
+}
+
+.ledger-action-btn.edit { background:#3498db; color:white; }
+.ledger-action-btn.delete { background:#e74c3c; color:white; }
+
+.ledger-totals {
+    display:flex;
+    gap:12px;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px;
+    background:#f8f9fa;
+    border-radius:10px;
+    border:1px solid #e0e0e0;
+    font-weight:600;
+}
+
+.ledger-totals .totals-left {
+    display:flex;
+    gap:12px;
+    align-items:center;
+}
+
+.ledger-totals .net {
+    font-size:1.1em;
+    padding:6px 10px;
+    border-radius:8px;
+}
+
+.ledger-totals .net.positive { background:#e8f9f0; color:#138a56; }
+.ledger-totals .net.negative { background:#fff5f5; color:#c0392b; }
+
+/* Align Add Entry button inside ledger form */
+.ledger-form {
+    align-items: flex-end; /* ensure fields align baseline, action can override */
+}
+
+.ledger-form .field.action {
+    align-self: flex-end;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+/* Ledger summary styles */
+.ledger-summary {
+    margin-top: 8px;
+    padding: 10px;
+    background: #f7fbfb;
+    border: 1px solid #e6f0ef;
+    border-radius: 8px;
+}
+
+.ledger-summary .ledger-list {
+    padding: 6px 0;
+}
+
+.ledger-summary .ledger-item {
+    padding: 8px;
+    border-radius: 6px;
+}
+
+/* Plan Calculator specific styles */
+.plan-section {
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 1px dashed #e6e6e6;
+}
+
+.plan-section h3 {
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.plan-form {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.plan-form input[type="text"],
+.plan-form input[type="number"] {
+    padding: 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    min-width: 100px;
+}
+
+.plan-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.plan-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    padding: 8px;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #eef2ff;
+}
+
+.plan-item .meta {
+    font-size: 0.95em;
+    color: #333;
+}
+
+.plan-item .amount {
+    font-weight: 700;
+    text-align: right;
+    min-width: 110px;
+    color: #333;
+}
+
+.plan-item .actions {
+    display:flex;
+    gap:6px;
+}
+
+.plan-total {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-top: 8px;
+    font-weight:700;
+}
+
+/* Responsive */
+@media (max-width:600px) {
+    .plan-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .plan-item {
+        grid-template-columns: 1fr auto;
+    }
+    .plan-item .actions {
+        grid-column: span 2;
+        justify-content:flex-end;
+    }
+}
