@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Financial Summary</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="container">
+        <header class="app-header">
+            <h1>📊 Financial Summary</h1>
+            <p class="subtitle">Overview of income, expenses, planned items and balance</p>
+            <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; align-items:center;">
+                <a href="ledger.html" style="text-decoration:none;">
+                    <button class="view-btn">← Back to Ledger</button>
+                </a>
+                <a href="index.html" style="text-decoration:none;">
+                    <button class="ledger-btn">Back to Todo App</button>
+                </a>
+            </div>
+        </header>
+
+        <main class="summary-container">
+            <div class="summary-stats" aria-live="polite">
+                <div class="stat">Total Income: <div id="totalIncomeAll" style="font-weight:800;">$0.00</div></div>
+                <div class="stat">Total Expense: <div id="totalExpenseAll" style="font-weight:800;color:#e74c3c;">$0.00</div></div>
+                <div class="stat">Planned Total: <div id="plannedTotalAll" style="font-weight:800;color:#e67e22;">$0.00</div></div>
+                <div class="stat">Net: <div id="netAll" style="font-weight:800;">$0.00</div></div>
+                <div class="stat">Account Balance: <div id="accountBalanceAll" style="font-weight:800;">$0.00</div></div>
+            </div>
+
+            <section>
+                <h3>Recent Transactions</h3>
+                <ul id="recentList" class="summary-list"></ul>
+            </section>
+
+            <section>
+                <h3>Monthly Breakdown (Income / Expense)</h3>
+                <ul id="monthlyList" class="summary-list"></ul>
+            </section>
+        </main>
+    </div>
+
+    <script src="storage.js"></script>
+    <script src="summary.js"></script>
+</body>
+</html>

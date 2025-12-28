@@ -11,9 +11,12 @@
         <header class="app-header">
             <h1>💰 Expense Ledger</h1>
             <p class="subtitle">Add income & expenses and see monthly totals</p>
-            <!-- Plan toggle + Back button -->
+            <!-- Plan toggle + Summary + Back button -->
             <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; align-items:center;">
                 <button id="planToggleBtn" class="view-btn">🧾 Plan Calculator</button>
+                <a href="summary.html" style="text-decoration:none;">
+                    <button id="summaryBtn" class="view-btn">📊 Summary</button>
+                </a>
                 <a href="index.html" style="text-decoration:none;">
                     <button id="backToTodoBtn" class="ledger-btn">Back to Todo App</button>
                 </a>
@@ -101,7 +104,16 @@
                 <div class="plan-form">
                     <input id="planLabel" type="text" placeholder="Item (e.g. Rent)" />
                     <input id="planUnit" type="number" step="0.01" placeholder="Unit amount (e.g. 810)" />
-                    <input id="planQty" type="number" step="1" min="1" placeholder="Qty (e.g. 4)" />
+                    <input id="planQty" type="number" step="1" min="1" placeholder="Qty (e.g. 1)" />
+                    <select id="planType" title="Type">
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                    </select>
+                    <label style="display:flex; align-items:center; gap:6px;">
+                        <input id="planRepeat" type="checkbox" /> Recurring
+                    </label>
+                    <input id="planDay" type="number" min="1" max="31" value="1" title="Day of month" style="width:80px;" />
+                    <input id="planStartMonth" type="month" title="Start month" />
                     <button id="addPlanBtn" class="ledger-add-btn">Add Plan Item</button>
                 </div>
 
@@ -115,6 +127,7 @@
         </main>
     </div>
 
+    <script src="storage.js"></script>
     <script src="ledger.js"></script>
 </body>
 </html>
