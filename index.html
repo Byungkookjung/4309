@@ -26,6 +26,12 @@
                 <button id="nextMonth" class="nav-btn">→</button>
             </div>
             <div id="calendar" class="calendar"></div>
+
+            <!-- New: Clear selection button inside calendar section -->
+            <div style="display:flex; justify-content:center; margin-top:8px;">
+                <button id="clearSelectionBtn" class="clear-btn">Clear selection</button>
+            </div>
+
             <div id="calendarTasks" class="calendar-tasks">
                 <div class="calendar-tasks-header">
                     <h3 id="calendarTasksTitle">Select a date to view tasks</h3>
@@ -88,6 +94,8 @@
 
     </div>
 
+    <!-- scripts -->
+    <script src="storage.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

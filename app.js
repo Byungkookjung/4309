@@ -31,42 +31,18 @@ const calendarTasksCount = document.getElementById('calendarTasksCount');
 const calendarTasksList = document.getElementById('calendarTasksList');
 const calendarTasksEmpty = document.getElementById('calendarTasksEmpty');
 
-// --- Plan Calculator (store under 'planItems') ---
-const planLabelInput = document.getElementById('planLabel');
-const planUnitInput = document.getElementById('planUnit');
-const planQtyInput = document.getElementById('planQty');
-const addPlanBtn = document.getElementById('addPlanBtn');
-const planListEl = document.getElementById('planList');
-const planTotalEl = document.getElementById('planTotal');
-const clearPlanBtn = document.getElementById('clearPlanBtn');
-
-let planItems = [];
-
-// Load todos from localStorage
+// Load todos from storage
 function loadTodos() {
-    const storedTodos = localStorage.getItem('todos');
-    if (storedTodos) {
-        todos = JSON.parse(storedTodos);
-    }
+    const data = storage.load();
+    todos = data.todos || [];
     renderTodos();
     renderCalendar();
     renderCalendarTasks();
 }
 
-// Save todos to localStorage
+// Save todos to storage (merges into myAppData)
 function saveTodos() {
-    localStorage.setItem('todos', JSON.stringify(todos));
-}
-
-// Load plan items from localStorage
-function loadPlanItems() {
-    const raw = localStorage.getItem('planItems');
-    planItems = raw ? JSON.parse(raw) : [];
-}
-
-// Save plan items to localStorage
-function savePlanItems() {
-    localStorage.setItem('planItems', JSON.stringify(planItems));
+    storage.set('todos', todos);
 }
 
 // Format date for display
@@ -202,7 +178,30 @@ function filterTodos(filter) {
     renderTodos();
 }
 
-// Get filtered todos
+// Add parseDateLocal and formatDateLocal to app.js (local YYYY-MM-DD parsing/formatting)
+function parseDateLocal(dateStr) {
+    if (!dateStr) return null;
+    const parts = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (parts) {
+        const y = parseInt(parts[1], 10);
+        const m = parseInt(parts[2], 10);
+        const d = parseInt(parts[3], 10);
+        return new Date(y, m - 1, d);
+    }
+    const iso = new Date(dateStr);
+    if (isNaN(iso.getTime())) return null;
+    return new Date(iso.getFullYear(), iso.getMonth(), iso.getDate());
+}
+function formatDateLocal(dateOrStr) {
+    let d = null;
+    if (!dateOrStr) return '';
+    if (typeof dateOrStr === 'string') d = parseDateLocal(dateOrStr);
+    else if (dateOrStr instanceof Date) d = new Date(dateOrStr.getFullYear(), dateOrStr.getMonth(), dateOrStr.getDate());
+    if (!d || isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Replace sorting in getFilteredTodos: use parseDateLocal for dueDate comparison
 function getFilteredTodos() {
     let filtered = todos;
     
@@ -228,12 +227,15 @@ function getFilteredTodos() {
         }
     }
     
-    // Sort by due date (todos with dates first, then by date)
+    // Sort by due date (todos with dates first, then by date) using local parse
     filtered.sort((a, b) => {
         if (!a.dueDate && !b.dueDate) return 0;
         if (!a.dueDate) return 1;
         if (!b.dueDate) return -1;
-        return new Date(a.dueDate) - new Date(b.dueDate);
+        const da = parseDateLocal(a.dueDate);
+        const db = parseDateLocal(b.dueDate);
+        if (!da || !db) return 0;
+        return da.getTime() - db.getTime();
     });
     
     return filtered;
@@ -571,77 +573,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Format currency
-function formatCurrency(num) {
-    return '$' + Number(num || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-}
-
-// Calculate total plan amount
-function calculatePlanTotal() {
-    return planItems.reduce((sum, it) => sum + (Number(it.unit || 0) * Number(it.qty || 0)), 0);
-}
-
-// Render plan items
-function renderPlan() {
-    planListEl.innerHTML = '';
-    planItems.forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'plan-item';
-        li.dataset.id = item.id;
-        const meta = document.createElement('div');
-        meta.className = 'meta';
-        meta.textContent = `${item.label || ''} — ${item.qty} × ${formatCurrency(item.unit)}`;
-        const amount = document.createElement('div');
-        amount.className = 'amount';
-        const total = Number(item.unit) * Number(item.qty);
-        amount.textContent = formatCurrency(total);
-        const actions = document.createElement('div');
-        actions.className = 'actions';
-        const delBtn = document.createElement('button');
-        delBtn.className = 'delete-btn';
-        delBtn.textContent = 'Delete';
-        delBtn.addEventListener('click', () => {
-            planItems = planItems.filter(p => p.id !== item.id);
-            savePlanItems();
-            renderPlan();
-        });
-        actions.appendChild(delBtn);
-
-        li.appendChild(meta);
-        li.appendChild(amount);
-        li.appendChild(actions);
-        planListEl.appendChild(li);
-    });
-
-    const total = calculatePlanTotal();
-    planTotalEl.textContent = formatCurrency(total);
-}
-
-// Add plan item
-function addPlanItem() {
-    const label = (planLabelInput.value || '').trim();
-    const unit = parseFloat(planUnitInput.value);
-    const qty = parseInt(planQtyInput.value, 10);
-
-    if (!label || isNaN(unit) || isNaN(qty) || qty <= 0 || unit < 0) {
-        alert('Please enter valid label, unit amount and quantity.');
-        return;
-    }
-
-    const item = {
-        id: Date.now(),
-        label,
-        unit: Number(unit.toFixed(2)),
-        qty: qty
-    };
-    planItems.push(item);
-    savePlanItems();
-    planLabelInput.value = '';
-    planUnitInput.value = '';
-    planQtyInput.value = '';
-    renderPlan();
-}
-
 // Event listeners
 addBtn.addEventListener('click', addTodo);
 
@@ -675,6 +606,19 @@ clearDateFilterBtn.addEventListener('click', clearDateFilter);
             window.location.href = 'ledger.html';
         });
     }
+}
+
+// Calendar: add clear selection button handler
+const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+if (clearSelectionBtn) {
+    clearSelectionBtn.addEventListener('click', () => {
+        selectedDate = null;
+        selectedDateInfo.classList.add('hidden');
+        // re-render calendar and lists
+        renderCalendar();
+        renderTodos();
+        renderCalendarTasks();
+    });
 }
 
 // Initialize app
