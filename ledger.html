@@ -6,111 +6,165 @@
     <title>Expense Ledger</title>
     <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body class="ledger-body">
     <div class="container">
         <header class="app-header">
-            <h1>💰 Expense Ledger</h1>
-            <p class="subtitle">Add income & expenses and see monthly totals</p>
-            <!-- Plan toggle + Back button -->
-            <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; align-items:center;">
-                <button id="planToggleBtn" class="view-btn">🧾 Plan Calculator</button>
-                <a href="index.html" style="text-decoration:none;">
-                    <button id="backToTodoBtn" class="ledger-btn">Back to Todo App</button>
+            <h1>💸 Expense Ledger</h1>
+            <p class="subtitle">Set your balances, then plan spending.</p>
+            <div class="header-actions">
+                <a href="index.html" class="link-btn">
+                    <button id="backToTodoBtn" class="ledger-btn" type="button">Back to Todo App</button>
                 </a>
             </div>
         </header>
 
         <main class="ledger-container">
-            <form id="ledgerForm" class="ledger-form" onsubmit="return false;">
-                <div class="field">
-                    <label>Type</label>
-                    <select id="entryType">
-                        <option value="income">Income</option>
-                        <option value="expense">Expense</option>
+            <section id="setupSection" class="ledger-card">
+                <div class="ledger-row">
+                    <h2>Account Setup</h2>
+                </div>
+                <p class="muted">Enter your current balances to get started.</p>
+                <form id="setupForm" class="ledger-grid" onsubmit="return false;">
+                    <div class="field">
+                        <label for="savingBalance">Saving</label>
+                        <input id="savingBalance" type="number" step="0.01" placeholder="0.00" />
+                    </div>
+                    <div class="field">
+                        <label for="checkingBalance">Checking</label>
+                        <input id="checkingBalance" type="number" step="0.01" placeholder="0.00" />
+                    </div>
+                    <div class="field">
+                        <label for="etcBalance">Etc</label>
+                        <input id="etcBalance" type="number" step="0.01" placeholder="0.00" />
+                    </div>
+                    <div class="field action">
+                        <label aria-hidden="true">&nbsp;</label>
+                        <button id="saveBalancesBtn" class="primary-btn" type="button">Save balances</button>
+                    </div>
+                </form>
+            </section>
+
+            <section id="dashboardSection" class="ledger-card hidden">
+                <div class="ledger-row">
+                    <h2>Balances</h2>
+                    <button id="editBalancesBtn" class="ghost-btn" type="button">Edit</button>
+                </div>
+
+                <div class="balance-cards">
+                    <div class="balance-card">
+                        <div class="balance-title">Saving</div>
+                        <div id="savingDisplay" class="balance-value">$0.00</div>
+                    </div>
+                    <div class="balance-card">
+                        <div class="balance-title">Checking</div>
+                        <div id="checkingDisplay" class="balance-value">$0.00</div>
+                    </div>
+                    <div class="balance-card">
+                        <div class="balance-title">Etc</div>
+                        <div id="etcDisplay" class="balance-value">$0.00</div>
+                    </div>
+                </div>
+
+                <div class="totals-row">
+                    <div>Total balance: <span id="totalBalance">$0.00</span></div>
+                    <div>Planned spend: <span id="plannedTotal">$0.00</span></div>
+                    <div>Remaining: <span id="remainingTotal" class="remaining">$0.00</span></div>
+                </div>
+
+                <button id="openPlanBtn" class="primary-btn" type="button">Open Spending Plan</button>
+            </section>
+
+            <section id="activitySection" class="ledger-card hidden">
+                <div class="ledger-row">
+                    <h2>Activity</h2>
+                </div>
+                <p class="muted">Track what you spent and what you received.</p>
+                <form id="activityForm" class="ledger-grid" onsubmit="return false;">
+                    <div class="field">
+                        <label for="activityDate">Date</label>
+                        <input id="activityDate" type="date" />
+                    </div>
+                    <div class="field">
+                        <label for="activityType">Type</label>
+                        <select id="activityType">
+                            <option value="expense">Expense</option>
+                            <option value="income">Income</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="activityAmount">Amount</label>
+                        <input id="activityAmount" type="number" step="0.01" placeholder="0.00" />
+                    </div>
+                    <div class="field wide">
+                        <label for="activityReason">Reason</label>
+                        <input id="activityReason" type="text" list="activityReasonList" placeholder="Food, paycheck, rent..." />
+                        <datalist id="activityReasonList"></datalist>
+                    </div>
+                    <div class="field action">
+                        <label aria-hidden="true">&nbsp;</label>
+                        <button id="addActivityBtn" class="primary-btn" type="button">Add entry</button>
+                    </div>
+                </form>
+
+                <ul id="activityList" class="ledger-activity-list"></ul>
+            </section>
+
+            <section id="activitySummarySection" class="ledger-card hidden">
+                <div class="ledger-row">
+                    <h2>Activity Summary</h2>
+                    <select id="activitySummaryRange" class="summary-select">
+                        <option value="all">All time</option>
+                        <option value="year">This year</option>
+                        <option value="month">This month</option>
+                        <option value="week">This week</option>
                     </select>
                 </div>
+                <div class="totals-row">
+                    <div>Total income: <span id="activityTotalIncome">$0.00</span></div>
+                    <div>Total expense: <span id="activityTotalExpense">$0.00</span></div>
+                    <div>Net: <span id="activityNet" class="remaining">$0.00</span></div>
+                </div>
+                <div class="summary-chart">
+                    <div class="summary-chart-title">Expense by reason</div>
+                    <div class="summary-chart-body">
+                        <canvas id="reasonChart" width="260" height="260"></canvas>
+                        <ul id="reasonLegend" class="summary-legend"></ul>
+                    </div>
+                </div>
+            </section>
 
-                <div class="field">
-                    <label>Amount</label>
-                    <input id="entryAmount" type="number" step="0.01" min="0" placeholder="0.00" />
+            <section id="planSection" class="ledger-card hidden">
+                <div class="ledger-row">
+                    <h2>Spending Plan</h2>
+                    <button id="closePlanBtn" class="ghost-btn" type="button">Back</button>
                 </div>
 
-                <div class="field">
-                    <label>Date</label>
-                    <input id="entryDate" type="date" />
+                <form id="planForm" class="ledger-grid" onsubmit="return false;">
+                    <div class="field wide">
+                        <label for="planItem">Item</label>
+                        <input id="planItem" type="text" placeholder="Rent, groceries, subscriptions" />
+                    </div>
+                    <div class="field">
+                        <label for="planAmount">Amount</label>
+                        <input id="planAmount" type="number" step="0.01" placeholder="0.00" />
+                    </div>
+                    <div class="field action">
+                        <label aria-hidden="true">&nbsp;</label>
+                        <div class="plan-actions">
+                            <button id="addPlanItemBtn" class="primary-btn" type="button">Add item</button>
+                            <button id="removePlanItemBtn" class="clear-btn hidden" type="button" disabled>Remove</button>
+                        </div>
+                    </div>
+                </form>
+
+                <ul id="planList" class="ledger-plan-list"></ul>
+
+                <div class="totals-row">
+                    <div>Planned spend: <span id="planTotal">$0.00</span></div>
+                    <div>Remaining: <span id="planRemaining" class="remaining">$0.00</span></div>
                 </div>
 
-                <div class="field" style="flex:1; min-width:180px;">
-                    <label>Description</label>
-                    <input id="entryDesc" type="text" placeholder="Salary, Coffee, Rent..." />
-                </div>
-
-                <!-- Move Add button into a proper field so it aligns -->
-                <div class="field action">
-                    <label aria-hidden="true">&nbsp;</label>
-                    <button id="addEntryBtn" class="ledger-add-btn">Add Entry</button>
-                </div>
-            </form>
-
-            <div class="ledger-controls">
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <label for="monthPicker">View month:</label>
-                    <input id="monthPicker" class="month-picker" type="month" />
-                    <!-- New: initial balance input -->
-                    <label for="initialBalance" style="margin-left:10px;">Initial balance:</label>
-                    <input id="initialBalance" type="number" step="0.01" class="month-picker" style="min-width:120px;" />
-                </div>
-                <div>
-                    <a href="index.html"><button class="ledger-btn">Back to Todo App</button></a>
-                </div>
-            </div>
-
-            <!-- New: summary showing account balance & upcoming expenses -->
-            <div class="ledger-summary" style="display:flex;flex-direction:column;gap:8px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-                    <div>Account balance:</div>
-                    <div id="accountBalance" style="font-weight:800;">$0.00</div>
-                </div>
-
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-                    <div>Upcoming expenses (future):</div>
-                    <div id="upcomingTotal" style="font-weight:700;color:#e74c3c;">$0.00</div>
-                </div>
-
-                <div>
-                    <div style="font-weight:600; margin-bottom:6px;">Next scheduled expenses</div>
-                    <ul id="upcomingList" class="ledger-list" style="max-height:140px;overflow:auto;"></ul>
-                </div>
-            </div>
-
-            <div class="ledger-totals" aria-live="polite">
-                <div class="totals-left">
-                    <div>Income: <span id="totalIncome">$0.00</span></div>
-                    <div>Expense: <span id="totalExpense">$0.00</span></div>
-                </div>
-                <div>
-                    Net: <span id="netAmount" class="net positive">$0.00</span>
-                </div>
-            </div>
-
-            <ul id="ledgerList" class="ledger-list" aria-live="polite"></ul>
-
-            <!-- New: Plan Calculator section (hidden by default) -->
-            <section id="planSection" class="plan-section" style="display:none; margin-top:12px;">
-                <h3>Plan Calculator</h3>
-                <div class="plan-form">
-                    <input id="planLabel" type="text" placeholder="Item (e.g. Rent)" />
-                    <input id="planUnit" type="number" step="0.01" placeholder="Unit amount (e.g. 810)" />
-                    <input id="planQty" type="number" step="1" min="1" placeholder="Qty (e.g. 4)" />
-                    <button id="addPlanBtn" class="ledger-add-btn">Add Plan Item</button>
-                </div>
-
-                <ul id="planList" class="plan-list"></ul>
-
-                <div class="plan-total">
-                    Total planned: <span id="planTotal">$0.00</span>
-                    <button id="clearPlanBtn" class="clear-btn" style="margin-left:12px;">Clear</button>
-                </div>
+                <button id="clearPlanBtn" class="danger-btn" type="button">Clear plan</button>
             </section>
         </main>
     </div>

@@ -5,7 +5,7 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
     display: flex;
@@ -37,6 +37,19 @@ body {
 .subtitle {
     color: #666;
     font-size: 0.9em;
+}
+
+.header-actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.link-btn {
+    text-decoration: none;
 }
 
 .view-toggle {
@@ -787,16 +800,14 @@ body {
 }
 
 .ledger-form {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px;
+    align-items: end;
     padding: 12px;
     background: #f8f9fa;
     border-radius: 10px;
     border: 1px solid #e0e0e0;
-    align-items: flex-end; /* ensure fields align baseline, action can override */
 }
 
 .ledger-form .field {
@@ -804,6 +815,7 @@ body {
     flex-direction: column;
     gap: 6px;
     min-width: 120px;
+    grid-column: span 3;
 }
 
 .ledger-form .field.action {
@@ -811,6 +823,18 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
+    grid-column: span 2;
+}
+
+.ledger-form .field.desc {
+    grid-column: span 4;
+    min-width: 180px;
+}
+
+.ledger-form label {
+    font-size: 0.8em;
+    color: #555;
+    font-weight: 600;
 }
 
 .ledger-form input[type="number"],
@@ -821,6 +845,34 @@ body {
     border: 2px solid #e0e0e0;
     border-radius: 8px;
     font-size: 0.95em;
+    background: white;
+}
+
+.input-with-prefix {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+}
+
+.input-with-prefix .prefix {
+    color: #666;
+    font-weight: 600;
+}
+
+.input-with-prefix input {
+    border: none;
+    padding: 8px 0;
+    font-size: 0.95em;
+    width: 100%;
+    background: transparent;
+}
+
+.input-with-prefix input:focus {
+    outline: none;
 }
 
 .ledger-add-btn {
@@ -839,11 +891,28 @@ body {
 }
 
 .ledger-controls {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:10px;
-    flex-wrap:wrap;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+}
+
+.controls-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.controls-group label {
+    font-size: 0.85em;
+    color: #555;
+    font-weight: 600;
 }
 
 .month-picker {
@@ -878,6 +947,36 @@ body {
 .ledger-item .meta {
     font-size: 0.9em;
     color: #333;
+}
+
+.ledger-item .meta-title {
+    font-weight: 600;
+}
+
+.ledger-item .meta-sub {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.85em;
+    color: #666;
+}
+
+.type-pill {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.75em;
+    text-transform: capitalize;
+}
+
+.type-pill.income {
+    background: #e8f9f0;
+    color: #138a56;
+}
+
+.type-pill.expense {
+    background: #fff5f5;
+    color: #c0392b;
 }
 
 .ledger-item .amount {
@@ -938,34 +1037,63 @@ body {
 .ledger-totals .net.positive { background:#e8f9f0; color:#138a56; }
 .ledger-totals .net.negative { background:#fff5f5; color:#c0392b; }
 
-/* Align Add Entry button inside ledger form */
-.ledger-form {
-    align-items: flex-end; /* ensure fields align baseline, action can override */
-}
-
-.ledger-form .field.action {
-    align-self: flex-end;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-}
-
 /* Ledger summary styles */
 .ledger-summary {
     margin-top: 8px;
-    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.summary-card {
+    padding: 12px;
     background: #f7fbfb;
     border: 1px solid #e6f0ef;
-    border-radius: 8px;
+    border-radius: 10px;
 }
 
-.ledger-summary .ledger-list {
-    padding: 6px 0;
+.summary-label {
+    font-size: 0.85em;
+    color: #666;
+    font-weight: 600;
+    margin-bottom: 6px;
 }
 
-.ledger-summary .ledger-item {
+.summary-value {
+    font-size: 1.4em;
+    font-weight: 800;
+    color: #333;
+}
+
+.summary-value.expense {
+    color: #c0392b;
+}
+
+.summary-value.positive {
+    color: #138a56;
+}
+
+.summary-value.negative {
+    color: #c0392b;
+}
+
+.summary-list {
+    grid-column: span 2;
+    padding: 12px;
+    background: #f7fbfb;
+    border: 1px solid #e6f0ef;
+    border-radius: 10px;
+}
+
+.ledger-list.compact {
+    max-height: 140px;
+    overflow: auto;
+}
+
+.ledger-list.compact .ledger-item {
     padding: 8px;
     border-radius: 6px;
+    grid-template-columns: 1fr auto;
 }
 
 /* Plan Calculator specific styles */
@@ -1046,6 +1174,24 @@ body {
 
 /* Responsive */
 @media (max-width:600px) {
+    .ledger-form {
+        grid-template-columns: 1fr;
+    }
+    .ledger-form .field,
+    .ledger-form .field.desc,
+    .ledger-form .field.action {
+        grid-column: span 1;
+    }
+    .ledger-summary {
+        grid-template-columns: 1fr;
+    }
+    .summary-list {
+        grid-column: span 1;
+    }
+    .controls-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
     .plan-form {
         flex-direction: column;
         align-items: stretch;
@@ -1056,5 +1202,428 @@ body {
     .plan-item .actions {
         grid-column: span 2;
         justify-content:flex-end;
+    }
+}
+
+/* Ledger rebuild (balances + plan) */
+body.ledger-body {
+    background: linear-gradient(135deg, #f6f7fb 0%, #e6ecf5 100%);
+}
+
+body.ledger-body .container {
+    max-width: 760px;
+}
+
+.ledger-card {
+    background: #ffffff;
+    border: 1px solid #e4e8f1;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 10px 24px rgba(22, 34, 72, 0.08);
+}
+
+.ledger-card.accent {
+    border-color: #d9e4ff;
+    background: linear-gradient(180deg, #f7f9ff 0%, #ffffff 60%);
+}
+
+.ledger-card.accent .ledger-row h2 {
+    color: #3f5bd7;
+}
+
+.ledger-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.ledger-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px;
+    align-items: end;
+}
+
+.ledger-grid .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    grid-column: span 4;
+}
+
+.ledger-grid .field.wide {
+    grid-column: span 6;
+}
+
+.ledger-grid .field.action {
+    grid-column: span 3;
+    align-self: flex-end;
+}
+
+.ledger-grid label {
+    font-size: 0.8em;
+    color: #556;
+    font-weight: 600;
+}
+
+.ledger-grid input[type="number"],
+.ledger-grid input[type="text"],
+.ledger-grid input[type="date"],
+.ledger-grid select {
+    padding: 10px;
+    border-radius: 10px;
+    border: 2px solid #e0e0e0;
+    font-size: 0.95em;
+    background: white;
+    min-height: 44px;
+}
+
+.balance-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin: 12px 0;
+}
+
+.balance-card {
+    border: 1px solid #edf0f7;
+    border-radius: 12px;
+    padding: 12px;
+    background: #f8f9fe;
+}
+
+.balance-title {
+    font-size: 0.85em;
+    color: #667;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.balance-value {
+    font-size: 1.2em;
+    font-weight: 800;
+    color: #29324a;
+}
+
+.totals-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border-radius: 10px;
+    background: #f5f7fb;
+    border: 1px solid #e7ecf6;
+    margin: 12px 0;
+    font-weight: 600;
+}
+
+.remaining.negative {
+    color: #c0392b;
+}
+
+.remaining.positive {
+    color: #138a56;
+}
+
+.muted {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 12px;
+}
+
+.primary-btn {
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #5a7de5 100%);
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+
+.ledger-grid .field.action .primary-btn {
+    min-height: 44px;
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.25);
+}
+
+.ghost-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #d5dcec;
+    background: white;
+    color: #445;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.danger-btn {
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: none;
+    background: #e74c3c;
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ledger-plan-list {
+    list-style: none;
+    margin: 12px 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.ledger-plan-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e8edf7;
+}
+
+.ledger-plan-item.empty {
+    grid-template-columns: 1fr;
+    text-align: center;
+    color: #777;
+}
+
+.plan-label {
+    font-weight: 600;
+    color: #333;
+}
+
+.plan-amount {
+    font-weight: 700;
+    color: #c0392b;
+}
+
+.ledger-activity-list {
+    list-style: none;
+    margin: 12px 0 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.ledger-activity-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #e8edf7;
+    background: #ffffff;
+}
+
+/* Give Activity/Activity Summary inner items a shared tinted card feel */
+.ledger-card.accent.activity .ledger-activity-item {
+    background: #f8f9fe;
+    border-color: #edf0f7;
+}
+
+.ledger-card.accent.activity .totals-row,
+.ledger-card.accent.activity .summary-chart {
+    background: #f8f9fe;
+    border: 1px solid #edf0f7;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.ledger-card.accent.activity .summary-chart {
+    margin-top: 14px;
+}
+
+.ledger-activity-item.expense .activity-amount {
+    color: #c0392b;
+}
+
+.ledger-activity-item.income .activity-amount {
+    color: #138a56;
+}
+
+.ledger-activity-item.empty {
+    grid-template-columns: 1fr;
+    text-align: center;
+    color: #777;
+}
+
+.activity-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.activity-title {
+    font-weight: 700;
+    color: #29324a;
+}
+
+.activity-sub {
+    font-size: 0.85em;
+    color: #667;
+}
+
+.activity-amount {
+    font-weight: 800;
+    min-width: 110px;
+    text-align: right;
+}
+
+.activity-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+#activitySummarySection .totals-row {
+    margin: 0;
+}
+
+.summary-select {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #d5dcec;
+    background: white;
+    font-weight: 600;
+    color: #445;
+}
+
+.summary-chart {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px dashed #e1e6f2;
+}
+
+.summary-chart-title {
+    font-weight: 700;
+    color: #334;
+    margin-bottom: 10px;
+}
+
+.summary-chart-body {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 16px;
+    align-items: center;
+}
+
+.summary-legend {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.summary-legend li {
+    display: grid;
+    grid-template-columns: 14px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.9em;
+    color: #334;
+}
+
+.legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legend-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.legend-value {
+    font-weight: 700;
+}
+
+.plan-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ledger-grid .field.action .plan-actions {
+    flex-wrap: nowrap;
+    width: 100%;
+}
+
+.ledger-grid .field.action .plan-actions .primary-btn,
+.ledger-grid .field.action .plan-actions .danger-btn {
+    flex: 1;
+}
+
+.danger-btn[disabled],
+.clear-btn[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    filter: grayscale(10%);
+}
+
+.hidden {
+    display: none;
+}
+
+@media (max-width:600px) {
+    .ledger-grid {
+        grid-template-columns: 1fr;
+    }
+    .ledger-grid .field,
+    .ledger-grid .field.wide,
+    .ledger-grid .field.action {
+        grid-column: span 1;
+    }
+    .totals-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+    .ledger-plan-item {
+        grid-template-columns: 1fr;
+        align-items: flex-start;
+    }
+    .ledger-plan-item .ghost-btn {
+        width: 100%;
+    }
+    .ledger-activity-item {
+        grid-template-columns: 1fr;
+        align-items: flex-start;
+    }
+    .activity-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    .summary-chart-body {
+        grid-template-columns: 1fr;
+        justify-items: center;
+    }
+    .summary-legend {
+        width: 100%;
     }
 }
