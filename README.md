@@ -1,78 +1,59 @@
-# Todo App 📝
+# Todo App + Expense Ledger
 
-A modern, feature-rich Todo List application built with HTML, CSS, and JavaScript. Stay organized and boost your productivity!
+A simple project that pairs a Todo app with a lightweight expense ledger, built with HTML, CSS, and JavaScript.
 
 ## Features
 
-- ✅ Add, edit, and delete tasks
-- ☑️ Mark tasks as complete/incomplete
-- 📅 **Calendar view** - Visual calendar with task indicators
-- 📆 **Date assignment** - Assign due dates to tasks
-- 🔍 Filter tasks (All, Active, Completed, Today, Upcoming)
-- 📍 **Date filtering** - Click calendar dates to filter tasks
-- 💾 Persistent storage (saved in browser)
-- 📊 Task counter
-- 🗑️ Clear completed tasks
-- 📱 Responsive design for mobile devices
-- 🎨 Modern, beautiful UI with smooth animations
-- ⌨️ Keyboard shortcuts (Enter to add, Escape to cancel edit)
+### Todo App (index.html)
+- Add, edit, and delete tasks
+- Mark tasks complete/incomplete
+- Optional due dates with date-based sorting
+- Filters: All, Active, Completed, Today, Upcoming
+- Calendar view with date filtering and highlights
+- Remaining task count + clear completed
+- Local storage persistence
 
-## How to Use
+### Expense Ledger (ledger.html)
+- Account balance setup (Saving/Checking/Etc)
+- Spending plan items add/edit/delete
+- Activity entries for income/expense
+- Summary by range (all/year/month/week)
+- Expense-by-reason donut chart
+- Local storage persistence
 
-### List View:
-1. Open `index.html` in your web browser
-2. Type a task in the input field
-3. (Optional) Select a due date using the date picker
-4. Click "Add" or press Enter
-5. Click the checkbox to mark tasks as complete
-6. Double-click a task or click "Edit" to modify it (including the date)
-7. Use the filter buttons to view All, Active, Completed, Today, or Upcoming tasks
-8. Click "Delete" to remove a task
-9. Click "Clear Completed" to remove all completed tasks at once
+## How to Run
 
-### Calendar View:
-1. Click the "📅 Calendar" button to switch to calendar view
-2. Navigate months using the arrow buttons
-3. See task indicators on dates (numbers show active/completed tasks)
-4. Click any date to filter and view tasks for that date
-5. Today's date is highlighted in purple
-6. Selected date is highlighted with a red border
+1) Open `index.html` directly in a browser  
+2) Or run a local server: `start-server.bat` (Windows) or `start-server.sh` (Mac/Linux)  
 
-## Features in Detail
+From the Todo screen, use the **Expense Ledger** button or open `ledger.html` directly.
 
-- **Add Tasks**: Enter a task and press Enter or click Add. Optionally set a due date!
-- **Complete Tasks**: Click the checkbox next to any task
-- **Edit Tasks**: Double-click a task or click the Edit button to modify text and date
-- **Delete Tasks**: Click the Delete button on any task
-- **Calendar View**: Switch between List and Calendar views using the toggle buttons
-- **Date Assignment**: Assign due dates to tasks when creating or editing them
-- **Calendar Navigation**: Use arrow buttons to navigate between months
-- **Date Filtering**: Click any date on the calendar to see tasks for that specific date
-- **Filter Options**: 
-  - **All**: Show all tasks
-  - **Active**: Show only incomplete tasks
-  - **Completed**: Show only completed tasks
-  - **Today**: Show tasks due today
-  - **Upcoming**: Show tasks with future due dates
-- **Visual Indicators**: Calendar shows numbers indicating active (purple) and completed (gray) tasks
-- **Persistent Storage**: All tasks are automatically saved in your browser
+## Key Files
 
-## Installation
+- `index.html`: Todo App UI
+- `app.js`: Todo App logic
+- `ledger.html`: Expense Ledger UI
+- `ledger.js`: Ledger logic
+- `style.css`: Shared styles
+- `start-server.bat`, `start-server.sh`: Local server scripts
 
-Just open `index.html` in any modern web browser. Your tasks will be saved automatically in your browser's local storage.
+## Quick Usage
 
-## Testing on Mobile/Emulator
+### Todo App
+1) Type a task and click Add (or press Enter)
+2) Optional: set a due date
+3) Toggle completion with the checkbox
+4) Edit via the Edit button or double-click
+5) Use filters or the calendar to narrow results
 
-### Quick Test (Windows/Mac/Linux):
-1. Open `index.html` in Chrome or Edge
-2. Press `F12` to open DevTools
-3. Click the device toggle icon (or press `Ctrl+Shift+M`)
-4. Select a device (iPhone, Android, etc.)
-5. Test your app!
+### Expense Ledger
+1) Save balances in Account Setup
+2) Add items in Spending Plan
+3) Add income/expense entries in Activity
+4) Review totals in Summary
 
-### For detailed instructions:
-- **Windows users**: See `WINDOWS_TESTING_GUIDE.md`
-- **Mac users**: See `IOS_SIMULATOR_GUIDE.md`
-- **All platforms**: See `EMULATOR_GUIDE.md`
+## Mobile/Emulator Testing
 
-Stay productive! 🚀
+- **Windows**: `WINDOWS_TESTING_GUIDE.md`
+- **Mac (iOS)**: `IOS_SIMULATOR_GUIDE.md`
+- **All platforms**: `EMULATOR_GUIDE.md`
