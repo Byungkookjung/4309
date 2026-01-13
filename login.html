@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="Sign in to sync your Todo and Ledger">
+    <title>Sign In</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="app-header">
+            <h1>Sign in</h1>
+            <p class="subtitle">Sync your Todo and Ledger across devices.</p>
+        </header>
+
+        <section class="auth-card">
+            <p class="auth-note">Use Google to sign in and keep everything in sync.</p>
+            <div class="auth-actions">
+                <button id="googleSignInBtn" class="primary-btn" type="button">Continue with Google</button>
+            </div>
+        </section>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="auth.js"></script>
+    <script src="login.js"></script>
+</body>
+</html>

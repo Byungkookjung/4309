@@ -11,19 +11,27 @@
 <body>
     <div class="container">
         <header class="app-header">
-            <h1>📝 My Todo App</h1>
-            <p class="subtitle">Stay organized and productive</p>
+            <div class="header-actions header-actions-left">
+                <button id="ledgerBtn" class="icon-btn" type="button" aria-label="Open Expense Ledger" title="Expense Ledger">
+                    &#x1F4B0;
+                </button>
+            </div>
+            <h1>&#x1F4DD; My Todo App</h1>
+            <p class="subtitle">&#x1F4DD; Stay organized and productive</p>
+            <div class="header-actions header-actions-right auth-actions">
+                <button id="logoutBtn" class="ghost-btn" type="button">Log out</button>
+            </div>
             <div class="view-toggle">
-                <button id="listViewBtn" class="view-btn active">📋 List</button>
-                <button id="calendarViewBtn" class="view-btn">📅 Calendar</button>
+                <button id="listViewBtn" class="view-btn active">List</button>
+                <button id="calendarViewBtn" class="view-btn">Calendar</button>
             </div>
         </header>
 
         <div id="calendarSection" class="calendar-section hidden">
             <div class="calendar-header">
-                <button id="prevMonth" class="nav-btn">←</button>
+                <button id="prevMonth" class="nav-btn">&#x2B05;&#xFE0F;</button>
                 <h2 id="currentMonth"></h2>
-                <button id="nextMonth" class="nav-btn">→</button>
+                <button id="nextMonth" class="nav-btn">&#x27A1;&#xFE0F;</button>
             </div>
             <div id="calendar" class="calendar"></div>
             <div id="calendarTasks" class="calendar-tasks">
@@ -73,21 +81,30 @@
         </ul>
 
         <div id="emptyState" class="empty-state">
-            <p>✨ No tasks yet. Add one above to get started!</p>
+            <p>&#x2728; No tasks yet. Add one above to get started!</p>
         </div>
 
         <div id="selectedDateInfo" class="selected-date-info hidden">
-            <p>📅 Showing tasks for: <span id="selectedDateText"></span></p>
+            <p>&#x1F4C5; Showing tasks for: <span id="selectedDateText"></span></p>
             <button id="clearDateFilter" class="clear-date-btn">Clear Date Filter</button>
         </div>
 
-        <!-- Add ledger button footer -->
-        <div class="footer-section">
-            <button id="ledgerBtn" class="ledger-btn">Expense Ledger</button>
-        </div>
+        <!-- Ledger button moved to header -->
 
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        (function initAuthGate() {
+            const authApi = window.__ledgerAuth || {};
+            if (authApi.requireAuth) {
+                authApi.requireAuth().then(() => authApi.attachLogoutButton && authApi.attachLogoutButton());
+            }
+        })();
+    </script>
     <script src="app.js"></script>
 </body>
 </html>

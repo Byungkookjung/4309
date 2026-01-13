@@ -31,6 +31,31 @@ const calendarTasksCount = document.getElementById('calendarTasksCount');
 const calendarTasksList = document.getElementById('calendarTasksList');
 const calendarTasksEmpty = document.getElementById('calendarTasksEmpty');
 
+const authApi = window.__ledgerAuth || {};
+const requireAuthRef = authApi.requireAuth;
+const dbRef = authApi.db;
+let currentUser = null;
+let todoUnsub = null;
+
+function isRemoteEnabled() {
+    return !!(currentUser && dbRef);
+}
+
+function todosCollection(user) {
+    return dbRef.collection('users').doc(user.uid).collection('todos');
+}
+
+function startTodoSync(user) {
+    if (!dbRef) return;
+    if (todoUnsub) todoUnsub();
+    todoUnsub = todosCollection(user).onSnapshot(snapshot => {
+        todos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderTodos();
+        renderCalendar();
+        renderCalendarTasks();
+    });
+}
+
 // --- Plan Calculator (store under 'planItems') ---
 const planLabelInput = document.getElementById('planLabel');
 const planUnitInput = document.getElementById('planUnit');
@@ -111,23 +136,29 @@ function isUpcoming(dateString) {
 }
 
 // Add new todo
-function addTodo() {
+async function addTodo() {
     const text = todoInput.value.trim();
     if (text === '') {
         return;
     }
 
     const newTodo = {
-        id: Date.now(),
+        id: Date.now().toString(),
         text: text,
         completed: false,
         createdAt: new Date().toISOString(),
         dueDate: todoDateInput.value || null
     };
 
-    todos.push(newTodo);
     todoInput.value = '';
     todoDateInput.value = '';
+
+    if (isRemoteEnabled()) {
+        await todosCollection(currentUser).doc(newTodo.id).set(newTodo);
+        return;
+    }
+
+    todos.push(newTodo);
     saveTodos();
     renderTodos();
     renderCalendar();
@@ -135,7 +166,12 @@ function addTodo() {
 }
 
 // Delete todo
-function deleteTodo(id) {
+async function deleteTodo(id) {
+    if (isRemoteEnabled()) {
+        await todosCollection(currentUser).doc(String(id)).delete();
+        return;
+    }
+
     todos = todos.filter(todo => todo.id !== id);
     saveTodos();
     renderTodos();
@@ -144,8 +180,15 @@ function deleteTodo(id) {
 }
 
 // Toggle todo completion
-function toggleTodo(id) {
-    todos = todos.map(todo => 
+async function toggleTodo(id) {
+    if (isRemoteEnabled()) {
+        const todo = todos.find(item => item.id === String(id));
+        if (!todo) return;
+        await todosCollection(currentUser).doc(String(id)).update({ completed: !todo.completed });
+        return;
+    }
+
+    todos = todos.map(todo =>
         todo.id === id ? { ...todo, completed: !todo.completed } : todo
     );
     saveTodos();
@@ -155,10 +198,20 @@ function toggleTodo(id) {
 }
 
 // Edit todo
-function editTodo(id, newText, newDate = null) {
+async function editTodo(id, newText, newDate = null) {
     if (newText.trim() === '') {
         return;
     }
+
+    if (isRemoteEnabled()) {
+        const payload = { text: newText.trim() };
+        if (newDate !== undefined) {
+            payload.dueDate = newDate || null;
+        }
+        await todosCollection(currentUser).doc(String(id)).update(payload);
+        return;
+    }
+
     todos = todos.map(todo => {
         if (todo.id === id) {
             const updated = { ...todo, text: newText.trim() };
@@ -176,7 +229,17 @@ function editTodo(id, newText, newDate = null) {
 }
 
 // Clear completed todos
-function clearCompleted() {
+async function clearCompleted() {
+    if (isRemoteEnabled()) {
+        const batch = dbRef.batch();
+        todos.filter(todo => todo.completed).forEach(todo => {
+            const ref = todosCollection(currentUser).doc(String(todo.id));
+            batch.delete(ref);
+        });
+        await batch.commit();
+        return;
+    }
+
     todos = todos.filter(todo => !todo.completed);
     saveTodos();
     renderTodos();
@@ -330,9 +393,9 @@ function renderTodos() {
         // Update empty state message based on filter
         const emptyStateText = emptyState.querySelector('p');
         if (selectedDate) {
-            emptyStateText.textContent = `✨ No tasks for ${formatDate(formatDateForInput(selectedDate))}. Add one above!`;
+            emptyStateText.textContent = `\u2728 No tasks for ${formatDate(formatDateForInput(selectedDate))}. Add one above!`;
         } else {
-            emptyStateText.textContent = '✨ No tasks yet. Add one above to get started!';
+            emptyStateText.textContent = '\u2728 No tasks yet. Add one above to get started!';
         }
     } else {
         emptyState.classList.add('hidden');
@@ -349,7 +412,7 @@ function renderTodos() {
         li.dataset.id = todo.id;
         
         const dateDisplay = todo.dueDate 
-            ? `<span class="todo-date ${isToday(todo.dueDate) ? 'today' : ''}">📅 ${formatDate(todo.dueDate)}</span>` 
+            ? `<span class="todo-date ${isToday(todo.dueDate) ? 'today' : ''}">\u{1F4C5} ${formatDate(todo.dueDate)}</span>` 
             : '';
         
         li.innerHTML = `
@@ -590,7 +653,7 @@ function renderPlan() {
         li.dataset.id = item.id;
         const meta = document.createElement('div');
         meta.className = 'meta';
-        meta.textContent = `${item.label || ''} — ${item.qty} × ${formatCurrency(item.unit)}`;
+        meta.textContent = `${item.label || ''} - ${item.qty} x ${formatCurrency(item.unit)}`;
         const amount = document.createElement('div');
         amount.className = 'amount';
         const total = Number(item.unit) * Number(item.qty);
@@ -678,4 +741,11 @@ clearDateFilterBtn.addEventListener('click', clearDateFilter);
 }
 
 // Initialize app
-loadTodos();
+if (requireAuthRef) {
+    requireAuthRef().then(user => {
+        currentUser = user;
+        startTodoSync(user);
+    });
+} else {
+    loadTodos();
+}

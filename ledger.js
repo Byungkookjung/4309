@@ -43,6 +43,60 @@ const activitySummaryRange = document.getElementById('activitySummaryRange');
 const reasonChart = document.getElementById('reasonChart');
 const reasonLegend = document.getElementById('reasonLegend');
 const activityReasonList = document.getElementById('activityReasonList');
+const summaryChart = document.getElementById('summaryChart');
+const activitySummaryEmpty = document.getElementById('activitySummaryEmpty');
+const summaryChartBody = document.querySelector('#summaryChart .summary-chart-body');
+
+const authApi = window.__ledgerAuth || {};
+const requireAuthRef = authApi.requireAuth;
+const dbRef = authApi.db;
+let currentUser = null;
+let balancesUnsub = null;
+let planUnsub = null;
+let activityUnsub = null;
+
+function isRemoteEnabled() {
+    return !!(currentUser && dbRef);
+}
+
+function balancesDoc(user) {
+    return dbRef.collection('users').doc(user.uid).collection('ledgerBalances').doc('main');
+}
+
+function planCollection(user) {
+    return dbRef.collection('users').doc(user.uid).collection('ledgerPlanItems');
+}
+
+function activityCollection(user) {
+    return dbRef.collection('users').doc(user.uid).collection('ledgerEntries');
+}
+
+function startLedgerSync(user) {
+    if (!dbRef) return;
+    if (balancesUnsub) balancesUnsub();
+    if (planUnsub) planUnsub();
+    if (activityUnsub) activityUnsub();
+
+    balancesUnsub = balancesDoc(user).onSnapshot(doc => {
+        balances = doc.exists ? doc.data() : null;
+        if (hasBalances()) {
+            showDashboard();
+        } else {
+            showSetup();
+        }
+    });
+
+    planUnsub = planCollection(user).onSnapshot(snapshot => {
+        planItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderPlan();
+        renderDashboard();
+    });
+
+    activityUnsub = activityCollection(user).onSnapshot(snapshot => {
+        activityEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderActivity();
+    });
+}
 
 const STORAGE_BALANCES = 'ledgerBalances';
 const STORAGE_PLAN_ITEMS = 'ledgerPlanItems';
@@ -128,7 +182,7 @@ function renderPlan() {
     if (planItems.length === 0) {
         const empty = document.createElement('li');
         empty.className = 'ledger-plan-item empty';
-        empty.textContent = 'No planned items yet.';
+        empty.textContent = '\u2728 No planned items yet.';
         planList.appendChild(empty);
     } else {
         planItems.forEach(item => {
@@ -173,7 +227,7 @@ function renderActivity() {
     if (activityEntries.length === 0) {
         const empty = document.createElement('li');
         empty.className = 'ledger-activity-item empty';
-        empty.textContent = 'No activity entries yet.';
+        empty.textContent = '\u{1F9FE} No activity entries yet.';
         activityList.appendChild(empty);
         renderReasonOptions();
         return;
@@ -227,12 +281,16 @@ function renderActivity() {
 
     renderReasonOptions();
 
-    const totals = activityEntries.reduce(
+    const entriesInRange = activityEntries.filter(entry => {
+        const entryDate = new Date(entry.date);
+        if (range === 'year' && entryDate.getFullYear() !== now.getFullYear()) return false;
+        if (range === 'month' && (entryDate.getFullYear() !== now.getFullYear() || entryDate.getMonth() !== now.getMonth())) return false;
+        if (range === 'week' && entryDate < startOfWeek) return false;
+        return true;
+    });
+
+    const totals = entriesInRange.reduce(
         (acc, entry) => {
-            const entryDate = new Date(entry.date);
-            if (range === 'year' && entryDate.getFullYear() !== now.getFullYear()) return acc;
-            if (range === 'month' && (entryDate.getFullYear() !== now.getFullYear() || entryDate.getMonth() !== now.getMonth())) return acc;
-            if (range === 'week' && entryDate < startOfWeek) return acc;
             if (entry.type === 'income') acc.income += Number(entry.amount || 0);
             else acc.expense += Number(entry.amount || 0);
             return acc;
@@ -246,6 +304,20 @@ function renderActivity() {
     if (activityNetEl) {
         activityNetEl.textContent = formatCurrency(net);
         setRemainingStyles(activityNetEl, net);
+    }
+
+    const isSummaryEmpty = entriesInRange.length === 0;
+    if (activitySummaryEmpty) activitySummaryEmpty.classList.toggle('hidden', !isSummaryEmpty);
+    if (summaryChartBody) summaryChartBody.classList.toggle('hidden', isSummaryEmpty);
+    if (summaryChart) summaryChart.classList.toggle('is-empty', isSummaryEmpty);
+
+    if (isSummaryEmpty) {
+        if (reasonLegend) reasonLegend.innerHTML = '';
+        if (reasonChart) {
+            const ctx = reasonChart.getContext('2d');
+            ctx.clearRect(0, 0, reasonChart.width, reasonChart.height);
+        }
+        return;
     }
 
     renderReasonChart(range, now, startOfWeek);
@@ -289,7 +361,7 @@ function showPlan() {
     renderPlan();
 }
 
-function saveBalancesFromInputs() {
+async function saveBalancesFromInputs() {
     const saving = parseFloat(savingInput.value);
     const checking = parseFloat(checkingInput.value);
     const etc = parseFloat(etcInput.value);
@@ -305,6 +377,10 @@ function saveBalancesFromInputs() {
     }
 
     balances = parsed;
+    if (isRemoteEnabled()) {
+        await balancesDoc(currentUser).set(balances);
+        return;
+    }
     saveBalances();
     showDashboard();
 }
@@ -333,7 +409,7 @@ function exitEditMode() {
     }
 }
 
-function addPlanItem() {
+async function addPlanItem() {
     const label = planItemInput.value.trim();
     const amount = parseFloat(planAmountInput.value);
 
@@ -346,18 +422,29 @@ function addPlanItem() {
         return;
     }
 
+    const payload = {
+        label,
+        amount: Number(amount.toFixed(2))
+    };
+
+    if (isRemoteEnabled()) {
+        const id = editingPlanId ? String(editingPlanId) : Date.now().toString();
+        await planCollection(currentUser).doc(id).set({ id, ...payload });
+        exitEditMode();
+        return;
+    }
+
     if (editingPlanId) {
         planItems = planItems.map(item => {
             if (item.id === editingPlanId) {
-                return { ...item, label, amount: Number(amount.toFixed(2)) };
+                return { ...item, ...payload };
             }
             return item;
         });
     } else {
         planItems.push({
             id: Date.now(),
-            label,
-            amount: Number(amount.toFixed(2))
+            ...payload
         });
     }
     savePlanItems();
@@ -366,8 +453,13 @@ function addPlanItem() {
     renderDashboard();
 }
 
-function removeEditingPlanItem() {
+async function removeEditingPlanItem() {
     if (!editingPlanId) return;
+    if (isRemoteEnabled()) {
+        await planCollection(currentUser).doc(String(editingPlanId)).delete();
+        exitEditMode();
+        return;
+    }
     planItems = planItems.filter(item => item.id !== editingPlanId);
     savePlanItems();
     exitEditMode();
@@ -375,15 +467,24 @@ function removeEditingPlanItem() {
     renderDashboard();
 }
 
-function clearPlan() {
+async function clearPlan() {
     if (!confirm('Clear all planned items?')) return;
+    if (isRemoteEnabled()) {
+        const batch = dbRef.batch();
+        planItems.forEach(item => {
+            const ref = planCollection(currentUser).doc(String(item.id));
+            batch.delete(ref);
+        });
+        await batch.commit();
+        return;
+    }
     planItems = [];
     savePlanItems();
     renderPlan();
     renderDashboard();
 }
 
-function addActivityEntry() {
+async function addActivityEntry() {
     const date = activityDateInput.value;
     const type = activityTypeSelect.value;
     const amount = parseFloat(activityAmountInput.value);
@@ -402,21 +503,29 @@ function addActivityEntry() {
         return;
     }
 
-    activityEntries.push({
-        id: Date.now(),
+    const entry = {
+        id: Date.now().toString(),
         date,
         type,
         amount: Number(amount.toFixed(2)),
         reason
-    });
-    saveActivityEntries();
+    };
+
     activityDateInput.value = '';
     activityAmountInput.value = '';
     activityReasonInput.value = '';
+
+    if (isRemoteEnabled()) {
+        await activityCollection(currentUser).doc(entry.id).set(entry);
+        return;
+    }
+
+    activityEntries.push(entry);
+    saveActivityEntries();
     renderActivity();
 }
 
-function editActivityEntry(id) {
+async function editActivityEntry(id) {
     const entry = activityEntries.find(item => item.id === id);
     if (!entry) return;
 
@@ -436,16 +545,32 @@ function editActivityEntry(id) {
     }
     const normalizedType = newType === 'income' ? 'income' : 'expense';
 
-    entry.date = newDate;
-    entry.reason = newReason.trim() || entry.reason;
-    entry.amount = Number(newAmount.toFixed(2));
-    entry.type = normalizedType;
+    const updated = {
+        date: newDate,
+        reason: newReason.trim() || entry.reason,
+        amount: Number(newAmount.toFixed(2)),
+        type: normalizedType
+    };
+
+    if (isRemoteEnabled()) {
+        await activityCollection(currentUser).doc(String(id)).update(updated);
+        return;
+    }
+
+    entry.date = updated.date;
+    entry.reason = updated.reason;
+    entry.amount = updated.amount;
+    entry.type = updated.type;
     saveActivityEntries();
     renderActivity();
 }
 
-function deleteActivityEntry(id) {
+async function deleteActivityEntry(id) {
     if (!confirm('Delete this entry?')) return;
+    if (isRemoteEnabled()) {
+        await activityCollection(currentUser).doc(String(id)).delete();
+        return;
+    }
     activityEntries = activityEntries.filter(item => item.id !== id);
     saveActivityEntries();
     renderActivity();
@@ -508,7 +633,7 @@ function renderReasonChart(range, now, startOfWeek) {
         ctx.font = '12px Segoe UI, Tahoma, Geneva, Verdana, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('No expense data', center, center);
+        ctx.fillText('\u{1F4CA} No expense data', center, center);
         return;
     }
 
@@ -545,6 +670,14 @@ if (addActivityBtn) addActivityBtn.addEventListener('click', addActivityEntry);
 if (activitySummaryRange) activitySummaryRange.addEventListener('change', renderActivity);
 
 (function init() {
+    if (requireAuthRef) {
+        requireAuthRef().then(user => {
+            currentUser = user;
+            startLedgerSync(user);
+        });
+        return;
+    }
+
     loadBalances();
     loadPlanItems();
     loadActivityEntries();

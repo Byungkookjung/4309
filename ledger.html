@@ -9,12 +9,15 @@
 <body class="ledger-body">
     <div class="container">
         <header class="app-header">
-            <h1>💸 Expense Ledger</h1>
-            <p class="subtitle">Set your balances, then plan spending.</p>
+            <h1>&#x1F4B0; Expense Ledger</h1>
+            <p class="subtitle">&#x1F4B0; Set your balances, then plan spending.</p>
             <div class="header-actions">
-                <a href="index.html" class="link-btn">
-                    <button id="backToTodoBtn" class="ledger-btn" type="button">Back to Todo App</button>
+                <a href="index.html" id="backToTodoBtn" class="icon-btn" aria-label="Back to Todo App" title="Back to Todo App">
+                    &#x1F4DD;
                 </a>
+            </div>
+            <div class="header-actions header-actions-right auth-actions">
+                <button id="logoutBtn" class="ghost-btn" type="button">Log out</button>
             </div>
         </header>
 
@@ -23,7 +26,7 @@
                 <div class="ledger-row">
                     <h2>Account Setup</h2>
                 </div>
-                <p class="muted">Enter your current balances to get started.</p>
+                <p class="muted">&#x2728; Enter your current balances to get started.</p>
                 <form id="setupForm" class="ledger-grid" onsubmit="return false;">
                     <div class="field">
                         <label for="savingBalance">Saving</label>
@@ -78,7 +81,7 @@
                 <div class="ledger-row">
                     <h2>Activity</h2>
                 </div>
-                <p class="muted">Track what you spent and what you received.</p>
+                <p class="muted">&#x1F4DD; Track what you spent and what you received.</p>
                 <form id="activityForm" class="ledger-grid" onsubmit="return false;">
                     <div class="field">
                         <label for="activityDate">Date</label>
@@ -124,8 +127,11 @@
                     <div>Total expense: <span id="activityTotalExpense">$0.00</span></div>
                     <div>Net: <span id="activityNet" class="remaining">$0.00</span></div>
                 </div>
-                <div class="summary-chart">
+                <div id="summaryChart" class="summary-chart">
                     <div class="summary-chart-title">Expense by reason</div>
+                    <div id="activitySummaryEmpty" class="activity-summary-empty hidden">
+                        &#x2728; No activity yet. Add your first entry to see insights here.
+                    </div>
                     <div class="summary-chart-body">
                         <canvas id="reasonChart" width="260" height="260"></canvas>
                         <ul id="reasonLegend" class="summary-legend"></ul>
@@ -169,6 +175,18 @@
         </main>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        (function initAuthGate() {
+            const authApi = window.__ledgerAuth || {};
+            if (authApi.requireAuth) {
+                authApi.requireAuth().then(() => authApi.attachLogoutButton && authApi.attachLogoutButton());
+            }
+        })();
+    </script>
     <script src="ledger.js"></script>
 </body>
 </html>
