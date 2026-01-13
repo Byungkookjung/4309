@@ -1,6 +1,6 @@
 # Todo App + Expense Ledger
 
-A simple project that pairs a Todo app with a lightweight expense ledger, built with HTML, CSS, and JavaScript.
+A simple project that pairs a Todo app with a lightweight expense ledger, built with HTML, CSS, and JavaScript. It now supports Google sign-in and real-time Firestore sync across devices.
 
 ## Features
 
@@ -11,7 +11,8 @@ A simple project that pairs a Todo app with a lightweight expense ledger, built 
 - Filters: All, Active, Completed, Today, Upcoming
 - Calendar view with date filtering and highlights
 - Remaining task count + clear completed
-- Local storage persistence
+- Google sign-in + Firestore real-time sync
+- Local storage fallback when not signed in
 
 ### Expense Ledger (ledger.html)
 - Account balance setup (Saving/Checking/Etc)
@@ -19,14 +20,15 @@ A simple project that pairs a Todo app with a lightweight expense ledger, built 
 - Activity entries for income/expense
 - Summary by range (all/year/month/week)
 - Expense-by-reason donut chart
-- Local storage persistence
+- Google sign-in + Firestore real-time sync
+- Local storage fallback when not signed in
 
 ## How to Run
 
-1) Open `index.html` directly in a browser  
-2) Or run a local server: `start-server.bat` (Windows) or `start-server.sh` (Mac/Linux)  
+1) Run a local server: `start-server.bat` (Windows) or `start-server.sh` (Mac/Linux)  
+2) Open `http://localhost:8000/login.html` and sign in with Google  
 
-From the Todo screen, use the **Expense Ledger** button or open `ledger.html` directly.
+From the Todo screen, use the header icon to open the Expense Ledger. The Ledger also links back to the Todo app.
 
 ## Key Files
 
@@ -34,8 +36,31 @@ From the Todo screen, use the **Expense Ledger** button or open `ledger.html` di
 - `app.js`: Todo App logic
 - `ledger.html`: Expense Ledger UI
 - `ledger.js`: Ledger logic
+- `login.html`: Google sign-in screen
+- `auth.js`: Firebase config + auth helpers
+- `login.js`: Login page logic
 - `style.css`: Shared styles
 - `start-server.bat`, `start-server.sh`: Local server scripts
+
+## Firebase Setup (Required for Sync)
+
+1) Create a Firebase project and add a Web app  
+2) In Firebase Console:
+   - Authentication -> Sign-in method -> enable Google
+   - Authentication -> Settings -> Authorized domains -> add `localhost`
+   - Firestore Database -> Create database
+3) Update `auth.js` with your `firebaseConfig`
+4) Firestore rules (minimum):
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
 
 ## Quick Usage
 
