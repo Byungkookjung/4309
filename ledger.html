@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Expense Ledger</title>
+    <link rel="icon" href="favicon-ledger.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
 </head>
 <body class="ledger-body">
@@ -116,7 +117,6 @@
                 <div class="ledger-row">
                     <h2>Activity Summary</h2>
                     <select id="activitySummaryRange" class="summary-select">
-                        <option value="all">All time</option>
                         <option value="year">This year</option>
                         <option value="month">This month</option>
                         <option value="week">This week</option>
@@ -128,7 +128,10 @@
                     <div>Net: <span id="activityNet" class="remaining">$0.00</span></div>
                 </div>
                 <div id="summaryChart" class="summary-chart">
-                    <div class="summary-chart-title">Expense by reason</div>
+                    <div class="summary-chart-title">
+                        <span>Expense by reason</span>
+                        <span id="summaryRangeLabel" class="summary-range-label"></span>
+                    </div>
                     <div id="activitySummaryEmpty" class="activity-summary-empty hidden">
                         &#x2728; No activity yet. Add your first entry to see insights here.
                     </div>
@@ -174,6 +177,8 @@
             </section>
         </main>
     </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>

@@ -46,6 +46,8 @@ const activityReasonList = document.getElementById('activityReasonList');
 const summaryChart = document.getElementById('summaryChart');
 const activitySummaryEmpty = document.getElementById('activitySummaryEmpty');
 const summaryChartBody = document.querySelector('#summaryChart .summary-chart-body');
+const toastEl = document.getElementById('toast');
+const summaryRangeLabel = document.getElementById('summaryRangeLabel');
 
 const authApi = window.__ledgerAuth || {};
 const requireAuthRef = authApi.requireAuth;
@@ -106,6 +108,122 @@ let balances = null;
 let planItems = [];
 let editingPlanId = null;
 let activityEntries = [];
+let toastTimer = null;
+let toastHideTimer = null;
+
+const MONTH_NAMES = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+];
+
+function formatOrdinal(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return String(value);
+    const mod100 = number % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${number}th`;
+    switch (number % 10) {
+        case 1:
+            return `${number}st`;
+        case 2:
+            return `${number}nd`;
+        case 3:
+            return `${number}rd`;
+        default:
+            return `${number}th`;
+    }
+}
+
+function getMondayStart(date) {
+    const start = new Date(date);
+    const offset = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - offset);
+    start.setHours(0, 0, 0, 0);
+    return start;
+}
+
+function getWeekOfMonth(date) {
+    const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+    const firstWeekStart = getMondayStart(firstOfMonth);
+    const currentWeekStart = getMondayStart(date);
+    const diffMs = currentWeekStart - firstWeekStart;
+    return Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
+}
+
+function updateActivitySummaryRangeLabels() {
+    if (!activitySummaryRange) return;
+    const now = new Date();
+    const monthOption = activitySummaryRange.querySelector('option[value="month"]');
+    const weekOption = activitySummaryRange.querySelector('option[value="week"]');
+    const yearOption = activitySummaryRange.querySelector('option[value="year"]');
+
+    if (yearOption) {
+        yearOption.textContent = 'This year';
+    }
+    if (monthOption) {
+        monthOption.textContent = 'This month';
+    }
+    if (weekOption) {
+        weekOption.textContent = 'This week';
+    }
+
+    if (summaryRangeLabel) {
+        const yearText = String(now.getFullYear());
+        const monthText = `${yearText}, ${MONTH_NAMES[now.getMonth()]}`;
+        const weekText = `${monthText} · ${formatOrdinal(getWeekOfMonth(now))} week (Mon-Sun)`;
+        const selectedRange = activitySummaryRange.value;
+
+        if (selectedRange === 'year') {
+            summaryRangeLabel.textContent = yearText;
+        } else if (selectedRange === 'month') {
+            summaryRangeLabel.textContent = monthText;
+        } else {
+            summaryRangeLabel.textContent = weekText;
+        }
+    }
+}
+
+function showToast(message) {
+    if (!toastEl) return;
+    if (toastTimer) clearTimeout(toastTimer);
+    if (toastHideTimer) clearTimeout(toastHideTimer);
+
+    toastEl.textContent = message;
+    toastEl.classList.remove('hidden');
+    requestAnimationFrame(() => toastEl.classList.add('show'));
+
+    toastTimer = setTimeout(() => {
+        toastEl.classList.remove('show');
+        toastHideTimer = setTimeout(() => toastEl.classList.add('hidden'), 300);
+    }, 3200);
+}
+
+function scheduleMidnightRefresh() {
+    const now = new Date();
+    const nextMidnight = new Date(now);
+    nextMidnight.setDate(now.getDate() + 1);
+    nextMidnight.setHours(0, 0, 0, 0);
+    const delay = nextMidnight.getTime() - now.getTime();
+
+    setTimeout(() => {
+        const refreshedAt = new Date();
+        updateActivitySummaryRangeLabels();
+        renderActivity();
+        showToast(
+            `Summary refreshed: ${MONTH_NAMES[refreshedAt.getMonth()]} ${formatOrdinal(getWeekOfMonth(refreshedAt))} week.`
+        );
+        scheduleMidnightRefresh();
+    }, delay);
+}
 
 function formatCurrency(num) {
     return '$' + Number(num || 0).toLocaleString(undefined, {
@@ -224,6 +342,8 @@ function renderActivity() {
     if (!activityList) return;
     activityList.innerHTML = '';
 
+    updateActivitySummaryRangeLabels();
+
     if (activityEntries.length === 0) {
         const empty = document.createElement('li');
         empty.className = 'ledger-activity-item empty';
@@ -235,9 +355,9 @@ function renderActivity() {
 
     const range = activitySummaryRange ? activitySummaryRange.value : 'all';
     const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfWeek = getMondayStart(now);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
 
     activityEntries
         .slice()
@@ -285,7 +405,7 @@ function renderActivity() {
         const entryDate = new Date(entry.date);
         if (range === 'year' && entryDate.getFullYear() !== now.getFullYear()) return false;
         if (range === 'month' && (entryDate.getFullYear() !== now.getFullYear() || entryDate.getMonth() !== now.getMonth())) return false;
-        if (range === 'week' && entryDate < startOfWeek) return false;
+        if (range === 'week' && (entryDate < startOfWeek || entryDate >= endOfWeek)) return false;
         return true;
     });
 
@@ -320,7 +440,7 @@ function renderActivity() {
         return;
     }
 
-    renderReasonChart(range, now, startOfWeek);
+    renderReasonChart(range, now, startOfWeek, endOfWeek);
 }
 
 function showSetup() {
@@ -592,7 +712,7 @@ function renderReasonOptions() {
         });
 }
 
-function renderReasonChart(range, now, startOfWeek) {
+function renderReasonChart(range, now, startOfWeek, endOfWeek) {
     if (!reasonChart || !reasonLegend) return;
     const ctx = reasonChart.getContext('2d');
     const size = reasonChart.width;
@@ -604,7 +724,7 @@ function renderReasonChart(range, now, startOfWeek) {
         const entryDate = new Date(entry.date);
         if (range === 'year' && entryDate.getFullYear() !== now.getFullYear()) return false;
         if (range === 'month' && (entryDate.getFullYear() !== now.getFullYear() || entryDate.getMonth() !== now.getMonth())) return false;
-        if (range === 'week' && entryDate < startOfWeek) return false;
+        if (range === 'week' && (entryDate < startOfWeek || entryDate >= endOfWeek)) return false;
         return true;
     });
 
@@ -637,7 +757,28 @@ function renderReasonChart(range, now, startOfWeek) {
         return;
     }
 
-    const palette = ['#ff6b6b', '#f7b32b', '#4ecdc4', '#5c7cfa', '#6c5ce7', '#20c997', '#f06595', '#ffa94d'];
+    const palette = [
+        '#ff6b6b',
+        '#f7b32b',
+        '#4ecdc4',
+        '#5c7cfa',
+        '#6c5ce7',
+        '#20c997',
+        '#f06595',
+        '#ffa94d',
+        '#2d98da',
+        '#a55eea',
+        '#26de81',
+        '#fd9644',
+        '#45aaf2',
+        '#fed330',
+        '#eb3b5a',
+        '#3867d6',
+        '#0fb9b1',
+        '#fa8231',
+        '#8854d0',
+        '#4b7bec'
+    ];
     let startAngle = -Math.PI / 2;
 
     items.forEach((item, index) => {
@@ -687,4 +828,7 @@ if (activitySummaryRange) activitySummaryRange.addEventListener('change', render
     } else {
         showSetup();
     }
+
+    updateActivitySummaryRangeLabels();
+    scheduleMidnightRefresh();
 })();
