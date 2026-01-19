@@ -46,8 +46,18 @@ const activityReasonList = document.getElementById('activityReasonList');
 const summaryChart = document.getElementById('summaryChart');
 const activitySummaryEmpty = document.getElementById('activitySummaryEmpty');
 const summaryChartBody = document.querySelector('#summaryChart .summary-chart-body');
-const toastEl = document.getElementById('toast');
+const chartWrap = document.querySelector('#summaryChart .chart-wrap');
+const chartTooltip = document.getElementById('chartTooltip');
 const summaryRangeLabel = document.getElementById('summaryRangeLabel');
+const selectedReasonEl = document.getElementById('selectedReason');
+const legendSortSelect = document.getElementById('legendSort');
+
+let chartSlices = [];
+let selectedReasonLabel = null;
+let lastChartContext = null;
+const COLOR_PALETTE = [];
+const reasonColorMap = new Map();
+const toastEl = document.getElementById('toast');
 
 const authApi = window.__ledgerAuth || {};
 const requireAuthRef = authApi.requireAuth;
@@ -108,6 +118,7 @@ let balances = null;
 let planItems = [];
 let editingPlanId = null;
 let activityEntries = [];
+let selectedActivityId = null;
 let toastTimer = null;
 let toastHideTimer = null;
 
@@ -159,6 +170,87 @@ function getWeekOfMonth(date) {
     return Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
 }
 
+function getRangeWindow() {
+    const now = new Date();
+    const startOfWeek = getMondayStart(now);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
+    return { now, startOfWeek, endOfWeek };
+}
+
+function buildColorPalette(count) {
+    const colors = [];
+    const goldenAngle = 137.508;
+    const lightnessSteps = [54, 64, 74];
+    const saturationSteps = [70, 82, 92];
+    for (let i = 0; i < count; i += 1) {
+        const hue = (i * goldenAngle) % 360;
+        const lightness = lightnessSteps[i % lightnessSteps.length];
+        const saturation = saturationSteps[Math.floor(i / lightnessSteps.length) % saturationSteps.length];
+        const hueOffset = (i % 3) * 8;
+        colors.push(`hsl(${(hue + hueOffset) % 360}, ${saturation}%, ${lightness}%)`);
+    }
+    return colors;
+}
+
+function ensureColorPalette() {
+    if (COLOR_PALETTE.length) return;
+    buildColorPalette(100).forEach(color => COLOR_PALETTE.push(color));
+}
+
+function hashLabel(label) {
+    let hash = 0;
+    for (let i = 0; i < label.length; i += 1) {
+        hash = ((hash << 5) - hash + label.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash);
+}
+
+function assignColorForLabel(label, usedColors) {
+    ensureColorPalette();
+    if (reasonColorMap.has(label)) {
+        const existing = reasonColorMap.get(label);
+        if (!usedColors.has(existing)) {
+            usedColors.add(existing);
+            return existing;
+        }
+    }
+    const baseIndex = hashLabel(label) % COLOR_PALETTE.length;
+    for (let i = 0; i < COLOR_PALETTE.length; i += 1) {
+        const idx = (baseIndex + i) % COLOR_PALETTE.length;
+        const candidate = COLOR_PALETTE[idx];
+        if (!usedColors.has(candidate)) {
+            usedColors.add(candidate);
+            reasonColorMap.set(label, candidate);
+            return candidate;
+        }
+    }
+    const fallback = COLOR_PALETTE[baseIndex];
+    reasonColorMap.set(label, fallback);
+    return fallback;
+}
+
+function updateActivitySelectionUI() {
+    if (!activityList) return;
+    const items = activityList.querySelectorAll('.ledger-activity-item');
+    items.forEach(item => {
+        const isSelected = selectedActivityId && item.dataset.id === String(selectedActivityId);
+        item.classList.toggle('selected', isSelected);
+    });
+}
+
+function selectActivityEntry(entry, range, now, startOfWeek, endOfWeek) {
+    selectedActivityId = entry.id;
+    if (entry.type !== 'expense') {
+        selectedReasonLabel = null;
+    } else {
+        const label = (entry.reason || 'Uncategorized').trim() || 'Uncategorized';
+        selectedReasonLabel = label;
+    }
+    updateActivitySelectionUI();
+    renderReasonChart(range, now, startOfWeek, endOfWeek);
+}
+
 function updateActivitySummaryRangeLabels() {
     if (!activitySummaryRange) return;
     const now = new Date();
@@ -179,7 +271,7 @@ function updateActivitySummaryRangeLabels() {
     if (summaryRangeLabel) {
         const yearText = String(now.getFullYear());
         const monthText = `${yearText}, ${MONTH_NAMES[now.getMonth()]}`;
-        const weekText = `${monthText} · ${formatOrdinal(getWeekOfMonth(now))} week (Mon-Sun)`;
+        const weekText = `${monthText} - ${formatOrdinal(getWeekOfMonth(now))} week (Mon-Sun)`;
         const selectedRange = activitySummaryRange.value;
 
         if (selectedRange === 'year') {
@@ -344,22 +436,27 @@ function renderActivity() {
 
     updateActivitySummaryRangeLabels();
 
-    if (activityEntries.length === 0) {
+    const range = activitySummaryRange ? activitySummaryRange.value : 'year';
+    const { now, startOfWeek, endOfWeek } = getRangeWindow();
+
+    const entriesInRange = activityEntries.filter(entry => {
+        const entryDate = new Date(entry.date);
+        if (range === 'year' && entryDate.getFullYear() !== now.getFullYear()) return false;
+        if (range === 'month' && (entryDate.getFullYear() !== now.getFullYear() || entryDate.getMonth() !== now.getMonth())) return false;
+        if (range === 'week' && (entryDate < startOfWeek || entryDate >= endOfWeek)) return false;
+        return true;
+    });
+
+    if (entriesInRange.length === 0) {
         const empty = document.createElement('li');
         empty.className = 'ledger-activity-item empty';
-        empty.textContent = '\u{1F9FE} No activity entries yet.';
+        empty.textContent = '\u{1F9FE} No activity entries in this range.';
         activityList.appendChild(empty);
         renderReasonOptions();
         return;
     }
 
-    const range = activitySummaryRange ? activitySummaryRange.value : 'all';
-    const now = new Date();
-    const startOfWeek = getMondayStart(now);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 7);
-
-    activityEntries
+    entriesInRange
         .slice()
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .forEach(entry => {
@@ -382,16 +479,26 @@ function renderActivity() {
             editBtn.type = 'button';
             editBtn.className = 'ghost-btn';
             editBtn.textContent = 'Edit';
-            editBtn.addEventListener('click', () => editActivityEntry(entry.id));
+            editBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                editActivityEntry(entry.id);
+            });
 
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
             deleteBtn.className = 'danger-btn';
             deleteBtn.textContent = 'Delete';
-            deleteBtn.addEventListener('click', () => deleteActivityEntry(entry.id));
+            deleteBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                deleteActivityEntry(entry.id);
+            });
 
             actions.appendChild(editBtn);
             actions.appendChild(deleteBtn);
+
+            if (selectedActivityId === entry.id) {
+                li.classList.add('selected');
+            }
 
             li.appendChild(meta);
             li.appendChild(amount);
@@ -400,14 +507,6 @@ function renderActivity() {
         });
 
     renderReasonOptions();
-
-    const entriesInRange = activityEntries.filter(entry => {
-        const entryDate = new Date(entry.date);
-        if (range === 'year' && entryDate.getFullYear() !== now.getFullYear()) return false;
-        if (range === 'month' && (entryDate.getFullYear() !== now.getFullYear() || entryDate.getMonth() !== now.getMonth())) return false;
-        if (range === 'week' && (entryDate < startOfWeek || entryDate >= endOfWeek)) return false;
-        return true;
-    });
 
     const totals = entriesInRange.reduce(
         (acc, entry) => {
@@ -437,6 +536,7 @@ function renderActivity() {
             const ctx = reasonChart.getContext('2d');
             ctx.clearRect(0, 0, reasonChart.width, reasonChart.height);
         }
+        hideChartTooltip();
         return;
     }
 
@@ -712,12 +812,91 @@ function renderReasonOptions() {
         });
 }
 
+function normalizeAngle(angle) {
+    const fullCircle = Math.PI * 2;
+    return (angle % fullCircle + fullCircle) % fullCircle;
+}
+
+function hideChartTooltip() {
+    if (!chartTooltip) return;
+    chartTooltip.classList.add('hidden');
+}
+
+function getSliceAtPosition(x, y) {
+    if (!reasonChart || chartSlices.length === 0) return null;
+    const center = reasonChart.width / 2;
+    const radius = reasonChart.width / 2 - 8;
+    const dx = x - center;
+    const dy = y - center;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > radius) return null;
+
+    const angle = Math.atan2(dy, dx);
+    const normalized = normalizeAngle(angle);
+    return chartSlices.find(item => {
+        if (item.full) return true;
+        return item.wrap
+            ? (normalized >= item.start || normalized <= item.end)
+            : (normalized >= item.start && normalized <= item.end);
+    }) || null;
+}
+
+function handleChartClick(event) {
+    if (!reasonChart || chartSlices.length === 0) return;
+    const targetRect = (chartWrap || reasonChart).getBoundingClientRect();
+    const scaleX = reasonChart.width / targetRect.width;
+    const scaleY = reasonChart.height / targetRect.height;
+    const x = (event.clientX - targetRect.left) * scaleX;
+    const y = (event.clientY - targetRect.top) * scaleY;
+    const slice = getSliceAtPosition(x, y);
+
+    if (!slice) {
+        selectedReasonLabel = null;
+    } else {
+        selectedReasonLabel = selectedReasonLabel === slice.label ? null : slice.label;
+    }
+
+    if (lastChartContext) {
+        renderReasonChart(
+            lastChartContext.range,
+            lastChartContext.now,
+            lastChartContext.startOfWeek,
+            lastChartContext.endOfWeek
+        );
+    } else {
+        renderActivity();
+    }
+}
+
+function handleLegendClick(event) {
+    const item = event.target.closest('li');
+    if (!item) return;
+    const label = item.dataset.label;
+    if (!label) return;
+    selectedReasonLabel = selectedReasonLabel === label ? null : label;
+    if (lastChartContext) {
+        renderReasonChart(
+            lastChartContext.range,
+            lastChartContext.now,
+            lastChartContext.startOfWeek,
+            lastChartContext.endOfWeek
+        );
+    } else {
+        renderActivity();
+    }
+}
+
 function renderReasonChart(range, now, startOfWeek, endOfWeek) {
     if (!reasonChart || !reasonLegend) return;
+    lastChartContext = { range, now, startOfWeek, endOfWeek };
     const ctx = reasonChart.getContext('2d');
     const size = reasonChart.width;
     const center = size / 2;
     const radius = size / 2 - 8;
+    chartSlices = [];
+
+    const usedColors = new Set();
 
     const expenses = activityEntries.filter(entry => {
         if (entry.type !== 'expense') return false;
@@ -739,12 +918,18 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
         value: totalsByReason[key]
     }));
 
+    const sortOrder = legendSortSelect ? legendSortSelect.value : 'desc';
+    items.sort((a, b) => {
+        return sortOrder === 'asc' ? a.value - b.value : b.value - a.value;
+    });
+
     const total = items.reduce((sum, item) => sum + item.value, 0);
     reasonLegend.innerHTML = '';
 
     ctx.clearRect(0, 0, size, size);
 
     if (!total) {
+        selectedReasonLabel = null;
         ctx.beginPath();
         ctx.arc(center, center, radius, 0, Math.PI * 2);
         ctx.fillStyle = '#eef1f7';
@@ -754,50 +939,83 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('\u{1F4CA} No expense data', center, center);
+        if (selectedReasonEl) selectedReasonEl.classList.add('hidden');
         return;
     }
 
-    const palette = [
-        '#ff6b6b',
-        '#f7b32b',
-        '#4ecdc4',
-        '#5c7cfa',
-        '#6c5ce7',
-        '#20c997',
-        '#f06595',
-        '#ffa94d',
-        '#2d98da',
-        '#a55eea',
-        '#26de81',
-        '#fd9644',
-        '#45aaf2',
-        '#fed330',
-        '#eb3b5a',
-        '#3867d6',
-        '#0fb9b1',
-        '#fa8231',
-        '#8854d0',
-        '#4b7bec'
-    ];
+    const fullCircle = Math.PI * 2;
     let startAngle = -Math.PI / 2;
 
     items.forEach((item, index) => {
         const slice = (item.value / total) * Math.PI * 2;
-        const color = palette[index % palette.length];
+        const color = assignColorForLabel(item.label, usedColors);
+        const isSelected = selectedReasonLabel === item.label;
+        if (isSelected) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(center, center);
+            ctx.arc(center, center, radius + 10, startAngle, startAngle + slice);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.globalAlpha = 0.2;
+            ctx.fill();
+            ctx.restore();
+        }
         ctx.beginPath();
         ctx.moveTo(center, center);
         ctx.arc(center, center, radius, startAngle, startAngle + slice);
         ctx.closePath();
         ctx.fillStyle = color;
         ctx.fill();
+        if (isSelected) {
+            ctx.save();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.restore();
+        }
 
-        const percent = Math.round((item.value / total) * 100);
+        const percentRaw = (item.value / total) * 100;
+        const percent = Math.max(0.01, Number(percentRaw.toFixed(2)));
+        const startNormalized = normalizeAngle(startAngle);
+        const endNormalized = normalizeAngle(startAngle + slice);
+        const isFull = slice >= fullCircle - 0.0001;
+        chartSlices.push({
+            label: item.label,
+            value: item.value,
+            percent,
+            color,
+            start: isFull ? 0 : startNormalized,
+            end: isFull ? fullCircle : endNormalized,
+            wrap: !isFull && endNormalized < startNormalized,
+            full: isFull
+        });
         const legendItem = document.createElement('li');
-        legendItem.innerHTML = `<span class="legend-swatch" style="background:${color}"></span><span class="legend-label">${item.label}</span><span class="legend-value">${percent}%</span>`;
+        legendItem.dataset.label = item.label;
+        if (isSelected) legendItem.classList.add('selected');
+        legendItem.title = `${item.label}: ${percent.toFixed(2)}% (${formatCurrency(item.value)})`;
+        legendItem.innerHTML = `<span class="legend-swatch" style="background:${color}"></span><span class="legend-label">${item.label}</span><span class="legend-value">${percent.toFixed(2)}%</span>`;
         reasonLegend.appendChild(legendItem);
 
         startAngle += slice;
     });
+
+    if (selectedReasonEl) {
+        if (selectedReasonLabel) {
+            const selectedSlice = chartSlices.find(slice => slice.label === selectedReasonLabel);
+            if (!selectedSlice) {
+                selectedReasonLabel = null;
+                selectedReasonEl.classList.add('hidden');
+            } else {
+                const amountText = formatCurrency(selectedSlice.value);
+                selectedReasonEl.textContent = `Selected: ${selectedReasonLabel} (${amountText})`;
+                selectedReasonEl.classList.remove('hidden');
+            }
+        } else {
+            selectedReasonEl.classList.add('hidden');
+        }
+    }
+
 }
 
 if (saveBalancesBtn) saveBalancesBtn.addEventListener('click', saveBalancesFromInputs);
@@ -809,6 +1027,33 @@ if (removePlanItemBtn) removePlanItemBtn.addEventListener('click', removeEditing
 if (clearPlanBtn) clearPlanBtn.addEventListener('click', clearPlan);
 if (addActivityBtn) addActivityBtn.addEventListener('click', addActivityEntry);
 if (activitySummaryRange) activitySummaryRange.addEventListener('change', renderActivity);
+if (legendSortSelect) legendSortSelect.addEventListener('change', renderActivity);
+if (chartWrap) {
+    chartWrap.addEventListener('click', handleChartClick);
+} else if (reasonChart) {
+    reasonChart.addEventListener('click', handleChartClick);
+}
+if (summaryChartBody) {
+    summaryChartBody.addEventListener('click', handleChartClick);
+}
+if (summaryChart) {
+    summaryChart.addEventListener('click', handleChartClick, true);
+}
+if (reasonLegend) {
+    reasonLegend.addEventListener('click', handleLegendClick);
+}
+if (activityList) {
+    activityList.addEventListener('click', (event) => {
+        const item = event.target.closest('.ledger-activity-item');
+        if (!item || item.classList.contains('empty')) return;
+        const id = item.dataset.id;
+        const entry = activityEntries.find(record => String(record.id) === String(id));
+        if (!entry) return;
+        const range = activitySummaryRange ? activitySummaryRange.value : 'year';
+        const { now, startOfWeek, endOfWeek } = getRangeWindow();
+        selectActivityEntry(entry, range, now, startOfWeek, endOfWeek);
+    });
+}
 
 (function init() {
     if (requireAuthRef) {

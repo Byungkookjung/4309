@@ -1585,6 +1585,11 @@ body.ledger-body .container {
     background: #ffffff;
 }
 
+.ledger-activity-item.selected {
+    border-color: #b9c4e4;
+    box-shadow: 0 10px 24px rgba(22, 34, 72, 0.12);
+}
+
 /* Give Activity/Activity Summary inner items a shared tinted card feel */
 .ledger-card.accent.activity .ledger-activity-item {
     background: #f8f9fe;
@@ -1674,6 +1679,23 @@ body.ledger-body .container {
     gap: 12px;
 }
 
+.summary-chart-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.summary-selected {
+    margin: 4px 0 10px 0;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: #eef2ff;
+    color: #2f3a66;
+    font-weight: 700;
+    font-size: 0.9em;
+    display: inline-block;
+}
+
 .summary-range-label {
     font-size: 0.85em;
     font-weight: 600;
@@ -1702,6 +1724,31 @@ body.ledger-body .container {
     align-items: center;
 }
 
+.chart-wrap {
+    position: relative;
+    width: 260px;
+    height: 260px;
+}
+
+#reasonChart {
+    cursor: pointer;
+}
+
+.chart-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(29, 35, 52, 0.95);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.85em;
+    font-weight: 600;
+    box-shadow: 0 10px 24px rgba(22, 34, 72, 0.2);
+    transform: translate(-50%, -120%);
+    white-space: nowrap;
+    z-index: 2;
+}
+
 .summary-legend {
     list-style: none;
     margin: 0;
@@ -1718,6 +1765,17 @@ body.ledger-body .container {
     align-items: center;
     font-size: 0.9em;
     color: #334;
+    padding: 6px 8px;
+    border-radius: 10px;
+    transition: background 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.summary-legend li.selected {
+    background: #eef2ff;
+    box-shadow: inset 0 0 0 1px #dbe2ff;
+    font-weight: 700;
+    text-decoration: underline;
 }
 
 .legend-swatch {

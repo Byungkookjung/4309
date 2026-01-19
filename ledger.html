@@ -130,13 +130,23 @@
                 <div id="summaryChart" class="summary-chart">
                     <div class="summary-chart-title">
                         <span>Expense by reason</span>
-                        <span id="summaryRangeLabel" class="summary-range-label"></span>
+                        <span class="summary-chart-controls">
+                            <span id="summaryRangeLabel" class="summary-range-label"></span>
+                            <select id="legendSort" class="summary-select">
+                                <option value="desc">High to low</option>
+                                <option value="asc">Low to high</option>
+                            </select>
+                        </span>
                     </div>
+                    <div id="selectedReason" class="summary-selected hidden"></div>
                     <div id="activitySummaryEmpty" class="activity-summary-empty hidden">
                         &#x2728; No activity yet. Add your first entry to see insights here.
                     </div>
                     <div class="summary-chart-body">
-                        <canvas id="reasonChart" width="260" height="260"></canvas>
+                        <div class="chart-wrap">
+                            <canvas id="reasonChart" width="260" height="260"></canvas>
+                            <div id="chartTooltip" class="chart-tooltip hidden"></div>
+                        </div>
                         <ul id="reasonLegend" class="summary-legend"></ul>
                     </div>
                 </div>
