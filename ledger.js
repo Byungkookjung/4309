@@ -51,10 +51,13 @@ const chartTooltip = document.getElementById('chartTooltip');
 const summaryRangeLabel = document.getElementById('summaryRangeLabel');
 const selectedReasonEl = document.getElementById('selectedReason');
 const legendSortSelect = document.getElementById('legendSort');
+const legendToggleBtn = document.getElementById('legendToggleBtn');
 
 let chartSlices = [];
 let selectedReasonLabel = null;
 let lastChartContext = null;
+let isLegendExpanded = false;
+const SUMMARY_LEGEND_LIMIT = 10;
 const COLOR_PALETTE = [];
 const reasonColorMap = new Map();
 const toastEl = document.getElementById('toast');
@@ -453,6 +456,7 @@ function renderActivity() {
         empty.textContent = '\u{1F9FE} No activity entries in this range.';
         activityList.appendChild(empty);
         renderReasonOptions();
+        updateLegendToggle(0);
         return;
     }
 
@@ -812,6 +816,35 @@ function renderReasonOptions() {
         });
 }
 
+function updateLegendToggle(totalCount) {
+    if (!legendToggleBtn) return;
+    if (totalCount <= SUMMARY_LEGEND_LIMIT) {
+        legendToggleBtn.classList.add('hidden');
+        legendToggleBtn.setAttribute('aria-expanded', 'false');
+        return;
+    }
+    legendToggleBtn.classList.remove('hidden');
+    legendToggleBtn.textContent = isLegendExpanded ? 'Show less' : `Show all (${totalCount})`;
+    legendToggleBtn.setAttribute('aria-expanded', isLegendExpanded ? 'true' : 'false');
+}
+
+function getVisibleLegendItems(items) {
+    if (isLegendExpanded || items.length <= SUMMARY_LEGEND_LIMIT) {
+        return items;
+    }
+    const visible = items.slice(0, SUMMARY_LEGEND_LIMIT);
+    if (selectedReasonLabel) {
+        const alreadyVisible = visible.some(item => item.label === selectedReasonLabel);
+        if (!alreadyVisible) {
+            const selectedItem = items.find(item => item.label === selectedReasonLabel);
+            if (selectedItem) {
+                visible[visible.length - 1] = selectedItem;
+            }
+        }
+    }
+    return visible;
+}
+
 function normalizeAngle(angle) {
     const fullCircle = Math.PI * 2;
     return (angle % fullCircle + fullCircle) % fullCircle;
@@ -924,11 +957,12 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
     });
 
     const total = items.reduce((sum, item) => sum + item.value, 0);
-    reasonLegend.innerHTML = '';
+    if (reasonLegend) reasonLegend.innerHTML = '';
 
     ctx.clearRect(0, 0, size, size);
 
     if (!total) {
+        updateLegendToggle(0);
         selectedReasonLabel = null;
         ctx.beginPath();
         ctx.arc(center, center, radius, 0, Math.PI * 2);
@@ -943,12 +977,16 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
         return;
     }
 
+    updateLegendToggle(items.length);
+
     const fullCircle = Math.PI * 2;
     let startAngle = -Math.PI / 2;
+    const legendColors = new Map();
 
-    items.forEach((item, index) => {
+    items.forEach(item => {
         const slice = (item.value / total) * Math.PI * 2;
         const color = assignColorForLabel(item.label, usedColors);
+        legendColors.set(item.label, color);
         const isSelected = selectedReasonLabel === item.label;
         if (isSelected) {
             ctx.save();
@@ -990,15 +1028,24 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
             wrap: !isFull && endNormalized < startNormalized,
             full: isFull
         });
-        const legendItem = document.createElement('li');
-        legendItem.dataset.label = item.label;
-        if (isSelected) legendItem.classList.add('selected');
-        legendItem.title = `${item.label}: ${percent.toFixed(2)}% (${formatCurrency(item.value)})`;
-        legendItem.innerHTML = `<span class="legend-swatch" style="background:${color}"></span><span class="legend-label">${item.label}</span><span class="legend-value">${percent.toFixed(2)}%</span>`;
-        reasonLegend.appendChild(legendItem);
-
         startAngle += slice;
     });
+
+    const visibleLegendItems = getVisibleLegendItems(items);
+    if (reasonLegend) {
+        visibleLegendItems.forEach(item => {
+            const color = legendColors.get(item.label) || assignColorForLabel(item.label, usedColors);
+            const isSelected = selectedReasonLabel === item.label;
+            const percentRaw = (item.value / total) * 100;
+            const percent = Math.max(0.01, Number(percentRaw.toFixed(2)));
+            const legendItem = document.createElement('li');
+            legendItem.dataset.label = item.label;
+            if (isSelected) legendItem.classList.add('selected');
+            legendItem.title = `${item.label}: ${percent.toFixed(2)}% (${formatCurrency(item.value)})`;
+            legendItem.innerHTML = `<span class="legend-swatch" style="background:${color}"></span><span class="legend-label">${item.label}</span><span class="legend-value">${percent.toFixed(2)}%</span>`;
+            reasonLegend.appendChild(legendItem);
+        });
+    }
 
     if (selectedReasonEl) {
         if (selectedReasonLabel) {
@@ -1028,6 +1075,21 @@ if (clearPlanBtn) clearPlanBtn.addEventListener('click', clearPlan);
 if (addActivityBtn) addActivityBtn.addEventListener('click', addActivityEntry);
 if (activitySummaryRange) activitySummaryRange.addEventListener('change', renderActivity);
 if (legendSortSelect) legendSortSelect.addEventListener('change', renderActivity);
+if (legendToggleBtn) {
+    legendToggleBtn.addEventListener('click', () => {
+        isLegendExpanded = !isLegendExpanded;
+        if (lastChartContext) {
+            renderReasonChart(
+                lastChartContext.range,
+                lastChartContext.now,
+                lastChartContext.startOfWeek,
+                lastChartContext.endOfWeek
+            );
+        } else {
+            renderActivity();
+        }
+    });
+}
 if (chartWrap) {
     chartWrap.addEventListener('click', handleChartClick);
 } else if (reasonChart) {
