@@ -147,7 +147,12 @@
                             <canvas id="reasonChart" width="260" height="260"></canvas>
                             <div id="chartTooltip" class="chart-tooltip hidden"></div>
                         </div>
-                        <ul id="reasonLegend" class="summary-legend"></ul>
+                        <div class="summary-legend-wrap">
+                            <ul id="reasonLegend" class="summary-legend"></ul>
+                            <button id="legendToggleBtn" class="ghost-btn summary-toggle hidden" type="button" aria-controls="reasonLegend" aria-expanded="false">
+                                Show all
+                            </button>
+                        </div>
                     </div>
                 </div>
             </section>
