@@ -25,8 +25,16 @@ A simple project that pairs a Todo app with a lightweight expense ledger, built 
 
 ## How to Run
 
-1) Run a local server: `start-server.bat` (Windows) or `start-server.sh` (Mac/Linux)  
-2) Open `http://localhost:8000/login.html` and sign in with Google  
+### Mac/Linux
+1) In Terminal, go to the project folder: `cd /Users/suyeonkim/Desktop/4309`  
+2) Give the script permission (first time only): `chmod +x start-server.sh`  
+3) Run the server: `./start-server.sh`  
+
+### Windows
+1) Run the local server: `start-server.bat`  
+
+### Open the app
+1) Open `http://localhost:8000/login.html` and sign in with Google  
 
 From the Todo screen, use the header icon to open the Expense Ledger. The Ledger also links back to the Todo app.
 
