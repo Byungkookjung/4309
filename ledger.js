@@ -35,6 +35,7 @@ const activityAmountInput = document.getElementById('activityAmount');
 const activityReasonInput = document.getElementById('activityReason');
 const addActivityBtn = document.getElementById('addActivityBtn');
 const activityList = document.getElementById('activityList');
+const activityFilterButtons = document.querySelectorAll('.activity-filter-btn');
 const activitySummarySection = document.getElementById('activitySummarySection');
 const activityTotalIncomeEl = document.getElementById('activityTotalIncome');
 const activityTotalExpenseEl = document.getElementById('activityTotalExpense');
@@ -121,6 +122,7 @@ let balances = null;
 let planItems = [];
 let editingPlanId = null;
 let activityEntries = [];
+let activityTypeFilter = 'all';
 let selectedActivityId = null;
 let toastTimer = null;
 let toastHideTimer = null;
@@ -450,17 +452,26 @@ function renderActivity() {
         return true;
     });
 
-    if (entriesInRange.length === 0) {
+    const filteredEntries = entriesInRange.filter(entry => {
+        if (activityTypeFilter === 'all') return true;
+        return entry.type === activityTypeFilter;
+    });
+
+    if (filteredEntries.length === 0) {
         const empty = document.createElement('li');
         empty.className = 'ledger-activity-item empty';
-        empty.textContent = '\u{1F9FE} No activity entries in this range.';
+        if (entriesInRange.length === 0) {
+            empty.textContent = '\u{1F9FE} No activity entries in this range.';
+        } else if (activityTypeFilter === 'income') {
+            empty.textContent = '\u{1F4B8} No income entries in this range.';
+        } else if (activityTypeFilter === 'expense') {
+            empty.textContent = '\u{1F4B3} No expense entries in this range.';
+        } else {
+            empty.textContent = '\u{1F9FE} No activity entries in this range.';
+        }
         activityList.appendChild(empty);
-        renderReasonOptions();
-        updateLegendToggle(0);
-        return;
-    }
-
-    entriesInRange
+    } else {
+        filteredEntries
         .slice()
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .forEach(entry => {
@@ -509,6 +520,7 @@ function renderActivity() {
             li.appendChild(actions);
             activityList.appendChild(li);
         });
+    }
 
     renderReasonOptions();
 
@@ -545,6 +557,17 @@ function renderActivity() {
     }
 
     renderReasonChart(range, now, startOfWeek, endOfWeek);
+}
+
+function setActivityTypeFilter(filter) {
+    const nextFilter = filter === 'income' || filter === 'expense' ? filter : 'all';
+    activityTypeFilter = nextFilter;
+    activityFilterButtons.forEach(button => {
+        const isActive = button.dataset.filter === nextFilter;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+    renderActivity();
 }
 
 function showSetup() {
@@ -1073,6 +1096,13 @@ if (addPlanItemBtn) addPlanItemBtn.addEventListener('click', addPlanItem);
 if (removePlanItemBtn) removePlanItemBtn.addEventListener('click', removeEditingPlanItem);
 if (clearPlanBtn) clearPlanBtn.addEventListener('click', clearPlan);
 if (addActivityBtn) addActivityBtn.addEventListener('click', addActivityEntry);
+if (activityFilterButtons.length) {
+    activityFilterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            setActivityTypeFilter(button.dataset.filter);
+        });
+    });
+}
 if (activitySummaryRange) activitySummaryRange.addEventListener('change', renderActivity);
 if (legendSortSelect) legendSortSelect.addEventListener('change', renderActivity);
 if (legendToggleBtn) {
@@ -1137,5 +1167,6 @@ if (activityList) {
     }
 
     updateActivitySummaryRangeLabels();
+    setActivityTypeFilter('all');
     scheduleMidnightRefresh();
 })();

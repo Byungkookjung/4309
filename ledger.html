@@ -82,7 +82,14 @@
                 <div class="ledger-row">
                     <h2>Activity</h2>
                 </div>
-                <p class="muted">&#x1F4DD; Track what you spent and what you received.</p>
+                <div class="activity-toolbar">
+                    <p class="muted">&#x1F4DD; Track what you spent and what you received.</p>
+                    <div class="activity-filter-group" role="group" aria-label="Filter activity type">
+                        <button class="ghost-btn activity-filter-btn active" data-filter="all" type="button" aria-pressed="true">All</button>
+                        <button class="ghost-btn activity-filter-btn" data-filter="expense" type="button" aria-pressed="false">Expense</button>
+                        <button class="ghost-btn activity-filter-btn" data-filter="income" type="button" aria-pressed="false">Income</button>
+                    </div>
+                </div>
                 <form id="activityForm" class="ledger-grid" onsubmit="return false;">
                     <div class="field">
                         <label for="activityDate">Date</label>
