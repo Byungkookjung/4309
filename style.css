@@ -1487,9 +1487,10 @@ body.ledger-body .container {
 .activity-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 12px;
     flex-wrap: wrap;
+    margin-bottom: 12px;
 }
 
 .activity-toolbar .muted {
@@ -1500,6 +1501,7 @@ body.ledger-body .container {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    margin-left: auto;
 }
 
 .activity-filter-btn {
@@ -1510,6 +1512,20 @@ body.ledger-body .container {
     border-color: #5a7de5;
     color: #2a3f7a;
     background: #edf2ff;
+}
+
+.activity-submit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+@media (max-width: 760px) {
+    .activity-filter-group {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-end;
+    }
 }
 
 .primary-btn {

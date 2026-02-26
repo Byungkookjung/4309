@@ -33,8 +33,9 @@ const activityDateInput = document.getElementById('activityDate');
 const activityTypeSelect = document.getElementById('activityType');
 const activityAmountInput = document.getElementById('activityAmount');
 const activityReasonInput = document.getElementById('activityReason');
-const addActivityBtn = document.getElementById('addActivityBtn');
+const activityForm = document.getElementById('activityForm');
 const activityList = document.getElementById('activityList');
+const activityFilterGroup = document.getElementById('activityFilterGroup');
 const activityFilterButtons = document.querySelectorAll('.activity-filter-btn');
 const activitySummarySection = document.getElementById('activitySummarySection');
 const activityTotalIncomeEl = document.getElementById('activityTotalIncome');
@@ -1095,12 +1096,17 @@ if (closePlanBtn) closePlanBtn.addEventListener('click', showDashboard);
 if (addPlanItemBtn) addPlanItemBtn.addEventListener('click', addPlanItem);
 if (removePlanItemBtn) removePlanItemBtn.addEventListener('click', removeEditingPlanItem);
 if (clearPlanBtn) clearPlanBtn.addEventListener('click', clearPlan);
-if (addActivityBtn) addActivityBtn.addEventListener('click', addActivityEntry);
-if (activityFilterButtons.length) {
-    activityFilterButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            setActivityTypeFilter(button.dataset.filter);
-        });
+if (activityForm) {
+    activityForm.addEventListener('submit', event => {
+        event.preventDefault();
+        addActivityEntry();
+    });
+}
+if (activityFilterGroup) {
+    activityFilterGroup.addEventListener('click', event => {
+        const button = event.target.closest('.activity-filter-btn');
+        if (!button) return;
+        setActivityTypeFilter(button.dataset.filter);
     });
 }
 if (activitySummaryRange) activitySummaryRange.addEventListener('change', renderActivity);
@@ -1148,6 +1154,8 @@ if (activityList) {
 }
 
 (function init() {
+    setActivityTypeFilter('all');
+
     if (requireAuthRef) {
         requireAuthRef().then(user => {
             currentUser = user;
@@ -1167,6 +1175,5 @@ if (activityList) {
     }
 
     updateActivitySummaryRangeLabels();
-    setActivityTypeFilter('all');
     scheduleMidnightRefresh();
 })();
