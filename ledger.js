@@ -19,6 +19,7 @@ const remainingTotalEl = document.getElementById('remainingTotal');
 
 const openPlanBtn = document.getElementById('openPlanBtn');
 const closePlanBtn = document.getElementById('closePlanBtn');
+const planForm = document.getElementById('planForm');
 const planItemInput = document.getElementById('planItem');
 const planAmountInput = document.getElementById('planAmount');
 const addPlanItemBtn = document.getElementById('addPlanItemBtn');
@@ -184,6 +185,64 @@ function getRangeWindow() {
     return { now, startOfWeek, endOfWeek };
 }
 
+function parseLedgerDate(value) {
+    if (typeof value !== 'string') return new Date(value);
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return new Date(value);
+    const [, year, month, day] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+}
+
+function getLedgerDateParts(value) {
+    if (typeof value === 'string') {
+        const match = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (match) {
+            return {
+                year: Number(match[1]),
+                month: Number(match[2]),
+                day: Number(match[3])
+            };
+        }
+    }
+
+    const fallback = parseLedgerDate(value);
+    return {
+        year: fallback.getFullYear(),
+        month: fallback.getMonth() + 1,
+        day: fallback.getDate()
+    };
+}
+
+function getTodayDateString() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function isFutureLedgerDate(value) {
+    if (!value) return false;
+    const inputDate = parseLedgerDate(value);
+    const today = parseLedgerDate(getTodayDateString());
+    return inputDate.getTime() > today.getTime();
+}
+
+function isEntryInRange(entryDateValue, range, now, startOfWeek, endOfWeek) {
+    const parts = getLedgerDateParts(entryDateValue);
+
+    if (range === 'year') {
+        return parts.year === now.getFullYear();
+    }
+
+    if (range === 'month') {
+        return parts.year === now.getFullYear() && parts.month === now.getMonth() + 1;
+    }
+
+    const entryDate = new Date(parts.year, parts.month - 1, parts.day);
+    return entryDate >= startOfWeek && entryDate < endOfWeek;
+}
+
 function buildColorPalette(count) {
     const colors = [];
     const goldenAngle = 137.508;
@@ -313,13 +372,7 @@ function scheduleMidnightRefresh() {
     const delay = nextMidnight.getTime() - now.getTime();
 
     setTimeout(() => {
-        const refreshedAt = new Date();
-        updateActivitySummaryRangeLabels();
-        renderActivity();
-        showToast(
-            `Summary refreshed: ${MONTH_NAMES[refreshedAt.getMonth()]} ${formatOrdinal(getWeekOfMonth(refreshedAt))} week.`
-        );
-        scheduleMidnightRefresh();
+        window.location.reload();
     }, delay);
 }
 
@@ -446,11 +499,7 @@ function renderActivity() {
     const { now, startOfWeek, endOfWeek } = getRangeWindow();
 
     const entriesInRange = activityEntries.filter(entry => {
-        const entryDate = new Date(entry.date);
-        if (range === 'year' && entryDate.getFullYear() !== now.getFullYear()) return false;
-        if (range === 'month' && (entryDate.getFullYear() !== now.getFullYear() || entryDate.getMonth() !== now.getMonth())) return false;
-        if (range === 'week' && (entryDate < startOfWeek || entryDate >= endOfWeek)) return false;
-        return true;
+        return isEntryInRange(entry.date, range, now, startOfWeek, endOfWeek);
     });
 
     const filteredEntries = entriesInRange.filter(entry => {
@@ -474,7 +523,7 @@ function renderActivity() {
     } else {
         filteredEntries
         .slice()
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .sort((a, b) => parseLedgerDate(b.date) - parseLedgerDate(a.date))
         .forEach(entry => {
             const li = document.createElement('li');
             li.className = `ledger-activity-item ${entry.type}`;
@@ -613,6 +662,7 @@ async function saveBalancesFromInputs() {
     const saving = parseFloat(savingInput.value);
     const checking = parseFloat(checkingInput.value);
     const etc = parseFloat(etcInput.value);
+    const previousBalances = balances;
 
     const parsed = {
         saving: isNaN(saving) ? 0 : Number(saving.toFixed(2)),
@@ -625,12 +675,18 @@ async function saveBalancesFromInputs() {
     }
 
     balances = parsed;
-    if (isRemoteEnabled()) {
-        await balancesDoc(currentUser).set(balances);
-        return;
+    try {
+        if (isRemoteEnabled()) {
+            await balancesDoc(currentUser).set(balances);
+            showDashboard();
+            return;
+        }
+        saveBalances();
+        showDashboard();
+    } catch (error) {
+        balances = previousBalances;
+        alert(error && error.message ? error.message : 'Failed to save balances.');
     }
-    saveBalances();
-    showDashboard();
 }
 
 function enterEditMode(id) {
@@ -742,6 +798,10 @@ async function addActivityEntry() {
         alert('Please select a date.');
         return;
     }
+    if (isFutureLedgerDate(date)) {
+        alert('Future dates are not allowed.');
+        return;
+    }
     if (isNaN(amount) || amount <= 0) {
         alert('Please enter a valid amount greater than 0.');
         return;
@@ -784,6 +844,10 @@ async function editActivityEntry(id) {
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
         alert('Invalid date format. Use YYYY-MM-DD.');
+        return;
+    }
+    if (isFutureLedgerDate(newDate)) {
+        alert('Future dates are not allowed.');
         return;
     }
     const newAmount = parseFloat(newAmountRaw);
@@ -957,11 +1021,7 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
 
     const expenses = activityEntries.filter(entry => {
         if (entry.type !== 'expense') return false;
-        const entryDate = new Date(entry.date);
-        if (range === 'year' && entryDate.getFullYear() !== now.getFullYear()) return false;
-        if (range === 'month' && (entryDate.getFullYear() !== now.getFullYear() || entryDate.getMonth() !== now.getMonth())) return false;
-        if (range === 'week' && (entryDate < startOfWeek || entryDate >= endOfWeek)) return false;
-        return true;
+        return isEntryInRange(entry.date, range, now, startOfWeek, endOfWeek);
     });
 
     const totalsByReason = {};
@@ -1094,6 +1154,12 @@ if (editBalancesBtn) editBalancesBtn.addEventListener('click', showSetup);
 if (openPlanBtn) openPlanBtn.addEventListener('click', showPlan);
 if (closePlanBtn) closePlanBtn.addEventListener('click', showDashboard);
 if (addPlanItemBtn) addPlanItemBtn.addEventListener('click', addPlanItem);
+if (planForm) {
+    planForm.addEventListener('submit', event => {
+        event.preventDefault();
+        addPlanItem();
+    });
+}
 if (removePlanItemBtn) removePlanItemBtn.addEventListener('click', removeEditingPlanItem);
 if (clearPlanBtn) clearPlanBtn.addEventListener('click', clearPlan);
 if (activityForm) {
@@ -1155,6 +1221,9 @@ if (activityList) {
 
 (function init() {
     setActivityTypeFilter('all');
+    if (activityDateInput) {
+        activityDateInput.max = getTodayDateString();
+    }
 
     if (requireAuthRef) {
         requireAuthRef().then(user => {
