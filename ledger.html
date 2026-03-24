@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Expense Ledger</title>
     <link rel="icon" href="favicon-ledger.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=20260323b" />
 </head>
 <body class="ledger-body">
     <div class="container">
@@ -126,12 +126,8 @@
             <section id="activitySummarySection" class="ledger-card hidden">
                 <div class="ledger-row">
                     <h2>Activity Summary</h2>
-                    <select id="activitySummaryRange" class="summary-select">
-                        <option value="year">This year</option>
-                        <option value="month" selected>This month</option>
-                        <option value="week">This week</option>
-                    </select>
                 </div>
+                <div id="activityMonthPicker" class="activity-month-picker" aria-label="Select summary month"></div>
                 <div class="totals-row">
                     <div>Total income: <span id="activityTotalIncome">$0.00</span></div>
                     <div>Total expense: <span id="activityTotalExpense">$0.00</span></div>
@@ -217,6 +213,6 @@
             }
         })();
     </script>
-    <script src="ledger.js?v=20260315"></script>
+    <script src="ledger.js?v=20260323"></script>
 </body>
 </html>

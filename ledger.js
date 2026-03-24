@@ -42,7 +42,7 @@ const activitySummarySection = document.getElementById('activitySummarySection')
 const activityTotalIncomeEl = document.getElementById('activityTotalIncome');
 const activityTotalExpenseEl = document.getElementById('activityTotalExpense');
 const activityNetEl = document.getElementById('activityNet');
-const activitySummaryRange = document.getElementById('activitySummaryRange');
+const activityMonthPicker = document.getElementById('activityMonthPicker');
 const reasonChart = document.getElementById('reasonChart');
 const reasonLegend = document.getElementById('reasonLegend');
 const activityReasonList = document.getElementById('activityReasonList');
@@ -128,6 +128,8 @@ let activityTypeFilter = 'all';
 let selectedActivityId = null;
 let toastTimer = null;
 let toastHideTimer = null;
+let selectedSummaryRange = 'month';
+let selectedSummaryMonth = new Date().getMonth() + 1;
 
 const MONTH_NAMES = [
     'January',
@@ -228,7 +230,7 @@ function isFutureLedgerDate(value) {
     return inputDate.getTime() > today.getTime();
 }
 
-function isEntryInRange(entryDateValue, range, now, startOfWeek, endOfWeek) {
+function isEntryInRange(entryDateValue, range, now, startOfWeek, endOfWeek, selectedMonth = now.getMonth() + 1) {
     const parts = getLedgerDateParts(entryDateValue);
 
     if (range === 'year') {
@@ -236,11 +238,53 @@ function isEntryInRange(entryDateValue, range, now, startOfWeek, endOfWeek) {
     }
 
     if (range === 'month') {
-        return parts.year === now.getFullYear() && parts.month === now.getMonth() + 1;
+        return parts.year === now.getFullYear() && parts.month === selectedMonth;
     }
 
     const entryDate = new Date(parts.year, parts.month - 1, parts.day);
     return entryDate >= startOfWeek && entryDate < endOfWeek;
+}
+
+function renderActivityMonthPicker() {
+    if (!activityMonthPicker) return;
+    activityMonthPicker.innerHTML = '';
+    const currentMonth = new Date().getMonth() + 1;
+
+    const rangeButtons = [
+        { label: 'Year', value: 'year' },
+        { label: 'Week', value: 'week' }
+    ];
+
+    rangeButtons.forEach(({ label, value }) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'activity-month-btn activity-range-btn';
+        button.dataset.range = value;
+        button.textContent = label;
+        const isSelected = selectedSummaryRange === value;
+        button.classList.toggle('active', isSelected);
+        button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        activityMonthPicker.appendChild(button);
+    });
+
+    MONTH_NAMES.forEach((monthName, index) => {
+        const monthNumber = index + 1;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'activity-month-btn';
+        button.dataset.month = String(monthNumber);
+        button.textContent = monthName.slice(0, 3);
+
+        const isDisabled = monthNumber > currentMonth;
+        const isSelected = selectedSummaryRange === 'month' && selectedSummaryMonth === monthNumber;
+        button.classList.toggle('active', isSelected);
+        button.classList.toggle('disabled', isDisabled);
+        button.disabled = isDisabled;
+        button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        button.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+
+        activityMonthPicker.appendChild(button);
+    });
 }
 
 function buildColorPalette(count) {
@@ -317,31 +361,16 @@ function selectActivityEntry(entry, range, now, startOfWeek, endOfWeek) {
 }
 
 function updateActivitySummaryRangeLabels() {
-    if (!activitySummaryRange) return;
     const now = new Date();
-    const monthOption = activitySummaryRange.querySelector('option[value="month"]');
-    const weekOption = activitySummaryRange.querySelector('option[value="week"]');
-    const yearOption = activitySummaryRange.querySelector('option[value="year"]');
-
-    if (yearOption) {
-        yearOption.textContent = 'This year';
-    }
-    if (monthOption) {
-        monthOption.textContent = 'This month';
-    }
-    if (weekOption) {
-        weekOption.textContent = 'This week';
-    }
 
     if (summaryRangeLabel) {
         const yearText = String(now.getFullYear());
-        const monthText = `${yearText}, ${MONTH_NAMES[now.getMonth()]}`;
-        const weekText = `${monthText} - ${formatOrdinal(getWeekOfMonth(now))} week (Mon-Sun)`;
-        const selectedRange = activitySummaryRange.value;
-
-        if (selectedRange === 'year') {
+        const monthText = `${yearText}, ${MONTH_NAMES[selectedSummaryMonth - 1]}`;
+        const currentMonthText = `${yearText}, ${MONTH_NAMES[now.getMonth()]}`;
+        const weekText = `${currentMonthText} - ${formatOrdinal(getWeekOfMonth(now))} week (Mon-Sun)`;
+        if (selectedSummaryRange === 'year') {
             summaryRangeLabel.textContent = yearText;
-        } else if (selectedRange === 'month') {
+        } else if (selectedSummaryRange === 'month') {
             summaryRangeLabel.textContent = monthText;
         } else {
             summaryRangeLabel.textContent = weekText;
@@ -492,14 +521,15 @@ function renderPlan() {
 function renderActivity() {
     if (!activityList) return;
     activityList.innerHTML = '';
+    renderActivityMonthPicker();
 
     updateActivitySummaryRangeLabels();
 
-    const range = activitySummaryRange ? activitySummaryRange.value : 'year';
+    const range = selectedSummaryRange;
     const { now, startOfWeek, endOfWeek } = getRangeWindow();
 
     const entriesInRange = activityEntries.filter(entry => {
-        return isEntryInRange(entry.date, range, now, startOfWeek, endOfWeek);
+        return isEntryInRange(entry.date, range, now, startOfWeek, endOfWeek, selectedSummaryMonth);
     });
 
     const filteredEntries = entriesInRange.filter(entry => {
@@ -1021,7 +1051,7 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
 
     const expenses = activityEntries.filter(entry => {
         if (entry.type !== 'expense') return false;
-        return isEntryInRange(entry.date, range, now, startOfWeek, endOfWeek);
+        return isEntryInRange(entry.date, range, now, startOfWeek, endOfWeek, selectedSummaryMonth);
     });
 
     const totalsByReason = {};
@@ -1175,7 +1205,23 @@ if (activityFilterGroup) {
         setActivityTypeFilter(button.dataset.filter);
     });
 }
-if (activitySummaryRange) activitySummaryRange.addEventListener('change', renderActivity);
+if (activityMonthPicker) {
+    activityMonthPicker.addEventListener('click', event => {
+        const button = event.target.closest('.activity-month-btn');
+        if (!button) return;
+        const range = button.dataset.range;
+        if (range === 'year' || range === 'week') {
+            selectedSummaryRange = range;
+            renderActivity();
+            return;
+        }
+        const month = Number(button.dataset.month);
+        if (!Number.isInteger(month) || month < 1 || month > 12) return;
+        selectedSummaryMonth = month;
+        selectedSummaryRange = 'month';
+        renderActivity();
+    });
+}
 if (legendSortSelect) legendSortSelect.addEventListener('change', renderActivity);
 if (legendToggleBtn) {
     legendToggleBtn.addEventListener('click', () => {
@@ -1213,7 +1259,7 @@ if (activityList) {
         const id = item.dataset.id;
         const entry = activityEntries.find(record => String(record.id) === String(id));
         if (!entry) return;
-        const range = activitySummaryRange ? activitySummaryRange.value : 'year';
+        const range = selectedSummaryRange;
         const { now, startOfWeek, endOfWeek } = getRangeWindow();
         selectActivityEntry(entry, range, now, startOfWeek, endOfWeek);
     });
