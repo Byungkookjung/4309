@@ -30,12 +30,12 @@
                 <p class="muted">&#x2728; Enter your current balances to get started.</p>
                 <form id="setupForm" class="ledger-grid" onsubmit="return false;">
                     <div class="field">
-                        <label for="savingBalance">Saving</label>
-                        <input id="savingBalance" type="number" step="0.01" placeholder="0.00" />
-                    </div>
-                    <div class="field">
                         <label for="checkingBalance">Checking</label>
                         <input id="checkingBalance" type="number" step="0.01" placeholder="0.00" />
+                    </div>
+                    <div class="field">
+                        <label for="savingBalance">Saving</label>
+                        <input id="savingBalance" type="number" step="0.01" placeholder="0.00" />
                     </div>
                     <div class="field">
                         <label for="etcBalance">Etc</label>
@@ -56,12 +56,12 @@
 
                 <div class="balance-cards">
                     <div class="balance-card">
-                        <div class="balance-title">Saving</div>
-                        <div id="savingDisplay" class="balance-value">$0.00</div>
-                    </div>
-                    <div class="balance-card">
                         <div class="balance-title">Checking</div>
                         <div id="checkingDisplay" class="balance-value">$0.00</div>
+                    </div>
+                    <div class="balance-card">
+                        <div class="balance-title">Saving</div>
+                        <div id="savingDisplay" class="balance-value">$0.00</div>
                     </div>
                     <div class="balance-card">
                         <div class="balance-title">Etc</div>
