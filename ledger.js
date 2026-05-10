@@ -2,37 +2,60 @@
 
 const setupSection = document.getElementById('setupSection');
 const dashboardSection = document.getElementById('dashboardSection');
+const spendingSummarySection = document.getElementById('spendingSummarySection');
 const planSection = document.getElementById('planSection');
+const balanceHistorySection = document.getElementById('balanceHistorySection');
 
 const savingInput = document.getElementById('savingBalance');
 const checkingInput = document.getElementById('checkingBalance');
 const etcInput = document.getElementById('etcBalance');
 const saveBalancesBtn = document.getElementById('saveBalancesBtn');
+const setupBackBtn = document.getElementById('setupBackBtn');
 const editBalancesBtn = document.getElementById('editBalancesBtn');
+const toggleBalancesBtn = document.getElementById('toggleBalancesBtn');
+const balancePanel = document.querySelector('#dashboardSection .balance-panel');
+const balancePanelContent = document.getElementById('balancePanelContent');
 
 const savingDisplay = document.getElementById('savingDisplay');
 const checkingDisplay = document.getElementById('checkingDisplay');
 const etcDisplay = document.getElementById('etcDisplay');
 const totalBalanceEl = document.getElementById('totalBalance');
+const incomeTotalEl = document.getElementById('incomeTotal');
+const fixedTotalEl = document.getElementById('fixedTotal');
 const plannedTotalEl = document.getElementById('plannedTotal');
 const remainingTotalEl = document.getElementById('remainingTotal');
+const balanceHistoryList = document.getElementById('balanceHistoryList');
+const openBalanceHistoryBtn = document.getElementById('openBalanceHistoryBtn');
+const closeBalanceHistoryBtn = document.getElementById('closeBalanceHistoryBtn');
+const clearBalanceHistoryBtn = document.getElementById('clearBalanceHistoryBtn');
 
 const openPlanBtn = document.getElementById('openPlanBtn');
 const closePlanBtn = document.getElementById('closePlanBtn');
 const planForm = document.getElementById('planForm');
+const planTypeSelect = document.getElementById('planType');
 const planItemInput = document.getElementById('planItem');
 const planAmountInput = document.getElementById('planAmount');
 const addPlanItemBtn = document.getElementById('addPlanItemBtn');
 const removePlanItemBtn = document.getElementById('removePlanItemBtn');
-const planList = document.getElementById('planList');
+const fixedPlanList = document.getElementById('fixedPlanList');
+const expectedPlanList = document.getElementById('expectedPlanList');
+const incomePlanList = document.getElementById('incomePlanList');
+const fixedPlanTotalEl = document.getElementById('fixedPlanTotal');
+const expectedPlanTotalEl = document.getElementById('expectedPlanTotal');
+const incomePlanTotalEl = document.getElementById('incomePlanTotal');
 const planTotalEl = document.getElementById('planTotal');
 const planRemainingEl = document.getElementById('planRemaining');
+const planIncomeEl = document.getElementById('planIncome');
+const planFixedTotalEl = document.getElementById('planFixedTotal');
 const clearPlanBtn = document.getElementById('clearPlanBtn');
 
 const activitySection = document.getElementById('activitySection');
 const activityDateInput = document.getElementById('activityDate');
 const activityTypeSelect = document.getElementById('activityType');
 const activityAmountInput = document.getElementById('activityAmount');
+const activitySourceTypeSelect = document.getElementById('activitySourceType');
+const activityLinkedItemField = document.getElementById('activityLinkedItemField');
+const activityLinkedItemSelect = document.getElementById('activityLinkedItem');
 const activityReasonInput = document.getElementById('activityReason');
 const activityForm = document.getElementById('activityForm');
 const activityList = document.getElementById('activityList');
@@ -70,6 +93,7 @@ const requireAuthRef = authApi.requireAuth;
 const dbRef = authApi.db;
 let currentUser = null;
 let balancesUnsub = null;
+let balanceHistoryUnsub = null;
 let planUnsub = null;
 let activityUnsub = null;
 
@@ -85,6 +109,10 @@ function planCollection(user) {
     return dbRef.collection('users').doc(user.uid).collection('ledgerPlanItems');
 }
 
+function balanceHistoryCollection(user) {
+    return dbRef.collection('users').doc(user.uid).collection('ledgerBalanceHistory');
+}
+
 function activityCollection(user) {
     return dbRef.collection('users').doc(user.uid).collection('ledgerEntries');
 }
@@ -92,6 +120,7 @@ function activityCollection(user) {
 function startLedgerSync(user) {
     if (!dbRef) return;
     if (balancesUnsub) balancesUnsub();
+    if (balanceHistoryUnsub) balanceHistoryUnsub();
     if (planUnsub) planUnsub();
     if (activityUnsub) activityUnsub();
 
@@ -104,23 +133,34 @@ function startLedgerSync(user) {
         }
     });
 
+    balanceHistoryUnsub = balanceHistoryCollection(user)
+        .orderBy('savedAt', 'desc')
+        .limit(30)
+        .onSnapshot(snapshot => {
+            balanceHistoryEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderBalanceHistory();
+        });
+
     planUnsub = planCollection(user).onSnapshot(snapshot => {
-        planItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        planItems = normalizePlanItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         renderPlan();
         renderDashboard();
+        updateActivitySourceControls();
     });
 
     activityUnsub = activityCollection(user).onSnapshot(snapshot => {
-        activityEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        activityEntries = normalizeActivityEntries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         renderActivity();
     });
 }
 
 const STORAGE_BALANCES = 'ledgerBalances';
+const STORAGE_BALANCE_HISTORY = 'ledgerBalanceHistory';
 const STORAGE_PLAN_ITEMS = 'ledgerPlanItems';
 const STORAGE_ACTIVITY = 'ledgerActivity';
 
 let balances = null;
+let balanceHistoryEntries = [];
 let planItems = [];
 let editingPlanId = null;
 let activityEntries = [];
@@ -130,6 +170,13 @@ let toastTimer = null;
 let toastHideTimer = null;
 let selectedSummaryRange = 'month';
 let selectedSummaryMonth = new Date().getMonth() + 1;
+let balancesCollapsed = false;
+
+const PLAN_TYPES = {
+    fixed: 'fixed',
+    expected: 'expected',
+    income: 'income'
+};
 
 const MONTH_NAMES = [
     'January',
@@ -412,6 +459,91 @@ function formatCurrency(num) {
     });
 }
 
+function formatHistoryDateTime(value) {
+    if (!value && value !== 0) return 'Unknown time';
+    let date = value;
+    if (value && typeof value.toDate === 'function') {
+        date = value.toDate();
+    } else if (value && typeof value.seconds === 'number') {
+        date = new Date(value.seconds * 1000);
+    } else if (!(value instanceof Date)) {
+        date = new Date(value);
+    }
+
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return 'Unknown time';
+    }
+
+    return date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+    });
+}
+
+function normalizePlanType(value) {
+    return value === PLAN_TYPES.fixed || value === PLAN_TYPES.income ? value : PLAN_TYPES.expected;
+}
+
+function normalizeActivitySourceType(value) {
+    if (value === 'custom') return 'custom';
+    return normalizePlanType(value);
+}
+
+function normalizePlanItem(item) {
+    return {
+        id: String(item.id || Date.now()),
+        type: normalizePlanType(item.type),
+        label: String(item.label || '').trim(),
+        amount: Number(Number(item.amount || 0).toFixed(2))
+    };
+}
+
+function normalizePlanItems(items) {
+    return (items || [])
+        .map(normalizePlanItem)
+        .filter(item => item.label && item.amount > 0);
+}
+
+function normalizeActivityEntry(entry) {
+    return {
+        ...entry,
+        id: String(entry.id || Date.now()),
+        type: entry.type === 'income' ? 'income' : 'expense',
+        amount: Number(Number(entry.amount || 0).toFixed(2)),
+        reason: String(entry.reason || '').trim(),
+        sourceType: entry.sourceType ? normalizeActivitySourceType(entry.sourceType) : 'custom',
+        linkedPlanItemId: entry.linkedPlanItemId ? String(entry.linkedPlanItemId) : '',
+        linkedPlanItemLabel: entry.linkedPlanItemLabel ? String(entry.linkedPlanItemLabel) : ''
+    };
+}
+
+function normalizeActivityEntries(entries) {
+    return (entries || []).map(normalizeActivityEntry).filter(entry => entry.reason && entry.amount > 0);
+}
+
+function getPlanItemsByType(type) {
+    return planItems.filter(item => item.type === type);
+}
+
+function getPlanTotalByType(type) {
+    return getPlanItemsByType(type).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+}
+
+function getExpenseTotal() {
+    return getPlanTotalByType(PLAN_TYPES.fixed) + getPlanTotalByType(PLAN_TYPES.expected);
+}
+
+function getIncomeTotal() {
+    return getPlanTotalByType(PLAN_TYPES.income);
+}
+
+function getEstimatedSavings() {
+    return getIncomeTotal() - getExpenseTotal();
+}
+
 function loadBalances() {
     const raw = localStorage.getItem(STORAGE_BALANCES);
     balances = raw ? JSON.parse(raw) : null;
@@ -421,9 +553,139 @@ function saveBalances() {
     localStorage.setItem(STORAGE_BALANCES, JSON.stringify(balances));
 }
 
+function loadBalanceHistory() {
+    const raw = localStorage.getItem(STORAGE_BALANCE_HISTORY);
+    balanceHistoryEntries = raw ? JSON.parse(raw) : [];
+}
+
+function saveBalanceHistory() {
+    localStorage.setItem(STORAGE_BALANCE_HISTORY, JSON.stringify(balanceHistoryEntries));
+}
+
+function areBalancesEqual(left, right) {
+    if (!left || !right) return false;
+    return Number(left.checking || 0) === Number(right.checking || 0)
+        && Number(left.saving || 0) === Number(right.saving || 0)
+        && Number(left.etc || 0) === Number(right.etc || 0);
+}
+
+function buildBalanceHistoryEntry(nextBalances) {
+    const savedAt = new Date().toISOString();
+    return {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        savedAt,
+        checking: Number(nextBalances.checking || 0),
+        saving: Number(nextBalances.saving || 0),
+        etc: Number(nextBalances.etc || 0),
+        total: Number(nextBalances.checking || 0) + Number(nextBalances.saving || 0) + Number(nextBalances.etc || 0)
+    };
+}
+
+function renderBalanceHistory() {
+    if (!balanceHistoryList) return;
+    balanceHistoryList.innerHTML = '';
+
+    if (!balanceHistoryEntries.length) {
+        const empty = document.createElement('li');
+        empty.className = 'ledger-history-item empty';
+        empty.textContent = '\u2728 No saved balance history yet.';
+        balanceHistoryList.appendChild(empty);
+        return;
+    }
+
+    balanceHistoryEntries.forEach(entry => {
+        const item = document.createElement('li');
+        item.className = 'ledger-history-item';
+        item.dataset.id = String(entry.id);
+
+        const meta = document.createElement('div');
+        meta.className = 'history-meta';
+
+        const title = document.createElement('div');
+        title.className = 'history-title';
+        title.textContent = formatHistoryDateTime(entry.savedAt);
+
+        const sub = document.createElement('div');
+        sub.className = 'history-sub';
+        sub.textContent = 'Saved balance snapshot';
+
+        const values = document.createElement('div');
+        values.className = 'history-values';
+        values.innerHTML = `
+            <span class="history-chip">Checking ${formatCurrency(entry.checking)}</span>
+            <span class="history-chip">Saving ${formatCurrency(entry.saving)}</span>
+            <span class="history-chip">Etc ${formatCurrency(entry.etc)}</span>
+        `;
+
+        const total = document.createElement('div');
+        total.className = 'history-total';
+        total.textContent = formatCurrency(entry.total);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'icon-btn history-delete-btn';
+        deleteBtn.type = 'button';
+        deleteBtn.dataset.action = 'delete-history';
+        deleteBtn.setAttribute('aria-label', 'Delete balance history entry');
+        deleteBtn.setAttribute('title', 'Delete balance history entry');
+        deleteBtn.textContent = '🗑';
+
+        const actions = document.createElement('div');
+        actions.className = 'history-actions';
+        actions.appendChild(total);
+        actions.appendChild(deleteBtn);
+
+        meta.appendChild(title);
+        meta.appendChild(sub);
+        meta.appendChild(values);
+        item.appendChild(meta);
+        item.appendChild(actions);
+        balanceHistoryList.appendChild(item);
+    });
+}
+
+async function recordBalanceHistory(nextBalances) {
+    const entry = buildBalanceHistoryEntry(nextBalances);
+
+    if (isRemoteEnabled()) {
+        await balanceHistoryCollection(currentUser).doc(entry.id).set(entry);
+        return;
+    }
+
+    balanceHistoryEntries = [entry, ...balanceHistoryEntries].slice(0, 30);
+    saveBalanceHistory();
+    renderBalanceHistory();
+}
+
+async function deleteBalanceHistoryEntry(id) {
+    if (!confirm('Delete this balance history entry?')) return;
+    if (isRemoteEnabled()) {
+        await balanceHistoryCollection(currentUser).doc(String(id)).delete();
+        return;
+    }
+    balanceHistoryEntries = balanceHistoryEntries.filter(entry => String(entry.id) !== String(id));
+    saveBalanceHistory();
+    renderBalanceHistory();
+}
+
+async function clearBalanceHistory() {
+    if (!confirm('Clear all balance history?')) return;
+    if (isRemoteEnabled()) {
+        const batch = dbRef.batch();
+        balanceHistoryEntries.forEach(entry => {
+            const ref = balanceHistoryCollection(currentUser).doc(String(entry.id));
+            batch.delete(ref);
+        });
+        await batch.commit();
+        return;
+    }
+    balanceHistoryEntries = [];
+    saveBalanceHistory();
+    renderBalanceHistory();
+}
+
 function loadPlanItems() {
     const raw = localStorage.getItem(STORAGE_PLAN_ITEMS);
-    planItems = raw ? JSON.parse(raw) : [];
+    planItems = normalizePlanItems(raw ? JSON.parse(raw) : []);
 }
 
 function savePlanItems() {
@@ -432,7 +694,7 @@ function savePlanItems() {
 
 function loadActivityEntries() {
     const raw = localStorage.getItem(STORAGE_ACTIVITY);
-    activityEntries = raw ? JSON.parse(raw) : [];
+    activityEntries = normalizeActivityEntries(raw ? JSON.parse(raw) : []);
 }
 
 function saveActivityEntries() {
@@ -449,7 +711,7 @@ function getTotalBalance() {
 }
 
 function getPlannedTotal() {
-    return planItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    return getPlanTotalByType(PLAN_TYPES.expected);
 }
 
 function setRemainingStyles(el, value) {
@@ -464,58 +726,155 @@ function renderDashboard() {
     checkingDisplay.textContent = formatCurrency(balances.checking);
     etcDisplay.textContent = formatCurrency(balances.etc);
 
-    const total = getTotalBalance();
-    const planned = getPlannedTotal();
-    const remaining = total - planned;
+    const income = getIncomeTotal();
+    const fixed = getPlanTotalByType(PLAN_TYPES.fixed);
+    const expected = getPlanTotalByType(PLAN_TYPES.expected);
+    const savings = getEstimatedSavings();
 
-    totalBalanceEl.textContent = formatCurrency(total);
-    plannedTotalEl.textContent = formatCurrency(planned);
-    remainingTotalEl.textContent = formatCurrency(remaining);
-    setRemainingStyles(remainingTotalEl, remaining);
+    if (totalBalanceEl) totalBalanceEl.textContent = formatCurrency(getTotalBalance());
+    if (incomeTotalEl) incomeTotalEl.textContent = formatCurrency(income);
+    if (fixedTotalEl) fixedTotalEl.textContent = formatCurrency(fixed);
+    plannedTotalEl.textContent = formatCurrency(expected);
+    remainingTotalEl.textContent = formatCurrency(savings);
+    setRemainingStyles(remainingTotalEl, savings);
+}
+
+function setBalancesCollapsed(collapsed) {
+    balancesCollapsed = Boolean(collapsed);
+    if (balancePanel) {
+        balancePanel.classList.toggle('collapsed', balancesCollapsed);
+    }
+    if (toggleBalancesBtn) {
+        toggleBalancesBtn.setAttribute('aria-expanded', balancesCollapsed ? 'false' : 'true');
+    }
+    if (balancePanelContent) {
+        balancePanelContent.setAttribute('aria-hidden', balancesCollapsed ? 'true' : 'false');
+    }
+}
+
+function toggleBalancesPanel() {
+    setBalancesCollapsed(!balancesCollapsed);
+}
+
+function getPlanTypeLabel(type) {
+    if (type === PLAN_TYPES.fixed) return '고정지출';
+    if (type === PLAN_TYPES.income) return '예상 수입';
+    return '예상 지출';
+}
+
+function renderPlanBucket(listEl, items, amountClass = 'plan-amount') {
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    if (items.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'ledger-plan-item empty';
+        empty.textContent = '\u2728 No items yet.';
+        listEl.appendChild(empty);
+        return;
+    }
+
+    items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'ledger-plan-item';
+        li.dataset.id = item.id;
+
+        const label = document.createElement('div');
+        label.className = 'plan-label';
+        label.textContent = item.label;
+
+        const amount = document.createElement('div');
+        amount.className = amountClass;
+        amount.textContent = formatCurrency(item.amount);
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'ghost-btn';
+        editBtn.type = 'button';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => enterEditMode(item.id));
+
+        li.appendChild(label);
+        li.appendChild(amount);
+        li.appendChild(editBtn);
+        listEl.appendChild(li);
+    });
 }
 
 function renderPlan() {
-    planList.innerHTML = '';
+    const fixedItems = getPlanItemsByType(PLAN_TYPES.fixed);
+    const expectedItems = getPlanItemsByType(PLAN_TYPES.expected);
+    const incomeItems = getPlanItemsByType(PLAN_TYPES.income);
 
-    if (planItems.length === 0) {
-        const empty = document.createElement('li');
-        empty.className = 'ledger-plan-item empty';
-        empty.textContent = '\u2728 No planned items yet.';
-        planList.appendChild(empty);
-    } else {
-        planItems.forEach(item => {
-            const li = document.createElement('li');
-            li.className = 'ledger-plan-item';
-            li.dataset.id = item.id;
+    renderPlanBucket(fixedPlanList, fixedItems, 'plan-amount');
+    renderPlanBucket(expectedPlanList, expectedItems, 'plan-amount');
+    renderPlanBucket(incomePlanList, incomeItems, 'plan-income-amount');
 
-            const label = document.createElement('div');
-            label.className = 'plan-label';
-            label.textContent = item.label;
+    const fixedTotal = getPlanTotalByType(PLAN_TYPES.fixed);
+    const expectedTotal = getPlanTotalByType(PLAN_TYPES.expected);
+    const incomeTotal = getPlanTotalByType(PLAN_TYPES.income);
+    const savings = getEstimatedSavings();
 
-            const amount = document.createElement('div');
-            amount.className = 'plan-amount';
-            amount.textContent = '-' + formatCurrency(item.amount);
+    if (fixedPlanTotalEl) fixedPlanTotalEl.textContent = formatCurrency(fixedTotal);
+    if (expectedPlanTotalEl) expectedPlanTotalEl.textContent = formatCurrency(expectedTotal);
+    if (incomePlanTotalEl) incomePlanTotalEl.textContent = formatCurrency(incomeTotal);
+    if (planIncomeEl) planIncomeEl.textContent = formatCurrency(incomeTotal);
+    if (planFixedTotalEl) planFixedTotalEl.textContent = formatCurrency(fixedTotal);
+    planTotalEl.textContent = formatCurrency(expectedTotal);
+    planRemainingEl.textContent = formatCurrency(savings);
+    setRemainingStyles(planRemainingEl, savings);
+}
 
-            const editBtn = document.createElement('button');
-            editBtn.className = 'ghost-btn';
-            editBtn.type = 'button';
-            editBtn.textContent = 'Edit';
-            editBtn.addEventListener('click', () => enterEditMode(item.id));
+function populateActivityLinkedItems() {
+    if (!activityLinkedItemSelect) return;
+    const sourceType = activitySourceTypeSelect ? activitySourceTypeSelect.value : 'custom';
+    const items = sourceType === 'custom' ? [] : getPlanItemsByType(normalizePlanType(sourceType));
 
-            li.appendChild(label);
-            li.appendChild(amount);
-            li.appendChild(editBtn);
-            planList.appendChild(li);
-        });
+    activityLinkedItemSelect.innerHTML = '';
+    if (!items.length) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No items available';
+        activityLinkedItemSelect.appendChild(option);
+        return;
     }
 
-    const total = getTotalBalance();
-    const planned = getPlannedTotal();
-    const remaining = total - planned;
+    items.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = `${item.label} (${formatCurrency(item.amount)})`;
+        activityLinkedItemSelect.appendChild(option);
+    });
+}
 
-    planTotalEl.textContent = formatCurrency(planned);
-    planRemainingEl.textContent = formatCurrency(remaining);
-    setRemainingStyles(planRemainingEl, remaining);
+function updateActivitySourceControls() {
+    if (!activitySourceTypeSelect || !activityLinkedItemField || !activityReasonInput) return;
+    const sourceType = activitySourceTypeSelect.value;
+    const usingLinkedItem = sourceType !== 'custom';
+
+    activityLinkedItemField.classList.toggle('hidden', !usingLinkedItem);
+    activityReasonInput.disabled = usingLinkedItem;
+    activityReasonInput.placeholder = usingLinkedItem ? 'Reason is taken from the selected budget item' : 'Food, paycheck, rent...';
+
+    populateActivityLinkedItems();
+
+    if (usingLinkedItem) {
+        const selectedItem = planItems.find(item => item.id === activityLinkedItemSelect.value) || getPlanItemsByType(normalizePlanType(sourceType))[0];
+        activityReasonInput.value = selectedItem ? selectedItem.label : '';
+    } else if (!activityReasonInput.value) {
+        activityReasonInput.value = '';
+    }
+}
+
+function syncActivitySourceWithType() {
+    if (!activityTypeSelect || !activitySourceTypeSelect) return;
+    if (activityTypeSelect.value === 'income') {
+        if (activitySourceTypeSelect.value === PLAN_TYPES.fixed || activitySourceTypeSelect.value === PLAN_TYPES.expected) {
+            activitySourceTypeSelect.value = PLAN_TYPES.income;
+        }
+    } else if (activitySourceTypeSelect.value === PLAN_TYPES.income) {
+        activitySourceTypeSelect.value = PLAN_TYPES.expected;
+    }
+    updateActivitySourceControls();
 }
 
 function renderActivity() {
@@ -561,7 +920,8 @@ function renderActivity() {
 
             const meta = document.createElement('div');
             meta.className = 'activity-meta';
-            meta.innerHTML = `<div class="activity-title">${entry.reason}</div><div class="activity-sub">${entry.date}</div>`;
+            const budgetTypeLabel = entry.sourceType && entry.sourceType !== 'custom' ? getPlanTypeLabel(entry.sourceType) : '';
+            meta.innerHTML = `<div class="activity-title">${entry.reason}</div><div class="activity-sub">${entry.date}${budgetTypeLabel ? ` · ${budgetTypeLabel}` : ''}</div>`;
 
             const amount = document.createElement('div');
             amount.className = 'activity-amount';
@@ -653,6 +1013,8 @@ function setActivityTypeFilter(filter) {
 function showSetup() {
     setupSection.classList.remove('hidden');
     dashboardSection.classList.add('hidden');
+    if (spendingSummarySection) spendingSummarySection.classList.add('hidden');
+    if (balanceHistorySection) balanceHistorySection.classList.add('hidden');
     if (activitySection) activitySection.classList.add('hidden');
     if (activitySummarySection) activitySummarySection.classList.add('hidden');
     planSection.classList.add('hidden');
@@ -668,24 +1030,49 @@ function showSetup() {
     }
 }
 
+function handleSetupBack() {
+    if (hasBalances()) {
+        showDashboard();
+        return;
+    }
+    window.location.href = 'index.html';
+}
+
 function showDashboard() {
     setupSection.classList.add('hidden');
     dashboardSection.classList.remove('hidden');
+    if (spendingSummarySection) spendingSummarySection.classList.remove('hidden');
+    if (balanceHistorySection) balanceHistorySection.classList.add('hidden');
     if (activitySection) activitySection.classList.remove('hidden');
     if (activitySummarySection) activitySummarySection.classList.remove('hidden');
     planSection.classList.add('hidden');
     exitEditMode();
     renderDashboard();
+    renderBalanceHistory();
+    setBalancesCollapsed(balancesCollapsed);
     renderActivity();
 }
 
 function showPlan() {
     setupSection.classList.add('hidden');
     dashboardSection.classList.add('hidden');
+    if (spendingSummarySection) spendingSummarySection.classList.add('hidden');
+    if (balanceHistorySection) balanceHistorySection.classList.add('hidden');
     if (activitySection) activitySection.classList.add('hidden');
     if (activitySummarySection) activitySummarySection.classList.add('hidden');
     planSection.classList.remove('hidden');
     renderPlan();
+}
+
+function showBalanceHistory() {
+    setupSection.classList.add('hidden');
+    dashboardSection.classList.add('hidden');
+    if (spendingSummarySection) spendingSummarySection.classList.add('hidden');
+    if (activitySection) activitySection.classList.add('hidden');
+    if (activitySummarySection) activitySummarySection.classList.add('hidden');
+    planSection.classList.add('hidden');
+    if (balanceHistorySection) balanceHistorySection.classList.remove('hidden');
+    renderBalanceHistory();
 }
 
 async function saveBalancesFromInputs() {
@@ -704,14 +1091,23 @@ async function saveBalancesFromInputs() {
         if (!confirm('All balances are zero. Continue?')) return;
     }
 
+    if (!confirm('Save these balance changes?')) return;
+
     balances = parsed;
     try {
+        const shouldRecordHistory = !areBalancesEqual(parsed, previousBalances);
         if (isRemoteEnabled()) {
             await balancesDoc(currentUser).set(balances);
+            if (shouldRecordHistory) {
+                await recordBalanceHistory(parsed);
+            }
             showDashboard();
             return;
         }
         saveBalances();
+        if (shouldRecordHistory) {
+            await recordBalanceHistory(parsed);
+        }
         showDashboard();
     } catch (error) {
         balances = previousBalances;
@@ -723,6 +1119,7 @@ function enterEditMode(id) {
     const item = planItems.find(entry => entry.id === id);
     if (!item) return;
     editingPlanId = id;
+    if (planTypeSelect) planTypeSelect.value = item.type;
     planItemInput.value = item.label;
     planAmountInput.value = Number(item.amount || 0).toFixed(2);
     addPlanItemBtn.textContent = 'Update item';
@@ -734,6 +1131,7 @@ function enterEditMode(id) {
 
 function exitEditMode() {
     editingPlanId = null;
+    if (planTypeSelect) planTypeSelect.value = PLAN_TYPES.fixed;
     planItemInput.value = '';
     planAmountInput.value = '';
     addPlanItemBtn.textContent = 'Add item';
@@ -744,6 +1142,7 @@ function exitEditMode() {
 }
 
 async function addPlanItem() {
+    const type = planTypeSelect ? normalizePlanType(planTypeSelect.value) : PLAN_TYPES.expected;
     const label = planItemInput.value.trim();
     const amount = parseFloat(planAmountInput.value);
 
@@ -757,6 +1156,7 @@ async function addPlanItem() {
     }
 
     const payload = {
+        type,
         label,
         amount: Number(amount.toFixed(2))
     };
@@ -777,7 +1177,7 @@ async function addPlanItem() {
         });
     } else {
         planItems.push({
-            id: Date.now(),
+            id: Date.now().toString(),
             ...payload
         });
     }
@@ -785,6 +1185,7 @@ async function addPlanItem() {
     exitEditMode();
     renderPlan();
     renderDashboard();
+    updateActivitySourceControls();
 }
 
 async function removeEditingPlanItem() {
@@ -799,10 +1200,11 @@ async function removeEditingPlanItem() {
     exitEditMode();
     renderPlan();
     renderDashboard();
+    updateActivitySourceControls();
 }
 
 async function clearPlan() {
-    if (!confirm('Clear all planned items?')) return;
+    if (!confirm('Clear all budget items?')) return;
     if (isRemoteEnabled()) {
         const batch = dbRef.batch();
         planItems.forEach(item => {
@@ -816,13 +1218,17 @@ async function clearPlan() {
     savePlanItems();
     renderPlan();
     renderDashboard();
+    updateActivitySourceControls();
 }
 
 async function addActivityEntry() {
     const date = activityDateInput.value;
     const type = activityTypeSelect.value;
     const amount = parseFloat(activityAmountInput.value);
-    const reason = activityReasonInput.value.trim();
+    const sourceType = activitySourceTypeSelect ? activitySourceTypeSelect.value : 'custom';
+    const linkedItemId = activityLinkedItemSelect ? activityLinkedItemSelect.value : '';
+    const linkedItem = sourceType === 'custom' ? null : planItems.find(item => item.id === linkedItemId);
+    const reason = linkedItem ? linkedItem.label : activityReasonInput.value.trim();
 
     if (!date) {
         alert('Please select a date.');
@@ -846,12 +1252,22 @@ async function addActivityEntry() {
         date,
         type,
         amount: Number(amount.toFixed(2)),
-        reason
+        reason,
+        sourceType,
+        linkedPlanItemId: linkedItem ? linkedItem.id : '',
+        linkedPlanItemLabel: linkedItem ? linkedItem.label : ''
     };
 
     activityDateInput.value = '';
     activityAmountInput.value = '';
     activityReasonInput.value = '';
+    if (activitySourceTypeSelect) {
+        activitySourceTypeSelect.value = 'custom';
+    }
+    if (activityLinkedItemSelect) {
+        activityLinkedItemSelect.innerHTML = '';
+    }
+    updateActivitySourceControls();
 
     if (isRemoteEnabled()) {
         await activityCollection(currentUser).doc(entry.id).set(entry);
@@ -891,7 +1307,10 @@ async function editActivityEntry(id) {
         date: newDate,
         reason: newReason.trim() || entry.reason,
         amount: Number(newAmount.toFixed(2)),
-        type: normalizedType
+        type: normalizedType,
+        sourceType: normalizedType === 'income' && entry.sourceType === PLAN_TYPES.income ? PLAN_TYPES.income : entry.sourceType,
+        linkedPlanItemId: entry.linkedPlanItemId || '',
+        linkedPlanItemLabel: entry.linkedPlanItemLabel || ''
     };
 
     if (isRemoteEnabled()) {
@@ -921,6 +1340,9 @@ async function deleteActivityEntry(id) {
 function renderReasonOptions() {
     if (!activityReasonList) return;
     const reasons = new Set();
+    planItems.forEach(item => {
+        if (item.label) reasons.add(item.label.trim());
+    });
     activityEntries.forEach(entry => {
         if (entry.reason) reasons.add(entry.reason.trim());
     });
@@ -1180,7 +1602,12 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
 }
 
 if (saveBalancesBtn) saveBalancesBtn.addEventListener('click', saveBalancesFromInputs);
+if (setupBackBtn) setupBackBtn.addEventListener('click', handleSetupBack);
 if (editBalancesBtn) editBalancesBtn.addEventListener('click', showSetup);
+if (toggleBalancesBtn) toggleBalancesBtn.addEventListener('click', toggleBalancesPanel);
+if (openBalanceHistoryBtn) openBalanceHistoryBtn.addEventListener('click', showBalanceHistory);
+if (closeBalanceHistoryBtn) closeBalanceHistoryBtn.addEventListener('click', showDashboard);
+if (clearBalanceHistoryBtn) clearBalanceHistoryBtn.addEventListener('click', clearBalanceHistory);
 if (openPlanBtn) openPlanBtn.addEventListener('click', showPlan);
 if (closePlanBtn) closePlanBtn.addEventListener('click', showDashboard);
 if (addPlanItemBtn) addPlanItemBtn.addEventListener('click', addPlanItem);
@@ -1196,6 +1623,20 @@ if (activityForm) {
     activityForm.addEventListener('submit', event => {
         event.preventDefault();
         addActivityEntry();
+    });
+}
+if (activityTypeSelect) {
+    activityTypeSelect.addEventListener('change', syncActivitySourceWithType);
+}
+if (activitySourceTypeSelect) {
+    activitySourceTypeSelect.addEventListener('change', updateActivitySourceControls);
+}
+if (activityLinkedItemSelect) {
+    activityLinkedItemSelect.addEventListener('change', () => {
+        const linkedItem = planItems.find(item => item.id === activityLinkedItemSelect.value);
+        if (linkedItem && activityReasonInput) {
+            activityReasonInput.value = linkedItem.label;
+        }
     });
 }
 if (activityFilterGroup) {
@@ -1264,9 +1705,20 @@ if (activityList) {
         selectActivityEntry(entry, range, now, startOfWeek, endOfWeek);
     });
 }
+if (balanceHistoryList) {
+    balanceHistoryList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-action="delete-history"]');
+        if (!button) return;
+        const item = button.closest('.ledger-history-item');
+        if (!item || item.classList.contains('empty')) return;
+        deleteBalanceHistoryEntry(item.dataset.id);
+    });
+}
 
 (function init() {
     setActivityTypeFilter('all');
+    exitEditMode();
+    syncActivitySourceWithType();
     if (activityDateInput) {
         activityDateInput.max = getTodayDateString();
     }
@@ -1280,8 +1732,10 @@ if (activityList) {
     }
 
     loadBalances();
+    loadBalanceHistory();
     loadPlanItems();
     loadActivityEntries();
+    updateActivitySourceControls();
 
     if (hasBalances()) {
         showDashboard();

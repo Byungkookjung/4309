@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Expense Ledger</title>
     <link rel="icon" href="favicon-ledger.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="style.css?v=20260323b" />
+    <link rel="stylesheet" href="style.css?v=20260509n" />
 </head>
 <body class="ledger-body">
     <div class="container">
@@ -26,6 +26,7 @@
             <section id="setupSection" class="ledger-card">
                 <div class="ledger-row">
                     <h2>Account Setup</h2>
+                    <button id="setupBackBtn" class="icon-btn back-icon-btn" type="button" aria-label="Back" title="Back">←</button>
                 </div>
                 <p class="muted">&#x2728; Enter your current balances to get started.</p>
                 <form id="setupForm" class="ledger-grid" onsubmit="return false;">
@@ -43,47 +44,79 @@
                     </div>
                     <div class="field action">
                         <label aria-hidden="true">&nbsp;</label>
-                        <button id="saveBalancesBtn" class="primary-btn" type="button">Save balances</button>
+                        <button id="saveBalancesBtn" class="primary-btn save-balances-btn" type="button">
+                            <span aria-hidden="true">✓</span>
+                            <span>Save balances</span>
+                        </button>
                     </div>
                 </form>
             </section>
 
             <section id="dashboardSection" class="ledger-card hidden">
+                <div class="balance-panel">
+                    <div class="ledger-row balance-panel-header">
+                        <button id="toggleBalancesBtn" class="balance-toggle-btn" type="button" aria-expanded="true" aria-controls="balancePanelContent">
+                            <span>Balances</span>
+                            <span class="balance-toggle-icon" aria-hidden="true">▾</span>
+                        </button>
+                        <button id="editBalancesBtn" class="icon-btn balance-edit-btn" type="button" aria-label="Edit balances" title="Edit balances">✎</button>
+                    </div>
+
+                    <div id="balancePanelContent" class="balance-panel-content">
+                        <div class="balance-cards">
+                            <div class="balance-card">
+                                <div class="balance-title">Checking</div>
+                                <div id="checkingDisplay" class="balance-value">$0.00</div>
+                            </div>
+                            <div class="balance-card">
+                                <div class="balance-title">Saving</div>
+                                <div id="savingDisplay" class="balance-value">$0.00</div>
+                            </div>
+                            <div class="balance-card">
+                                <div class="balance-title">Etc</div>
+                                <div id="etcDisplay" class="balance-value">$0.00</div>
+                            </div>
+                        </div>
+
+                        <div class="balance-history-block">
+                            <div class="ledger-row balance-history-header">
+                                <h3>Balance History</h3>
+                                <button id="openBalanceHistoryBtn" class="icon-btn balance-history-view-btn" type="button" aria-label="View balance history" title="View balance history">👁</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="spendingSummarySection" class="ledger-card hidden">
                 <div class="ledger-row">
-                    <h2>Balances</h2>
-                    <button id="editBalancesBtn" class="ghost-btn" type="button">Edit</button>
+                    <h2>Budget Overview</h2>
+                    <button id="openPlanBtn" class="primary-btn" type="button">Manage Expenses</button>
                 </div>
-
-                <div class="balance-cards">
-                    <div class="balance-card">
-                        <div class="balance-title">Checking</div>
-                        <div id="checkingDisplay" class="balance-value">$0.00</div>
+                <p class="muted">Track monthly income, fixed costs, expected spending, and estimated savings.</p>
+                <div class="budget-overview-grid">
+                    <div class="budget-overview-card">
+                        <div class="budget-overview-label">Expected income</div>
+                        <div id="incomeTotal" class="budget-overview-value">$0.00</div>
                     </div>
-                    <div class="balance-card">
-                        <div class="balance-title">Saving</div>
-                        <div id="savingDisplay" class="balance-value">$0.00</div>
+                    <div class="budget-overview-card">
+                        <div class="budget-overview-label">Fixed expenses</div>
+                        <div id="fixedTotal" class="budget-overview-value">$0.00</div>
                     </div>
-                    <div class="balance-card">
-                        <div class="balance-title">Etc</div>
-                        <div id="etcDisplay" class="balance-value">$0.00</div>
+                    <div class="budget-overview-card">
+                        <div class="budget-overview-label">Expected spending</div>
+                        <div id="plannedTotal" class="budget-overview-value">$0.00</div>
+                    </div>
+                    <div class="budget-overview-card">
+                        <div class="budget-overview-label">Estimated savings</div>
+                        <div id="remainingTotal" class="budget-overview-value remaining">$0.00</div>
                     </div>
                 </div>
-
-                <div class="totals-row">
-                    <div>Total balance: <span id="totalBalance">$0.00</span></div>
-                    <div>Planned spend: <span id="plannedTotal">$0.00</span></div>
-                    <div>Remaining: <span id="remainingTotal" class="remaining">$0.00</span></div>
-                </div>
-
-                <button id="openPlanBtn" class="primary-btn" type="button">Open Spending Plan</button>
             </section>
 
             <section id="activitySection" class="ledger-card hidden">
                 <div class="ledger-row">
                     <h2>Activity</h2>
-                </div>
-                <div class="activity-toolbar">
-                    <p class="muted">&#x1F4DD; Track what you spent and what you received.</p>
                     <div id="activityFilterGroup" class="activity-filter-group" role="group" aria-label="Filter activity type">
                         <button class="ghost-btn activity-filter-btn active" data-filter="all" type="button" aria-pressed="true">All</button>
                         <button class="ghost-btn activity-filter-btn" data-filter="expense" type="button" aria-pressed="false">Expense</button>
@@ -105,6 +138,19 @@
                     <div class="field">
                         <label for="activityAmount">Amount</label>
                         <input id="activityAmount" type="number" step="0.01" placeholder="0.00" />
+                    </div>
+                    <div class="field">
+                        <label for="activitySourceType">Linked budget</label>
+                        <select id="activitySourceType">
+                            <option value="custom">Custom</option>
+                            <option value="fixed">Fixed expense</option>
+                            <option value="expected">Expected expense</option>
+                            <option value="income">Expected income</option>
+                        </select>
+                    </div>
+                    <div id="activityLinkedItemField" class="field wide hidden">
+                        <label for="activityLinkedItem">Budget item</label>
+                        <select id="activityLinkedItem"></select>
                     </div>
                     <div class="field wide">
                         <label for="activityReason">Reason</label>
@@ -165,11 +211,19 @@
 
             <section id="planSection" class="ledger-card hidden">
                 <div class="ledger-row">
-                    <h2>Spending Plan</h2>
-                    <button id="closePlanBtn" class="ghost-btn" type="button">Back</button>
+                    <h2>Fixed & Expected Expenses</h2>
+                    <button id="closePlanBtn" class="icon-btn back-icon-btn" type="button" aria-label="Back" title="Back">←</button>
                 </div>
 
                 <form id="planForm" class="ledger-grid" onsubmit="return false;">
+                    <div class="field">
+                        <label for="planType">Type</label>
+                        <select id="planType">
+                            <option value="fixed">Fixed expense</option>
+                            <option value="expected">Expected expense</option>
+                            <option value="income">Expected income</option>
+                        </select>
+                    </div>
                     <div class="field wide">
                         <label for="planItem">Item</label>
                         <input id="planItem" type="text" placeholder="Rent, groceries, subscriptions" />
@@ -181,20 +235,63 @@
                     <div class="field action">
                         <label aria-hidden="true">&nbsp;</label>
                         <div class="plan-actions">
-                            <button id="addPlanItemBtn" class="primary-btn" type="button">Add item</button>
+                            <button id="addPlanItemBtn" class="primary-btn" type="button">Add expense</button>
                             <button id="removePlanItemBtn" class="clear-btn hidden" type="button" disabled>Remove</button>
                         </div>
                     </div>
                 </form>
 
-                <ul id="planList" class="ledger-plan-list"></ul>
+                <div class="expense-board">
+                    <section class="expense-sheet">
+                        <div class="expense-sheet-header fixed">고정지출</div>
+                        <ul id="fixedPlanList" class="ledger-plan-list expense-sheet-list"></ul>
+                        <div class="expense-sheet-total">총 <span id="fixedPlanTotal">$0.00</span></div>
+                    </section>
 
-                <div class="totals-row">
-                    <div>Planned spend: <span id="planTotal">$0.00</span></div>
-                    <div>Remaining: <span id="planRemaining" class="remaining">$0.00</span></div>
+                    <section class="expense-sheet">
+                        <div class="expense-sheet-header expected">예상 지출</div>
+                        <ul id="expectedPlanList" class="ledger-plan-list expense-sheet-list"></ul>
+                        <div class="expense-sheet-total">총 <span id="expectedPlanTotal">$0.00</span></div>
+                    </section>
+
+                    <section class="expense-sheet summary">
+                        <div class="expense-sheet-header income">예상 수입</div>
+                        <ul id="incomePlanList" class="ledger-plan-list expense-sheet-list"></ul>
+                        <div class="expense-sheet-total">총 <span id="incomePlanTotal">$0.00</span></div>
+                        <div class="expense-summary-table">
+                            <div class="expense-summary-row">
+                                <span>월 수입</span>
+                                <span id="planIncome">$0.00</span>
+                            </div>
+                            <div class="expense-summary-row">
+                                <span>고정지출</span>
+                                <span id="planFixedTotal">$0.00</span>
+                            </div>
+                            <div class="expense-summary-row">
+                                <span>예상 지출</span>
+                                <span id="planTotal">$0.00</span>
+                            </div>
+                            <div class="expense-summary-row savings">
+                                <span>저축</span>
+                                <span id="planRemaining" class="remaining">$0.00</span>
+                            </div>
+                        </div>
+                    </section>
                 </div>
 
-                <button id="clearPlanBtn" class="danger-btn" type="button">Clear plan</button>
+                <button id="clearPlanBtn" class="danger-btn" type="button">Clear expenses</button>
+            </section>
+
+            <section id="balanceHistorySection" class="ledger-card hidden">
+                <div class="ledger-row">
+                    <h2>Balance History</h2>
+                    <div class="balance-history-actions">
+                        <button id="clearBalanceHistoryBtn" class="danger-btn" type="button">Clear history</button>
+                        <button id="closeBalanceHistoryBtn" class="icon-btn back-icon-btn" type="button" aria-label="Back" title="Back">←</button>
+                    </div>
+                </div>
+                <p class="muted">Each saved balance update is kept here so you can review past snapshots.</p>
+                <ul id="balanceHistoryList" class="ledger-history-list"></ul>
             </section>
         </main>
     </div>
@@ -213,6 +310,6 @@
             }
         })();
     </script>
-    <script src="ledger.js?v=20260323"></script>
+    <script src="ledger.js?v=20260509n"></script>
 </body>
 </html>
