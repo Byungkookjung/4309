@@ -78,11 +78,14 @@ const summaryRangeLabel = document.getElementById('summaryRangeLabel');
 const selectedReasonEl = document.getElementById('selectedReason');
 const legendSortSelect = document.getElementById('legendSort');
 const legendToggleBtn = document.getElementById('legendToggleBtn');
+const rentToggleBtn = document.getElementById('rentToggleBtn');
+const budgetProgressRows = document.getElementById('budgetProgressRows');
 
 let chartSlices = [];
 let selectedReasonLabel = null;
 let lastChartContext = null;
 let isLegendExpanded = false;
+let hideRentInChart = false;
 const SUMMARY_LEGEND_LIMIT = 10;
 const COLOR_PALETTE = [];
 const reasonColorMap = new Map();
@@ -423,6 +426,135 @@ function updateActivitySummaryRangeLabels() {
             summaryRangeLabel.textContent = weekText;
         }
     }
+}
+
+function isRentReason(label) {
+    const normalized = String(label || '').trim().toLowerCase();
+    return normalized.includes('rent');
+}
+
+function updateRentToggleUI() {
+    if (!rentToggleBtn) return;
+    rentToggleBtn.textContent = hideRentInChart ? 'Show rent' : 'Hide rent';
+    rentToggleBtn.setAttribute('aria-pressed', hideRentInChart ? 'true' : 'false');
+    rentToggleBtn.classList.toggle('active', hideRentInChart);
+}
+
+function getSelectedRangeContext() {
+    const range = selectedSummaryRange;
+    const { now, startOfWeek, endOfWeek } = getRangeWindow();
+    return { range, now, startOfWeek, endOfWeek };
+}
+
+function getEntriesInSelectedRange() {
+    const { range, now, startOfWeek, endOfWeek } = getSelectedRangeContext();
+    return activityEntries.filter(entry => isEntryInRange(entry.date, range, now, startOfWeek, endOfWeek, selectedSummaryMonth));
+}
+
+function formatProgressPercent(actual, planned) {
+    if (planned <= 0) {
+        return actual > 0 ? '100%+' : '0%';
+    }
+    return `${((actual / planned) * 100).toFixed(1)}%`;
+}
+
+function buildBudgetProgressRows() {
+    const entriesInRange = getEntriesInSelectedRange();
+    const actualByType = entriesInRange.reduce((acc, entry) => {
+        if (entry.sourceType === PLAN_TYPES.fixed && entry.type === 'expense') {
+            acc.fixed += Number(entry.amount || 0);
+        } else if (entry.sourceType === PLAN_TYPES.expected && entry.type === 'expense') {
+            acc.expected += Number(entry.amount || 0);
+        } else if (entry.sourceType === PLAN_TYPES.income && entry.type === 'income') {
+            acc.income += Number(entry.amount || 0);
+        }
+        return acc;
+    }, { fixed: 0, expected: 0, income: 0 });
+
+    return [
+        {
+            key: PLAN_TYPES.fixed,
+            label: '고정지출',
+            planned: getPlanTotalByType(PLAN_TYPES.fixed),
+            actual: actualByType.fixed,
+            kind: 'expense'
+        },
+        {
+            key: PLAN_TYPES.expected,
+            label: '예상 지출',
+            planned: getPlanTotalByType(PLAN_TYPES.expected),
+            actual: actualByType.expected,
+            kind: 'expense'
+        },
+        {
+            key: PLAN_TYPES.income,
+            label: '예상 수입',
+            planned: getPlanTotalByType(PLAN_TYPES.income),
+            actual: actualByType.income,
+            kind: 'income'
+        }
+    ].map(row => {
+        const difference = Number((row.actual - row.planned).toFixed(2));
+        const progressText = formatProgressPercent(row.actual, row.planned);
+        let statusText = '대기';
+        let statusClass = 'idle';
+
+        if (row.kind === 'expense') {
+            if (row.actual === 0) {
+                statusText = '미사용';
+            } else if (difference > 0) {
+                statusText = `${formatCurrency(Math.abs(difference))} 초과`;
+                statusClass = 'over';
+            } else if (difference === 0) {
+                statusText = '정확히 사용';
+                statusClass = 'matched';
+            } else {
+                statusText = `${formatCurrency(Math.abs(difference))} 남음`;
+                statusClass = 'under';
+            }
+        } else {
+            if (row.actual === 0) {
+                statusText = '미입금';
+            } else if (difference > 0) {
+                statusText = `${formatCurrency(Math.abs(difference))} 초과`;
+                statusClass = 'positive';
+            } else if (difference === 0) {
+                statusText = '목표 달성';
+                statusClass = 'matched';
+            } else {
+                statusText = `${formatCurrency(Math.abs(difference))} 부족`;
+                statusClass = 'under';
+            }
+        }
+
+        return {
+            ...row,
+            difference,
+            progressText,
+            statusText,
+            statusClass
+        };
+    });
+}
+
+function renderBudgetProgressTable() {
+    if (!budgetProgressRows) return;
+    const rows = buildBudgetProgressRows();
+    budgetProgressRows.innerHTML = '';
+
+    rows.forEach(row => {
+        const rowEl = document.createElement('div');
+        rowEl.className = `summary-progress-row summary-progress-${row.key} summary-progress-${row.statusClass}`;
+        rowEl.setAttribute('role', 'row');
+        rowEl.innerHTML = `
+            <span role="cell" class="summary-progress-label">${row.label}</span>
+            <span role="cell">${formatCurrency(row.planned)}</span>
+            <span role="cell">${formatCurrency(row.actual)}</span>
+            <span role="cell">${row.progressText}</span>
+            <span role="cell" class="summary-progress-status ${row.statusClass}">${row.statusText}</span>
+        `;
+        budgetProgressRows.appendChild(rowEl);
+    });
 }
 
 function showToast(message) {
@@ -883,13 +1015,10 @@ function renderActivity() {
     renderActivityMonthPicker();
 
     updateActivitySummaryRangeLabels();
+    renderBudgetProgressTable();
 
-    const range = selectedSummaryRange;
-    const { now, startOfWeek, endOfWeek } = getRangeWindow();
-
-    const entriesInRange = activityEntries.filter(entry => {
-        return isEntryInRange(entry.date, range, now, startOfWeek, endOfWeek, selectedSummaryMonth);
-    });
+    const { range, now, startOfWeek, endOfWeek } = getSelectedRangeContext();
+    const entriesInRange = getEntriesInSelectedRange();
 
     const filteredEntries = entriesInRange.filter(entry => {
         if (activityTypeFilter === 'all') return true;
@@ -1473,7 +1602,9 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
 
     const expenses = activityEntries.filter(entry => {
         if (entry.type !== 'expense') return false;
-        return isEntryInRange(entry.date, range, now, startOfWeek, endOfWeek, selectedSummaryMonth);
+        if (!isEntryInRange(entry.date, range, now, startOfWeek, endOfWeek, selectedSummaryMonth)) return false;
+        if (hideRentInChart && isRentReason(entry.reason)) return false;
+        return true;
     });
 
     const totalsByReason = {};
@@ -1664,6 +1795,16 @@ if (activityMonthPicker) {
     });
 }
 if (legendSortSelect) legendSortSelect.addEventListener('change', renderActivity);
+if (rentToggleBtn) {
+    rentToggleBtn.addEventListener('click', () => {
+        hideRentInChart = !hideRentInChart;
+        updateRentToggleUI();
+        if (hideRentInChart && isRentReason(selectedReasonLabel)) {
+            selectedReasonLabel = null;
+        }
+        renderActivity();
+    });
+}
 if (legendToggleBtn) {
     legendToggleBtn.addEventListener('click', () => {
         isLegendExpanded = !isLegendExpanded;
@@ -1679,6 +1820,8 @@ if (legendToggleBtn) {
         }
     });
 }
+
+updateRentToggleUI();
 if (chartWrap) {
     chartWrap.addEventListener('click', handleChartClick);
 } else if (reasonChart) {

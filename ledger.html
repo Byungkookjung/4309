@@ -172,6 +172,9 @@
             <section id="activitySummarySection" class="ledger-card hidden">
                 <div class="ledger-row">
                     <h2>Activity Summary</h2>
+                    <button id="rentToggleBtn" class="ghost-btn summary-filter-toggle header-rent-toggle" type="button" aria-pressed="false">
+                        Hide rent
+                    </button>
                 </div>
                 <div id="activityMonthPicker" class="activity-month-picker" aria-label="Select summary month"></div>
                 <div class="totals-row">
@@ -204,6 +207,19 @@
                             <button id="legendToggleBtn" class="ghost-btn summary-toggle hidden" type="button" aria-controls="reasonLegend" aria-expanded="false">
                                 Show all
                             </button>
+                        </div>
+                    </div>
+                    <div class="summary-progress-table-wrap">
+                        <div class="summary-progress-table-title">Budget progress</div>
+                        <div class="summary-progress-table" role="table" aria-label="Budget progress summary">
+                            <div class="summary-progress-row summary-progress-head" role="row">
+                                <span role="columnheader">Type</span>
+                                <span role="columnheader">Plan</span>
+                                <span role="columnheader">Actual</span>
+                                <span role="columnheader">Progress</span>
+                                <span role="columnheader">Status</span>
+                            </div>
+                            <div id="budgetProgressRows"></div>
                         </div>
                     </div>
                 </div>
