@@ -1837,13 +1837,112 @@ body.ledger-body .container {
     color: #138a56;
 }
 
+.plan-detail-card {
+    margin: 14px 12px 12px 12px;
+    border: 1px solid #dbe4f5;
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at top right, rgba(120, 146, 226, 0.12), transparent 34%),
+        linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    padding: 16px;
+    box-shadow: 0 12px 28px rgba(30, 52, 110, 0.08);
+}
+
+.plan-detail-header {
+    margin-bottom: 12px;
+    gap: 10px;
+    align-items: center;
+}
+
+.plan-detail-header h3 {
+    font-size: 1.08rem;
+    font-weight: 900;
+    color: #263252;
+}
+
+.plan-detail-table {
+    margin-top: 6px;
+    border: 1px solid #dde5f4;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.plan-detail-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 1.5fr) repeat(3, minmax(0, 1fr));
+    align-items: center;
+}
+
+.plan-detail-row span {
+    padding: 13px 14px;
+    border-top: 1px solid #e8edf7;
+    font-size: 0.93rem;
+}
+
+.plan-detail-head {
+    background: linear-gradient(180deg, #f6f8fd 0%, #eef3fb 100%);
+}
+
+.plan-detail-head span {
+    border-top: 0;
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: #65728f;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.plan-detail-row:not(.plan-detail-head):nth-child(even) {
+    background: #fbfcff;
+}
+
+.plan-detail-label {
+    font-weight: 800;
+    color: #27314d;
+}
+
+.plan-detail-remaining {
+    font-weight: 800;
+}
+
+.plan-detail-remaining.under {
+    color: #c27b12;
+}
+
+.plan-detail-fixed .plan-detail-remaining.under,
+.plan-detail-expected .plan-detail-remaining.under,
+.summary-progress-fixed.summary-progress-under .summary-progress-status,
+.summary-progress-expected.summary-progress-under .summary-progress-status {
+    color: #138a56;
+}
+
+.plan-detail-remaining.matched {
+    color: #2866d1;
+}
+
+.plan-detail-remaining.positive {
+    color: #138a56;
+}
+
+.plan-detail-remaining.over {
+    color: #c0392b;
+}
+
+.plan-detail-empty {
+    padding: 18px 16px;
+    color: #6c7792;
+    font-weight: 700;
+    text-align: center;
+}
+
 .ledger-history-list {
     list-style: none;
-    margin: 12px 0 0 0;
+    margin: 10px 0 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     max-height: 320px;
     overflow-y: auto;
 }
@@ -1851,10 +1950,10 @@ body.ledger-body .container {
 .ledger-history-item {
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: 12px;
+    gap: 10px;
     align-items: start;
-    padding: 12px;
-    border-radius: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
     border: 1px solid #e8edf7;
     background: #ffffff;
 }
@@ -1868,31 +1967,33 @@ body.ledger-body .container {
 .history-meta {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 
 .history-title {
     font-weight: 700;
     color: #29324a;
+    line-height: 1.2;
 }
 
 .history-sub {
-    font-size: 0.86em;
+    font-size: 0.82em;
     color: #667;
+    line-height: 1.2;
 }
 
 .history-values {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
 }
 
 .history-chip {
-    padding: 4px 8px;
+    padding: 3px 7px;
     border-radius: 999px;
     background: #f5f7fb;
     border: 1px solid #e7ecf6;
-    font-size: 0.82em;
+    font-size: 0.78em;
     color: #445;
     font-weight: 600;
 }
@@ -1901,19 +2002,20 @@ body.ledger-body .container {
     font-weight: 800;
     color: #29324a;
     white-space: nowrap;
+    line-height: 1.2;
 }
 
 .history-actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .history-delete-btn {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    font-size: 15px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    font-size: 14px;
     box-shadow: none;
 }
 
@@ -2035,6 +2137,24 @@ body.ledger-body .container {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
+}
+
+.activity-icon-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    font-size: 18px;
+    box-shadow: 0 8px 18px rgba(22, 34, 72, 0.08);
+}
+
+.activity-delete-btn {
+    border-color: #f1c4bf;
+    color: #c0392b;
+}
+
+.activity-delete-btn:hover {
+    border-color: #e59d95;
+    box-shadow: 0 10px 20px rgba(192, 57, 43, 0.16);
 }
 
 #activitySummarySection .totals-row {
@@ -2225,6 +2345,20 @@ body.ledger-body .container {
     grid-template-columns: minmax(100px, 1.3fr) repeat(4, minmax(0, 1fr));
 }
 
+.summary-progress-row:not(.summary-progress-head) {
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+.summary-progress-row:not(.summary-progress-head):hover {
+    background: #f8faff;
+}
+
+.summary-progress-row.selected {
+    background: #eef4ff;
+    box-shadow: inset 0 0 0 1px #cfdcff;
+}
+
 .summary-progress-row span {
     padding: 12px 14px;
     border-top: 1px solid #e8edf7;
@@ -2245,8 +2379,18 @@ body.ledger-body .container {
 }
 
 .summary-progress-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     font-weight: 800;
     color: #29324a;
+}
+
+.summary-progress-chevron {
+    font-size: 0.95rem;
+    color: #6a7bb2;
+    flex-shrink: 0;
 }
 
 .summary-progress-status {
@@ -2438,6 +2582,16 @@ body.ledger-body .container {
     }
     .expense-sheet-list .ledger-plan-item {
         grid-template-columns: 1fr;
+    }
+    .plan-detail-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .plan-detail-head {
+        display: none;
+    }
+    .plan-detail-label {
+        grid-column: 1 / -1;
+        background: #f7f9fd;
     }
     .ledger-activity-item {
         grid-template-columns: 1fr;

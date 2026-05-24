@@ -47,6 +47,11 @@ const planTotalEl = document.getElementById('planTotal');
 const planRemainingEl = document.getElementById('planRemaining');
 const planIncomeEl = document.getElementById('planIncome');
 const planFixedTotalEl = document.getElementById('planFixedTotal');
+const planDetailCard = document.getElementById('planDetailCard');
+const planDetailTitle = document.getElementById('planDetailTitle');
+const planDetailRangeLabel = document.getElementById('planDetailRangeLabel');
+const planDetailTable = document.getElementById('planDetailTable');
+const planDetailRows = document.getElementById('planDetailRows');
 const clearPlanBtn = document.getElementById('clearPlanBtn');
 
 const activitySection = document.getElementById('activitySection');
@@ -174,6 +179,7 @@ let toastHideTimer = null;
 let selectedSummaryRange = 'month';
 let selectedSummaryMonth = new Date().getMonth() + 1;
 let balancesCollapsed = false;
+let selectedPlanDetailType = null;
 
 const PLAN_TYPES = {
     fixed: 'fixed',
@@ -338,18 +344,35 @@ function renderActivityMonthPicker() {
 }
 
 function buildColorPalette(count) {
-    const colors = [];
-    const goldenAngle = 137.508;
-    const lightnessSteps = [54, 64, 74];
-    const saturationSteps = [70, 82, 92];
-    for (let i = 0; i < count; i += 1) {
-        const hue = (i * goldenAngle) % 360;
-        const lightness = lightnessSteps[i % lightnessSteps.length];
-        const saturation = saturationSteps[Math.floor(i / lightnessSteps.length) % saturationSteps.length];
-        const hueOffset = (i % 3) * 8;
-        colors.push(`hsl(${(hue + hueOffset) % 360}, ${saturation}%, ${lightness}%)`);
+    const vividBaseColors = [
+        '#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5', '#3949ab', '#8e24aa', '#00acc1', '#f4511e', '#7cb342',
+        '#7cb342', '#d81b60', '#00897b', '#5e35b1', '#c0ca33', '#6d4c41', '#039be5', '#ef6c00',
+        '#546e7a', '#fdd835', '#8d6e63', '#00c853', '#ff4081', '#00b8d4', '#ff6d00', '#aa00ff',
+        '#304ffe', '#00bfa5', '#aeea00', '#ff1744', '#00e5ff', '#ff9100', '#651fff', '#64dd17',
+        '#c51162', '#0091ea', '#ffd600', '#6200ea', '#00e676', '#ff3d00', '#2962ff', '#ffab00',
+        '#d500f9', '#00c853', '#ff5252', '#18ffff', '#76ff03', '#ff6e40', '#3d5afe', '#ffea00',
+        '#ec407a', '#26c6da', '#9ccc65', '#ffa726', '#ab47bc', '#5c6bc0', '#26a69a', '#ef5350',
+        '#42a5f5', '#66bb6a', '#ffee58', '#8d6e63', '#78909c', '#ec407a', '#29b6f6', '#9ccc65'
+    ];
+    const colors = [...vividBaseColors];
+    if (count <= colors.length) {
+        return colors.slice(0, count);
     }
-    return colors;
+
+    const hueSteps = [0, 180, 90, 270, 45, 225, 135, 315, 20, 200, 110, 290, 65, 245, 155, 335];
+    const lightnessSteps = [46, 60, 38, 68];
+    const saturationSteps = [92, 84, 76];
+
+    let index = 0;
+    while (colors.length < count) {
+        const hue = hueSteps[index % hueSteps.length] + Math.floor(index / hueSteps.length) * 11;
+        const lightness = lightnessSteps[Math.floor(index / hueSteps.length) % lightnessSteps.length];
+        const saturation = saturationSteps[Math.floor(index / (hueSteps.length * lightnessSteps.length)) % saturationSteps.length];
+        colors.push(`hsl(${hue % 360}, ${saturation}%, ${lightness}%)`);
+        index += 1;
+    }
+
+    return colors.slice(0, count);
 }
 
 function ensureColorPalette() {
@@ -458,6 +481,17 @@ function formatProgressPercent(actual, planned) {
     return `${((actual / planned) * 100).toFixed(1)}%`;
 }
 
+function getCurrentSummaryRangeText() {
+    const now = new Date();
+    const yearText = String(now.getFullYear());
+    const monthText = `${yearText}, ${MONTH_NAMES[selectedSummaryMonth - 1]}`;
+    const currentMonthText = `${yearText}, ${MONTH_NAMES[now.getMonth()]}`;
+    const weekText = `${currentMonthText} - ${formatOrdinal(getWeekOfMonth(now))} week`;
+    if (selectedSummaryRange === 'year') return yearText;
+    if (selectedSummaryRange === 'month') return monthText;
+    return weekText;
+}
+
 function buildBudgetProgressRows() {
     const entriesInRange = getEntriesInSelectedRange();
     const actualByType = entriesInRange.reduce((acc, entry) => {
@@ -543,11 +577,15 @@ function renderBudgetProgressTable() {
     budgetProgressRows.innerHTML = '';
 
     rows.forEach(row => {
+        const isSelected = selectedPlanDetailType === row.key;
         const rowEl = document.createElement('div');
         rowEl.className = `summary-progress-row summary-progress-${row.key} summary-progress-${row.statusClass}`;
+        if (isSelected) rowEl.classList.add('selected');
         rowEl.setAttribute('role', 'row');
+        rowEl.dataset.planType = row.key;
+        rowEl.setAttribute('aria-expanded', isSelected ? 'true' : 'false');
         rowEl.innerHTML = `
-            <span role="cell" class="summary-progress-label">${row.label}</span>
+            <span role="cell" class="summary-progress-label"><span>${row.label}</span><span class="summary-progress-chevron" aria-hidden="true">${isSelected ? '▾' : '▸'}</span></span>
             <span role="cell">${formatCurrency(row.planned)}</span>
             <span role="cell">${formatCurrency(row.actual)}</span>
             <span role="cell">${row.progressText}</span>
@@ -555,6 +593,93 @@ function renderBudgetProgressTable() {
         `;
         budgetProgressRows.appendChild(rowEl);
     });
+}
+
+function getActivityAmountForPlanItem(item) {
+    const targetType = item.type === PLAN_TYPES.income ? 'income' : 'expense';
+    return getEntriesInSelectedRange().reduce((sum, entry) => {
+        if (entry.type !== targetType) return sum;
+        if (entry.sourceType !== item.type) return sum;
+        const isLinkedMatch = entry.linkedPlanItemId && String(entry.linkedPlanItemId) === String(item.id);
+        const isLabelMatch = !entry.linkedPlanItemId && (
+            String(entry.linkedPlanItemLabel || '').trim() === item.label ||
+            String(entry.reason || '').trim() === item.label
+        );
+        if (!isLinkedMatch && !isLabelMatch) return sum;
+        return sum + Number(entry.amount || 0);
+    }, 0);
+}
+
+function buildPlanDetailRows(type) {
+    return getPlanItemsByType(type).map(item => {
+        const actual = Number(getActivityAmountForPlanItem(item).toFixed(2));
+        const planned = Number(item.amount || 0);
+        const remaining = Number((planned - actual).toFixed(2));
+        return {
+            id: item.id,
+            label: item.label,
+            type,
+            planned,
+            actual,
+            remaining,
+            statusClass: type === PLAN_TYPES.income
+                ? (remaining < 0 ? 'positive' : remaining === 0 ? 'matched' : 'under')
+                : (remaining < 0 ? 'over' : remaining === 0 ? 'matched' : 'under')
+        };
+    });
+}
+
+function renderPlanDetail() {
+    if (!planDetailCard || !planDetailRows || !planDetailTable) return;
+
+    if (!selectedPlanDetailType) {
+        if (planDetailTitle) planDetailTitle.textContent = '항목별 남은 금액';
+        if (planDetailRangeLabel) planDetailRangeLabel.textContent = getCurrentSummaryRangeText();
+        planDetailCard.classList.add('hidden');
+        planDetailRows.innerHTML = '';
+        return;
+    }
+
+    const rows = buildPlanDetailRows(selectedPlanDetailType);
+    if (planDetailTitle) {
+        planDetailTitle.textContent = `${getPlanTypeLabel(selectedPlanDetailType)} 상세`;
+    }
+    if (planDetailRangeLabel) {
+        planDetailRangeLabel.textContent = getCurrentSummaryRangeText();
+    }
+    planDetailCard.classList.remove('hidden');
+    planDetailRows.innerHTML = '';
+
+    if (rows.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'plan-detail-empty';
+        empty.textContent = '표시할 항목이 없습니다.';
+        planDetailRows.appendChild(empty);
+        return;
+    }
+
+    rows.forEach(row => {
+        const rowEl = document.createElement('div');
+        rowEl.className = `plan-detail-row plan-detail-${row.type} plan-detail-${row.statusClass}`;
+        let remainingText = formatCurrency(row.remaining);
+        if (row.remaining < 0) {
+            remainingText = row.type === PLAN_TYPES.income
+                ? `+${formatCurrency(Math.abs(row.remaining))}`
+                : `-${formatCurrency(Math.abs(row.remaining))}`;
+        }
+        rowEl.innerHTML = `
+            <span class="plan-detail-label" role="cell">${row.label}</span>
+            <span role="cell">${formatCurrency(row.planned)}</span>
+            <span role="cell">${formatCurrency(row.actual)}</span>
+            <span role="cell" class="plan-detail-remaining ${row.statusClass}">${remainingText}</span>
+        `;
+        planDetailRows.appendChild(rowEl);
+    });
+}
+
+function togglePlanDetailType(type) {
+    selectedPlanDetailType = selectedPlanDetailType === type ? null : type;
+    renderPlanDetail();
 }
 
 function showToast(message) {
@@ -954,6 +1079,7 @@ function renderPlan() {
     planTotalEl.textContent = formatCurrency(expectedTotal);
     planRemainingEl.textContent = formatCurrency(savings);
     setRemainingStyles(planRemainingEl, savings);
+    renderPlanDetail();
 }
 
 function populateActivityLinkedItems() {
@@ -1016,6 +1142,7 @@ function renderActivity() {
 
     updateActivitySummaryRangeLabels();
     renderBudgetProgressTable();
+    renderPlanDetail();
 
     const { range, now, startOfWeek, endOfWeek } = getSelectedRangeContext();
     const entriesInRange = getEntriesInSelectedRange();
@@ -1061,8 +1188,10 @@ function renderActivity() {
 
             const editBtn = document.createElement('button');
             editBtn.type = 'button';
-            editBtn.className = 'ghost-btn';
-            editBtn.textContent = 'Edit';
+            editBtn.className = 'icon-btn activity-icon-btn';
+            editBtn.setAttribute('aria-label', 'Edit activity entry');
+            editBtn.setAttribute('title', 'Edit activity entry');
+            editBtn.textContent = '\u270F\uFE0F';
             editBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
                 editActivityEntry(entry.id);
@@ -1070,8 +1199,10 @@ function renderActivity() {
 
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
-            deleteBtn.className = 'danger-btn';
-            deleteBtn.textContent = 'Delete';
+            deleteBtn.className = 'icon-btn activity-icon-btn activity-delete-btn';
+            deleteBtn.setAttribute('aria-label', 'Delete activity entry');
+            deleteBtn.setAttribute('title', 'Delete activity entry');
+            deleteBtn.textContent = '\u{1F5D1}';
             deleteBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
                 deleteActivityEntry(entry.id);
@@ -1792,6 +1923,14 @@ if (activityMonthPicker) {
         selectedSummaryMonth = month;
         selectedSummaryRange = 'month';
         renderActivity();
+    });
+}
+if (budgetProgressRows) {
+    budgetProgressRows.addEventListener('click', event => {
+        const row = event.target.closest('.summary-progress-row[data-plan-type]');
+        if (!row) return;
+        togglePlanDetailType(row.dataset.planType);
+        renderBudgetProgressTable();
     });
 }
 if (legendSortSelect) legendSortSelect.addEventListener('change', renderActivity);
