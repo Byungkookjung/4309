@@ -797,11 +797,12 @@ button,
 
 @media (max-width: 600px) {
     .container {
-        padding: 20px;
+        padding: 16px;
+        border-radius: 14px;
     }
 
     .app-header h1 {
-        font-size: 2em;
+        font-size: 1.9em;
     }
 
     .input-wrapper {
@@ -1661,6 +1662,143 @@ body.ledger-body .container {
     }
 }
 
+@media (max-width: 760px) {
+    body.ledger-body {
+        align-items: flex-start;
+        padding: 10px;
+    }
+
+    body.ledger-body .container {
+        max-width: none;
+        border-radius: 18px;
+        padding: 16px;
+    }
+
+    .app-header {
+        margin-bottom: 20px;
+        padding-top: 0;
+    }
+
+    body.ledger-body .header-actions:not(.header-actions-right),
+    .header-actions-right {
+        position: static;
+        transform: none;
+        justify-content: space-between;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .app-header h1 {
+        font-size: 2rem;
+        line-height: 1.15;
+    }
+
+    .subtitle {
+        font-size: 0.88rem;
+        line-height: 1.4;
+    }
+
+    .ledger-card {
+        padding: 14px;
+        border-radius: 14px;
+    }
+
+    .ledger-row {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .ledger-row h2 {
+        font-size: 1.45rem;
+        line-height: 1.2;
+    }
+
+    .activity-filter-group {
+        width: 100%;
+        justify-content: stretch;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .activity-filter-btn,
+    .header-rent-toggle,
+    .summary-filter-toggle,
+    .summary-select {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .budget-overview-card {
+        padding: 12px;
+        border-radius: 12px;
+    }
+
+    .budget-overview-value {
+        font-size: 1.12rem;
+    }
+
+    .totals-row {
+        padding: 12px;
+        border-radius: 12px;
+    }
+
+    .summary-chart-title,
+    .summary-chart-controls {
+        flex-wrap: wrap;
+        align-items: stretch;
+    }
+
+    .summary-chart-controls > * {
+        flex: 1 1 140px;
+    }
+
+    .summary-range-label {
+        text-align: center;
+        justify-content: center;
+    }
+
+    .activity-month-picker {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(72px, 1fr);
+        grid-template-columns: none;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        padding-bottom: 4px;
+        gap: 8px;
+        scrollbar-width: thin;
+    }
+
+    .activity-month-btn {
+        min-height: 42px;
+        padding: 8px 12px;
+        white-space: nowrap;
+    }
+
+    .balance-cards {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .balance-panel-header {
+        align-items: center;
+    }
+
+    .plan-detail-card {
+        margin: 12px 0 0 0;
+        padding: 14px;
+        border-radius: 16px;
+    }
+
+    .plan-detail-header {
+        margin-bottom: 10px;
+    }
+
+    .plan-detail-header h3 {
+        font-size: 1rem;
+    }
+}
+
 .primary-btn {
     border-radius: 12px;
     border: none;
@@ -2228,8 +2366,7 @@ body.ledger-body .container {
 
 @media (max-width: 640px) {
     .activity-month-picker {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
+        grid-auto-columns: minmax(68px, 1fr);
     }
 }
 
@@ -2554,8 +2691,21 @@ body.ledger-body .container {
 }
 
 @media (max-width:600px) {
+    body.ledger-body {
+        padding: 0;
+    }
+
+    body.ledger-body .container {
+        min-height: 100vh;
+        border-radius: 0;
+        padding: 14px;
+        border-left: 0;
+        border-right: 0;
+    }
+
     .ledger-grid {
         grid-template-columns: 1fr;
+        gap: 10px;
     }
     .ledger-grid .field,
     .ledger-grid .field.wide,
@@ -2566,6 +2716,9 @@ body.ledger-body .container {
         flex-direction: column;
         align-items: flex-start;
         gap: 6px;
+    }
+    .ledger-row h2 {
+        font-size: 1.3rem;
     }
     .budget-overview-grid {
         grid-template-columns: 1fr;
@@ -2605,6 +2758,11 @@ body.ledger-body .container {
         grid-template-columns: 1fr;
         justify-items: center;
     }
+    .chart-wrap,
+    #reasonChart {
+        width: min(100%, 260px);
+        height: auto;
+    }
     .summary-progress-head {
         display: none;
     }
@@ -2621,6 +2779,16 @@ body.ledger-body .container {
     }
     .summary-legend {
         width: 100%;
+    }
+    .summary-legend li {
+        grid-template-columns: 12px 1fr auto;
+        font-size: 0.86em;
+        padding: 6px;
+    }
+    .plan-detail-card,
+    .summary-progress-table-wrap {
+        margin-left: 0;
+        margin-right: 0;
     }
     .toast {
         right: auto;

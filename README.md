@@ -2,6 +2,10 @@
 
 A simple project that pairs a Todo app with a lightweight expense ledger, built with HTML, CSS, and JavaScript. It now supports Google sign-in and real-time Firestore sync across devices.
 
+## Live Site
+
+- `https://todo-ledger.web.app`
+
 ## Features
 
 ### Todo App (index.html)
@@ -48,6 +52,7 @@ From the Todo screen, use the header icon to open the Expense Ledger. The Ledger
 - `auth.js`: Firebase config + auth helpers
 - `login.js`: Login page logic
 - `style.css`: Shared styles
+- `deploy.bat`: One-click git commit + push + Firebase Hosting deploy
 - `start-server.bat`, `start-server.sh`: Local server scripts
 
 ## Firebase Setup (Required for Sync)
@@ -69,6 +74,43 @@ service cloud.firestore {
   }
 }
 ```
+
+## Firebase Hosting Deploy
+
+This project is now configured for Firebase Hosting with:
+
+- `firebase.json`
+- `.firebaserc` using project id `todo-ledger`
+
+Deploy steps:
+
+1) Install the Firebase CLI  
+`npm.cmd install -g firebase-tools`
+
+2) Log in  
+`firebase.cmd login`
+
+3) From the project folder, deploy  
+`firebase.cmd deploy`
+
+4) Faster workflow on Windows  
+Run `deploy.bat` to:
+   - stage all changes
+   - create a git commit
+   - push to `origin/main`
+   - deploy Hosting with `firebase.cmd deploy --only hosting`
+
+Default Hosting URLs after deploy:
+
+- `https://todo-ledger.web.app`
+- `https://todo-ledger.firebaseapp.com`
+
+Important for Google sign-in:
+
+- In Firebase Console -> Authentication -> Settings -> Authorized domains
+- Make sure these are allowed:
+  - `todo-ledger.web.app`
+  - `todo-ledger.firebaseapp.com`
 
 ## Quick Usage
 
