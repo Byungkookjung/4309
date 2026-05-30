@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Expense Ledger</title>
     <link rel="icon" href="favicon-ledger.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="style.css?v=20260527a" />
+    <link rel="stylesheet" href="style.css?v=20260529c" />
 </head>
 <body class="ledger-body">
     <div class="container">
@@ -52,6 +52,19 @@
                 </form>
             </section>
 
+            <section id="investmentHubSection" class="ledger-card investment-hub-card hidden">
+                <div class="ledger-row">
+                    <h2>Investments</h2>
+                    <a href="investments.html" class="primary-btn link-btn">Open tracker</a>
+                </div>
+                <div class="investment-hub-preview">
+                    <div class="investment-hub-pill">Canada accounts</div>
+                    <div class="investment-hub-pill">TFSA + RRSP</div>
+                    <div class="investment-hub-pill">Korea account</div>
+                    <div class="investment-hub-pill">Manual snapshots</div>
+                </div>
+            </section>
+
             <section id="dashboardSection" class="ledger-card hidden">
                 <div class="balance-panel">
                     <div class="ledger-row balance-panel-header">
@@ -93,7 +106,6 @@
                     <h2>Budget Overview</h2>
                     <button id="openPlanBtn" class="primary-btn" type="button">Manage Expenses</button>
                 </div>
-                <p class="muted">Track monthly income, fixed costs, expected spending, and estimated savings.</p>
                 <div class="budget-overview-grid">
                     <div class="budget-overview-card">
                         <div class="budget-overview-label">Expected income</div>
@@ -129,13 +141,6 @@
                         <input id="activityDate" type="date" />
                     </div>
                     <div class="field">
-                        <label for="activityType">Type</label>
-                        <select id="activityType">
-                            <option value="expense">Expense</option>
-                            <option value="income">Income</option>
-                        </select>
-                    </div>
-                    <div class="field">
                         <label for="activityAmount">Amount</label>
                         <input id="activityAmount" type="number" step="0.01" placeholder="0.00" />
                     </div>
@@ -157,12 +162,25 @@
                         <input id="activityReason" type="text" list="activityReasonList" placeholder="Food, paycheck, rent..." />
                         <datalist id="activityReasonList"></datalist>
                     </div>
+                    <div id="activityDetailField" class="field wide">
+                        <label for="activityDetail">Detail</label>
+                        <input id="activityDetail" type="text" placeholder="Chipotle, Costco, brunch with friends..." />
+                    </div>
+                    <div class="field checkbox-field wide">
+                        <label class="checkbox-label" for="activityShared">
+                            <input id="activityShared" type="checkbox" />
+                            <span>Shared expense</span>
+                        </label>
+                    </div>
                     <div class="field action">
                         <label aria-hidden="true">&nbsp;</label>
-                        <button id="addActivityBtn" class="primary-btn activity-submit-btn" type="submit">
-                            <span aria-hidden="true">+</span>
-                            <span>Add entry</span>
-                        </button>
+                        <div class="activity-form-actions">
+                            <button id="addActivityBtn" class="primary-btn activity-submit-btn" type="submit">
+                                <span id="addActivityBtnIcon" aria-hidden="true">+</span>
+                                <span id="addActivityBtnText">Add entry</span>
+                            </button>
+                            <button id="cancelActivityEditBtn" class="ghost-btn hidden" type="button">Cancel</button>
+                        </div>
                     </div>
                 </form>
 
@@ -341,6 +359,6 @@
             }
         })();
     </script>
-    <script src="ledger.js?v=20260524a"></script>
+    <script src="ledger.js?v=20260529c"></script>
 </body>
 </html>

@@ -2,6 +2,7 @@
 
 const setupSection = document.getElementById('setupSection');
 const dashboardSection = document.getElementById('dashboardSection');
+const investmentHubSection = document.getElementById('investmentHubSection');
 const spendingSummarySection = document.getElementById('spendingSummarySection');
 const planSection = document.getElementById('planSection');
 const balanceHistorySection = document.getElementById('balanceHistorySection');
@@ -56,13 +57,19 @@ const clearPlanBtn = document.getElementById('clearPlanBtn');
 
 const activitySection = document.getElementById('activitySection');
 const activityDateInput = document.getElementById('activityDate');
-const activityTypeSelect = document.getElementById('activityType');
 const activityAmountInput = document.getElementById('activityAmount');
 const activitySourceTypeSelect = document.getElementById('activitySourceType');
 const activityLinkedItemField = document.getElementById('activityLinkedItemField');
 const activityLinkedItemSelect = document.getElementById('activityLinkedItem');
 const activityReasonInput = document.getElementById('activityReason');
+const activityDetailField = document.getElementById('activityDetailField');
+const activityDetailInput = document.getElementById('activityDetail');
+const activitySharedInput = document.getElementById('activityShared');
 const activityForm = document.getElementById('activityForm');
+const addActivityBtn = document.getElementById('addActivityBtn');
+const addActivityBtnIcon = document.getElementById('addActivityBtnIcon');
+const addActivityBtnText = document.getElementById('addActivityBtnText');
+const cancelActivityEditBtn = document.getElementById('cancelActivityEditBtn');
 const activityList = document.getElementById('activityList');
 const activityFilterGroup = document.getElementById('activityFilterGroup');
 const activityFilterButtons = document.querySelectorAll('.activity-filter-btn');
@@ -172,6 +179,7 @@ let balanceHistoryEntries = [];
 let planItems = [];
 let editingPlanId = null;
 let activityEntries = [];
+let editingActivityId = null;
 let activityTypeFilter = 'all';
 let selectedActivityId = null;
 let toastTimer = null;
@@ -481,6 +489,73 @@ function formatProgressPercent(actual, planned) {
     return `${((actual / planned) * 100).toFixed(1)}%`;
 }
 
+function getEntryEffectiveAmount(entry) {
+    const amount = Number(entry.amount || 0);
+    if (entry.isShared) {
+        return Number((amount / 2).toFixed(2));
+    }
+    return amount;
+}
+
+function getActivityFormType(sourceType, fallbackType = 'expense') {
+    return normalizePlanType(sourceType) === PLAN_TYPES.income
+        ? 'income'
+        : (fallbackType === 'income' ? 'income' : 'expense');
+}
+
+function syncActivitySharedControls() {
+    if (!activitySharedInput) return;
+    const editingEntry = editingActivityId
+        ? activityEntries.find(item => String(item.id) === String(editingActivityId))
+        : null;
+    const sourceType = activitySourceTypeSelect ? activitySourceTypeSelect.value : 'custom';
+    const formType = getActivityFormType(sourceType, editingEntry ? editingEntry.type : 'expense');
+    const canShare = formType === 'expense';
+    if (!canShare) {
+        activitySharedInput.checked = false;
+    }
+    activitySharedInput.disabled = !canShare;
+}
+
+function resetActivityForm() {
+    editingActivityId = null;
+    if (activityDateInput) activityDateInput.value = '';
+    if (activityAmountInput) activityAmountInput.value = '';
+    if (activityReasonInput) activityReasonInput.value = '';
+    if (activityDetailInput) activityDetailInput.value = '';
+    if (activitySharedInput) activitySharedInput.checked = false;
+    if (activitySourceTypeSelect) activitySourceTypeSelect.value = 'custom';
+    if (activityLinkedItemSelect) activityLinkedItemSelect.innerHTML = '';
+    if (addActivityBtnText) addActivityBtnText.textContent = 'Add entry';
+    if (addActivityBtnIcon) addActivityBtnIcon.textContent = '+';
+    if (cancelActivityEditBtn) cancelActivityEditBtn.classList.add('hidden');
+    updateActivitySourceControls();
+    syncActivitySharedControls();
+}
+
+function enterActivityEditMode(id) {
+    const entry = activityEntries.find(item => String(item.id) === String(id));
+    if (!entry) return;
+    editingActivityId = String(id);
+    if (activityDateInput) activityDateInput.value = entry.date || '';
+    if (activityAmountInput) activityAmountInput.value = Number(entry.amount || 0).toFixed(2);
+    if (activitySourceTypeSelect) activitySourceTypeSelect.value = entry.sourceType || 'custom';
+    updateActivitySourceControls();
+    if (activityLinkedItemSelect && entry.linkedPlanItemId) {
+        activityLinkedItemSelect.value = String(entry.linkedPlanItemId);
+    }
+    if (activityReasonInput) activityReasonInput.value = entry.reason || '';
+    if (activityDetailInput) activityDetailInput.value = entry.detail || '';
+    if (activitySharedInput) activitySharedInput.checked = Boolean(entry.isShared);
+    if (addActivityBtnText) addActivityBtnText.textContent = 'Update entry';
+    if (addActivityBtnIcon) addActivityBtnIcon.textContent = '\u270E';
+    if (cancelActivityEditBtn) cancelActivityEditBtn.classList.remove('hidden');
+    syncActivitySharedControls();
+    if (activityForm && typeof activityForm.scrollIntoView === 'function') {
+        activityForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
 function getCurrentSummaryRangeText() {
     const now = new Date();
     const yearText = String(now.getFullYear());
@@ -496,11 +571,11 @@ function buildBudgetProgressRows() {
     const entriesInRange = getEntriesInSelectedRange();
     const actualByType = entriesInRange.reduce((acc, entry) => {
         if (entry.sourceType === PLAN_TYPES.fixed && entry.type === 'expense') {
-            acc.fixed += Number(entry.amount || 0);
+            acc.fixed += getEntryEffectiveAmount(entry);
         } else if (entry.sourceType === PLAN_TYPES.expected && entry.type === 'expense') {
-            acc.expected += Number(entry.amount || 0);
+            acc.expected += getEntryEffectiveAmount(entry);
         } else if (entry.sourceType === PLAN_TYPES.income && entry.type === 'income') {
-            acc.income += Number(entry.amount || 0);
+            acc.income += getEntryEffectiveAmount(entry);
         }
         return acc;
     }, { fixed: 0, expected: 0, income: 0 });
@@ -566,7 +641,8 @@ function buildBudgetProgressRows() {
             difference,
             progressText,
             statusText,
-            statusClass
+            statusClass,
+            progressClass: row.kind === 'expense' && row.planned > 0 && row.actual > row.planned ? 'over' : ''
         };
     });
 }
@@ -588,7 +664,7 @@ function renderBudgetProgressTable() {
             <span role="cell" class="summary-progress-label"><span>${row.label}</span><span class="summary-progress-chevron" aria-hidden="true">${isSelected ? '▾' : '▸'}</span></span>
             <span role="cell">${formatCurrency(row.planned)}</span>
             <span role="cell">${formatCurrency(row.actual)}</span>
-            <span role="cell">${row.progressText}</span>
+            <span role="cell" class="summary-progress-metric ${row.progressClass}">${row.progressText}</span>
             <span role="cell" class="summary-progress-status ${row.statusClass}">${row.statusText}</span>
         `;
         budgetProgressRows.appendChild(rowEl);
@@ -606,7 +682,7 @@ function getActivityAmountForPlanItem(item) {
             String(entry.reason || '').trim() === item.label
         );
         if (!isLinkedMatch && !isLabelMatch) return sum;
-        return sum + Number(entry.amount || 0);
+        return sum + getEntryEffectiveAmount(entry);
     }, 0);
 }
 
@@ -771,6 +847,8 @@ function normalizeActivityEntry(entry) {
         type: entry.type === 'income' ? 'income' : 'expense',
         amount: Number(Number(entry.amount || 0).toFixed(2)),
         reason: String(entry.reason || '').trim(),
+        detail: String(entry.detail || '').trim(),
+        isShared: Boolean(entry.isShared),
         sourceType: entry.sourceType ? normalizeActivitySourceType(entry.sourceType) : 'custom',
         linkedPlanItemId: entry.linkedPlanItemId ? String(entry.linkedPlanItemId) : '',
         linkedPlanItemLabel: entry.linkedPlanItemLabel ? String(entry.linkedPlanItemLabel) : ''
@@ -926,6 +1004,7 @@ async function deleteBalanceHistoryEntry(id) {
 
 async function clearBalanceHistory() {
     if (!confirm('Clear all balance history?')) return;
+    if (!confirm('This will permanently delete every balance history entry. Continue?')) return;
     if (isRemoteEnabled()) {
         const batch = dbRef.batch();
         balanceHistoryEntries.forEach(entry => {
@@ -1108,8 +1187,16 @@ function updateActivitySourceControls() {
     if (!activitySourceTypeSelect || !activityLinkedItemField || !activityReasonInput) return;
     const sourceType = activitySourceTypeSelect.value;
     const usingLinkedItem = sourceType !== 'custom';
+    const canUseDetail = normalizePlanType(sourceType) === PLAN_TYPES.expected;
 
     activityLinkedItemField.classList.toggle('hidden', !usingLinkedItem);
+    if (activityDetailField) activityDetailField.classList.toggle('hidden', !canUseDetail);
+    if (activityDetailInput) {
+        activityDetailInput.disabled = !canUseDetail;
+        if (!canUseDetail) {
+            activityDetailInput.value = '';
+        }
+    }
     activityReasonInput.disabled = usingLinkedItem;
     activityReasonInput.placeholder = usingLinkedItem ? 'Reason is taken from the selected budget item' : 'Food, paycheck, rent...';
 
@@ -1124,15 +1211,9 @@ function updateActivitySourceControls() {
 }
 
 function syncActivitySourceWithType() {
-    if (!activityTypeSelect || !activitySourceTypeSelect) return;
-    if (activityTypeSelect.value === 'income') {
-        if (activitySourceTypeSelect.value === PLAN_TYPES.fixed || activitySourceTypeSelect.value === PLAN_TYPES.expected) {
-            activitySourceTypeSelect.value = PLAN_TYPES.income;
-        }
-    } else if (activitySourceTypeSelect.value === PLAN_TYPES.income) {
-        activitySourceTypeSelect.value = PLAN_TYPES.expected;
-    }
+    if (!activitySourceTypeSelect) return;
     updateActivitySourceControls();
+    syncActivitySharedControls();
 }
 
 function renderActivity() {
@@ -1179,9 +1260,23 @@ function renderActivity() {
             const budgetTypeLabel = entry.sourceType && entry.sourceType !== 'custom' ? getPlanTypeLabel(entry.sourceType) : '';
             meta.innerHTML = `<div class="activity-title">${entry.reason}</div><div class="activity-sub">${entry.date}${budgetTypeLabel ? ` · ${budgetTypeLabel}` : ''}</div>`;
 
+            if (entry.detail) {
+                const detail = document.createElement('div');
+                detail.className = 'activity-detail';
+                detail.textContent = entry.detail;
+                meta.insertBefore(detail, meta.lastElementChild);
+            }
+
+            if (entry.isShared) {
+                const share = document.createElement('div');
+                share.className = 'activity-share-note';
+                share.textContent = `Paid ${formatCurrency(entry.amount)} · My share ${formatCurrency(getEntryEffectiveAmount(entry))}`;
+                meta.insertBefore(share, meta.lastElementChild);
+            }
+
             const amount = document.createElement('div');
             amount.className = 'activity-amount';
-            amount.textContent = (entry.type === 'income' ? '+' : '-') + formatCurrency(entry.amount);
+            amount.textContent = (entry.type === 'income' ? '+' : '-') + formatCurrency(getEntryEffectiveAmount(entry));
 
             const actions = document.createElement('div');
             actions.className = 'activity-actions';
@@ -1194,7 +1289,7 @@ function renderActivity() {
             editBtn.textContent = '\u270F\uFE0F';
             editBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
-                editActivityEntry(entry.id);
+                enterActivityEditMode(entry.id);
             });
 
             const deleteBtn = document.createElement('button');
@@ -1226,8 +1321,8 @@ function renderActivity() {
 
     const totals = entriesInRange.reduce(
         (acc, entry) => {
-            if (entry.type === 'income') acc.income += Number(entry.amount || 0);
-            else acc.expense += Number(entry.amount || 0);
+            if (entry.type === 'income') acc.income += getEntryEffectiveAmount(entry);
+            else acc.expense += getEntryEffectiveAmount(entry);
             return acc;
         },
         { income: 0, expense: 0 }
@@ -1273,6 +1368,7 @@ function setActivityTypeFilter(filter) {
 function showSetup() {
     setupSection.classList.remove('hidden');
     dashboardSection.classList.add('hidden');
+    if (investmentHubSection) investmentHubSection.classList.add('hidden');
     if (spendingSummarySection) spendingSummarySection.classList.add('hidden');
     if (balanceHistorySection) balanceHistorySection.classList.add('hidden');
     if (activitySection) activitySection.classList.add('hidden');
@@ -1301,6 +1397,7 @@ function handleSetupBack() {
 function showDashboard() {
     setupSection.classList.add('hidden');
     dashboardSection.classList.remove('hidden');
+    if (investmentHubSection) investmentHubSection.classList.remove('hidden');
     if (spendingSummarySection) spendingSummarySection.classList.remove('hidden');
     if (balanceHistorySection) balanceHistorySection.classList.add('hidden');
     if (activitySection) activitySection.classList.remove('hidden');
@@ -1316,6 +1413,7 @@ function showDashboard() {
 function showPlan() {
     setupSection.classList.add('hidden');
     dashboardSection.classList.add('hidden');
+    if (investmentHubSection) investmentHubSection.classList.add('hidden');
     if (spendingSummarySection) spendingSummarySection.classList.add('hidden');
     if (balanceHistorySection) balanceHistorySection.classList.add('hidden');
     if (activitySection) activitySection.classList.add('hidden');
@@ -1327,6 +1425,7 @@ function showPlan() {
 function showBalanceHistory() {
     setupSection.classList.add('hidden');
     dashboardSection.classList.add('hidden');
+    if (investmentHubSection) investmentHubSection.classList.add('hidden');
     if (spendingSummarySection) spendingSummarySection.classList.add('hidden');
     if (activitySection) activitySection.classList.add('hidden');
     if (activitySummarySection) activitySummarySection.classList.add('hidden');
@@ -1483,12 +1582,17 @@ async function clearPlan() {
 
 async function addActivityEntry() {
     const date = activityDateInput.value;
-    const type = activityTypeSelect.value;
     const amount = parseFloat(activityAmountInput.value);
     const sourceType = activitySourceTypeSelect ? activitySourceTypeSelect.value : 'custom';
+    const editingEntry = editingActivityId
+        ? activityEntries.find(item => String(item.id) === String(editingActivityId))
+        : null;
+    const type = getActivityFormType(sourceType, editingEntry ? editingEntry.type : 'expense');
     const linkedItemId = activityLinkedItemSelect ? activityLinkedItemSelect.value : '';
     const linkedItem = sourceType === 'custom' ? null : planItems.find(item => item.id === linkedItemId);
     const reason = linkedItem ? linkedItem.label : activityReasonInput.value.trim();
+    const detail = activityDetailInput ? activityDetailInput.value.trim() : '';
+    const isShared = Boolean(activitySharedInput && activitySharedInput.checked);
 
     if (!date) {
         alert('Please select a date.');
@@ -1506,93 +1610,59 @@ async function addActivityEntry() {
         alert('Please enter a reason.');
         return;
     }
+    if (isShared) {
+        if (type !== 'expense') {
+            alert('Shared entries are only available for expenses.');
+            return;
+        }
+    }
 
     const entry = {
-        id: Date.now().toString(),
+        id: editingActivityId || Date.now().toString(),
         date,
         type,
         amount: Number(amount.toFixed(2)),
         reason,
+        detail,
+        isShared,
         sourceType,
         linkedPlanItemId: linkedItem ? linkedItem.id : '',
         linkedPlanItemLabel: linkedItem ? linkedItem.label : ''
     };
 
-    activityDateInput.value = '';
-    activityAmountInput.value = '';
-    activityReasonInput.value = '';
-    if (activitySourceTypeSelect) {
-        activitySourceTypeSelect.value = 'custom';
-    }
-    if (activityLinkedItemSelect) {
-        activityLinkedItemSelect.innerHTML = '';
-    }
-    updateActivitySourceControls();
-
     if (isRemoteEnabled()) {
         await activityCollection(currentUser).doc(entry.id).set(entry);
+        resetActivityForm();
         return;
     }
 
-    activityEntries.push(entry);
+    if (editingActivityId) {
+        activityEntries = activityEntries.map(item => String(item.id) === String(editingActivityId) ? entry : item);
+    } else {
+        activityEntries.push(entry);
+    }
     saveActivityEntries();
+    resetActivityForm();
     renderActivity();
 }
 
 async function editActivityEntry(id) {
-    const entry = activityEntries.find(item => item.id === id);
-    if (!entry) return;
-
-    const newDate = prompt('Edit date (YYYY-MM-DD)', entry.date) || entry.date;
-    const newReason = prompt('Edit reason', entry.reason) || entry.reason;
-    const newAmountRaw = prompt('Edit amount', String(entry.amount)) || String(entry.amount);
-    const newType = prompt('Edit type (income/expense)', entry.type) || entry.type;
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
-        alert('Invalid date format. Use YYYY-MM-DD.');
-        return;
-    }
-    if (isFutureLedgerDate(newDate)) {
-        alert('Future dates are not allowed.');
-        return;
-    }
-    const newAmount = parseFloat(newAmountRaw);
-    if (isNaN(newAmount) || newAmount <= 0) {
-        alert('Invalid amount.');
-        return;
-    }
-    const normalizedType = newType === 'income' ? 'income' : 'expense';
-
-    const updated = {
-        date: newDate,
-        reason: newReason.trim() || entry.reason,
-        amount: Number(newAmount.toFixed(2)),
-        type: normalizedType,
-        sourceType: normalizedType === 'income' && entry.sourceType === PLAN_TYPES.income ? PLAN_TYPES.income : entry.sourceType,
-        linkedPlanItemId: entry.linkedPlanItemId || '',
-        linkedPlanItemLabel: entry.linkedPlanItemLabel || ''
-    };
-
-    if (isRemoteEnabled()) {
-        await activityCollection(currentUser).doc(String(id)).update(updated);
-        return;
-    }
-
-    entry.date = updated.date;
-    entry.reason = updated.reason;
-    entry.amount = updated.amount;
-    entry.type = updated.type;
-    saveActivityEntries();
-    renderActivity();
+    enterActivityEditMode(id);
 }
 
 async function deleteActivityEntry(id) {
     if (!confirm('Delete this entry?')) return;
     if (isRemoteEnabled()) {
         await activityCollection(currentUser).doc(String(id)).delete();
+        if (String(editingActivityId) === String(id)) {
+            resetActivityForm();
+        }
         return;
     }
     activityEntries = activityEntries.filter(item => item.id !== id);
+    if (String(editingActivityId) === String(id)) {
+        resetActivityForm();
+    }
     saveActivityEntries();
     renderActivity();
 }
@@ -1741,7 +1811,7 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
     const totalsByReason = {};
     expenses.forEach(entry => {
         const key = (entry.reason || 'Uncategorized').trim();
-        totalsByReason[key] = (totalsByReason[key] || 0) + Number(entry.amount || 0);
+        totalsByReason[key] = (totalsByReason[key] || 0) + getEntryEffectiveAmount(entry);
     });
 
     const items = Object.keys(totalsByReason).map(key => ({
@@ -1887,11 +1957,14 @@ if (activityForm) {
         addActivityEntry();
     });
 }
-if (activityTypeSelect) {
-    activityTypeSelect.addEventListener('change', syncActivitySourceWithType);
+if (cancelActivityEditBtn) {
+    cancelActivityEditBtn.addEventListener('click', resetActivityForm);
 }
 if (activitySourceTypeSelect) {
-    activitySourceTypeSelect.addEventListener('change', updateActivitySourceControls);
+    activitySourceTypeSelect.addEventListener('change', syncActivitySourceWithType);
+}
+if (activitySharedInput) {
+    activitySharedInput.addEventListener('change', syncActivitySharedControls);
 }
 if (activityLinkedItemSelect) {
     activityLinkedItemSelect.addEventListener('change', () => {
@@ -1961,6 +2034,7 @@ if (legendToggleBtn) {
 }
 
 updateRentToggleUI();
+resetActivityForm();
 if (chartWrap) {
     chartWrap.addEventListener('click', handleChartClick);
 } else if (reasonChart) {

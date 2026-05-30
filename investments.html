@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Investment Tracker</title>
+    <link rel="icon" href="favicon-investments.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css?v=20260529d" />
+</head>
+<body class="ledger-body investments-body">
+    <div class="container">
+        <header class="app-header">
+            <h1>&#x1F4C8; Investment Tracker</h1>
+            <div class="header-actions">
+                <a href="ledger.html" class="icon-btn" aria-label="Back to Expense Ledger" title="Back to Expense Ledger">&#x1F4B0;</a>
+            </div>
+            <div class="header-actions header-actions-right auth-actions">
+                <button id="logoutBtn" class="ghost-btn" type="button">Log out</button>
+            </div>
+        </header>
+
+        <main class="ledger-container">
+            <section class="ledger-card investment-overview-card">
+                <div class="ledger-row">
+                    <h2>Portfolio Overview</h2>
+                    <span id="investmentUpdatedAt" class="summary-range-label">No snapshot yet</span>
+                </div>
+                <div class="investment-overview-grid">
+                    <div class="budget-overview-card investment-overview-block">
+                        <div class="budget-overview-label">Canada accounts</div>
+                        <div id="canadaCurrentValue" class="budget-overview-value">$0.00</div>
+                        <div id="canadaOverviewMeta" class="investment-overview-meta">Invested $0.00 · Return 0.0%</div>
+                    </div>
+                    <div class="budget-overview-card investment-overview-block">
+                        <div class="budget-overview-label">Korea account</div>
+                        <div id="koreaCurrentValue" class="budget-overview-value">₩0</div>
+                        <div id="koreaOverviewMeta" class="investment-overview-meta">Invested ₩0 · Return 0.0%</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ledger-card">
+                <div class="ledger-row">
+                    <h2 id="investmentFormTitle">Save Snapshot</h2>
+                </div>
+                <form id="investmentForm" class="investment-form" onsubmit="return false;">
+                    <div class="ledger-grid">
+                        <div class="field">
+                            <label for="investmentSnapshotDate">Snapshot date</label>
+                            <input id="investmentSnapshotDate" type="date" />
+                        </div>
+                    </div>
+
+                    <div class="investment-group-card">
+                        <div class="investment-group-header">
+                            <div>
+                                <h3>Canada accounts</h3>
+                            </div>
+                            <span class="investment-group-badge">CAD</span>
+                        </div>
+                        <div class="investment-account-grid">
+                            <article class="investment-account-card">
+                                <div class="investment-account-head">
+                                    <h4>TFSA</h4>
+                                    <span class="investment-account-tag">Canada</span>
+                                </div>
+                                <div class="ledger-grid compact-grid">
+                                    <div class="field">
+                                        <label for="tfsaInvested">Invested</label>
+                                        <input id="tfsaInvested" type="number" step="0.01" placeholder="0.00" />
+                                    </div>
+                                    <div class="field">
+                                        <label for="tfsaCurrent">Current value</label>
+                                        <input id="tfsaCurrent" type="number" step="0.01" placeholder="0.00" />
+                                    </div>
+                                </div>
+                                <div class="investment-live-metrics">
+                                    <span id="tfsaGain" class="investment-live-chip">$0.00 gain</span>
+                                    <span id="tfsaReturn" class="investment-live-chip">0.0%</span>
+                                </div>
+                            </article>
+
+                            <article class="investment-account-card">
+                                <div class="investment-account-head">
+                                    <h4>RRSP</h4>
+                                    <span class="investment-account-tag">Canada</span>
+                                </div>
+                                <div class="ledger-grid compact-grid">
+                                    <div class="field">
+                                        <label for="rrspInvested">Invested</label>
+                                        <input id="rrspInvested" type="number" step="0.01" placeholder="0.00" />
+                                    </div>
+                                    <div class="field">
+                                        <label for="rrspCurrent">Current value</label>
+                                        <input id="rrspCurrent" type="number" step="0.01" placeholder="0.00" />
+                                    </div>
+                                </div>
+                                <div class="investment-live-metrics">
+                                    <span id="rrspGain" class="investment-live-chip">$0.00 gain</span>
+                                    <span id="rrspReturn" class="investment-live-chip">0.0%</span>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+
+                    <div class="investment-group-card korea-group-card">
+                        <div class="investment-group-header">
+                            <div>
+                                <h3>Korea account</h3>
+                            </div>
+                            <span class="investment-group-badge korea-badge">KR</span>
+                        </div>
+                        <article class="investment-account-card full-width">
+                            <div class="investment-account-head">
+                                <h4>Korea account</h4>
+                                <span class="investment-account-tag">Korea</span>
+                            </div>
+                            <div class="ledger-grid compact-grid">
+                                <div class="field">
+                                    <label for="koreaInvested">Invested (KRW)</label>
+                                    <input id="koreaInvested" type="text" inputmode="numeric" placeholder="0" />
+                                </div>
+                                <div class="field">
+                                    <label for="koreaCurrent">Current value (KRW)</label>
+                                    <input id="koreaCurrent" type="text" inputmode="numeric" placeholder="0" />
+                                </div>
+                            </div>
+                            <div class="investment-live-metrics">
+                                <span id="koreaGain" class="investment-live-chip">₩0 gain</span>
+                                <span id="koreaReturn" class="investment-live-chip">0.0%</span>
+                            </div>
+                        </article>
+                    </div>
+
+                    <div class="field action investment-save-row">
+                        <label aria-hidden="true">&nbsp;</label>
+                        <div class="activity-form-actions investment-form-actions">
+                            <button id="saveInvestmentSnapshotBtn" class="primary-btn hidden" type="submit">
+                                <span id="saveInvestmentSnapshotBtnIcon" aria-hidden="true">&#x2713;</span>
+                                <span id="saveInvestmentSnapshotBtnText">Save snapshot</span>
+                            </button>
+                            <button id="cancelInvestmentEditBtn" class="ghost-btn hidden" type="button">Cancel</button>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <section class="ledger-card">
+                <div class="ledger-row">
+                    <h2>Snapshot History</h2>
+                </div>
+                <ul id="investmentHistoryList" class="ledger-history-list investment-history-list"></ul>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        (function initAuthGate() {
+            const authApi = window.__ledgerAuth || {};
+            if (authApi.requireAuth) {
+                authApi.requireAuth().then(() => authApi.attachLogoutButton && authApi.attachLogoutButton());
+            }
+        })();
+    </script>
+    <script src="investments.js?v=20260529d"></script>
+</body>
+</html>
