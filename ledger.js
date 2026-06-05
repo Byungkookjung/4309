@@ -6,6 +6,8 @@ const investmentHubSection = document.getElementById('investmentHubSection');
 const spendingSummarySection = document.getElementById('spendingSummarySection');
 const planSection = document.getElementById('planSection');
 const balanceHistorySection = document.getElementById('balanceHistorySection');
+const ledgerCanadaInvestmentReturnEl = document.getElementById('ledgerCanadaInvestmentReturn');
+const ledgerKoreaInvestmentReturnEl = document.getElementById('ledgerKoreaInvestmentReturn');
 
 const savingInput = document.getElementById('savingBalance');
 const checkingInput = document.getElementById('checkingBalance');
@@ -111,6 +113,8 @@ let balancesUnsub = null;
 let balanceHistoryUnsub = null;
 let planUnsub = null;
 let activityUnsub = null;
+let investmentCurrentUnsub = null;
+let ledgerInvestmentSnapshot = null;
 
 function isRemoteEnabled() {
     return !!(currentUser && dbRef);
@@ -132,12 +136,17 @@ function activityCollection(user) {
     return dbRef.collection('users').doc(user.uid).collection('ledgerEntries');
 }
 
+function investmentCurrentDoc(user) {
+    return dbRef.collection('users').doc(user.uid).collection('investmentSnapshots').doc('main');
+}
+
 function startLedgerSync(user) {
     if (!dbRef) return;
     if (balancesUnsub) balancesUnsub();
     if (balanceHistoryUnsub) balanceHistoryUnsub();
     if (planUnsub) planUnsub();
     if (activityUnsub) activityUnsub();
+    if (investmentCurrentUnsub) investmentCurrentUnsub();
 
     balancesUnsub = balancesDoc(user).onSnapshot(doc => {
         balances = doc.exists ? doc.data() : null;
@@ -167,12 +176,18 @@ function startLedgerSync(user) {
         activityEntries = normalizeActivityEntries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         renderActivity();
     });
+
+    investmentCurrentUnsub = investmentCurrentDoc(user).onSnapshot(doc => {
+        ledgerInvestmentSnapshot = doc.exists ? normalizeInvestmentSnapshot({ id: doc.id, ...doc.data() }) : null;
+        renderInvestmentHubOverview();
+    });
 }
 
 const STORAGE_BALANCES = 'ledgerBalances';
 const STORAGE_BALANCE_HISTORY = 'ledgerBalanceHistory';
 const STORAGE_PLAN_ITEMS = 'ledgerPlanItems';
 const STORAGE_ACTIVITY = 'ledgerActivity';
+const STORAGE_INVESTMENT_CURRENT = 'investmentCurrentSnapshot';
 
 let balances = null;
 let balanceHistoryEntries = [];
@@ -192,7 +207,8 @@ let selectedPlanDetailType = null;
 const PLAN_TYPES = {
     fixed: 'fixed',
     expected: 'expected',
-    income: 'income'
+    income: 'income',
+    unexpectedIncome: 'unexpected_income'
 };
 
 const MONTH_NAMES = [
@@ -486,7 +502,12 @@ function formatProgressPercent(actual, planned) {
     if (planned <= 0) {
         return actual > 0 ? '100%+' : '0%';
     }
-    return `${((actual / planned) * 100).toFixed(1)}%`;
+    return `${((actual / planned) * 100).toFixed(2)}%`;
+}
+
+function isIncomePlanType(type) {
+    const normalizedType = normalizePlanType(type);
+    return normalizedType === PLAN_TYPES.income || normalizedType === PLAN_TYPES.unexpectedIncome;
 }
 
 function getEntryEffectiveAmount(entry) {
@@ -498,7 +519,7 @@ function getEntryEffectiveAmount(entry) {
 }
 
 function getActivityFormType(sourceType, fallbackType = 'expense') {
-    return normalizePlanType(sourceType) === PLAN_TYPES.income
+    return isIncomePlanType(sourceType)
         ? 'income'
         : (fallbackType === 'income' ? 'income' : 'expense');
 }
@@ -576,9 +597,11 @@ function buildBudgetProgressRows() {
             acc.expected += getEntryEffectiveAmount(entry);
         } else if (entry.sourceType === PLAN_TYPES.income && entry.type === 'income') {
             acc.income += getEntryEffectiveAmount(entry);
+        } else if (entry.sourceType === PLAN_TYPES.unexpectedIncome && entry.type === 'income') {
+            acc.unexpectedIncome += getEntryEffectiveAmount(entry);
         }
         return acc;
-    }, { fixed: 0, expected: 0, income: 0 });
+    }, { fixed: 0, expected: 0, income: 0, unexpectedIncome: 0 });
 
     return [
         {
@@ -601,8 +624,27 @@ function buildBudgetProgressRows() {
             planned: getPlanTotalByType(PLAN_TYPES.income),
             actual: actualByType.income,
             kind: 'income'
+        },
+        {
+            key: PLAN_TYPES.unexpectedIncome,
+            label: '예상 외 수입',
+            planned: null,
+            actual: actualByType.unexpectedIncome,
+            kind: 'income',
+            nonPlanned: true
         }
     ].map(row => {
+        if (row.nonPlanned) {
+            return {
+                ...row,
+                difference: null,
+                progressText: '✕',
+                statusText: row.actual > 0 ? `${formatCurrency(row.actual)} 입금` : '미입금',
+                statusClass: row.actual > 0 ? 'positive' : 'idle',
+                progressClass: '',
+                isExpandable: true
+            };
+        }
         const difference = Number((row.actual - row.planned).toFixed(2));
         const progressText = formatProgressPercent(row.actual, row.planned);
         let statusText = '대기';
@@ -642,7 +684,8 @@ function buildBudgetProgressRows() {
             progressText,
             statusText,
             statusClass,
-            progressClass: row.kind === 'expense' && row.planned > 0 && row.actual > row.planned ? 'over' : ''
+            progressClass: row.kind === 'expense' && row.planned > 0 && row.actual > row.planned ? 'over' : '',
+            isExpandable: true
         };
     });
 }
@@ -653,7 +696,7 @@ function renderBudgetProgressTable() {
     budgetProgressRows.innerHTML = '';
 
     rows.forEach(row => {
-        const isSelected = selectedPlanDetailType === row.key;
+        const isSelected = row.isExpandable && selectedPlanDetailType === row.key;
         const rowEl = document.createElement('div');
         rowEl.className = `summary-progress-row summary-progress-${row.key} summary-progress-${row.statusClass}`;
         if (isSelected) rowEl.classList.add('selected');
@@ -661,18 +704,26 @@ function renderBudgetProgressTable() {
         rowEl.dataset.planType = row.key;
         rowEl.setAttribute('aria-expanded', isSelected ? 'true' : 'false');
         rowEl.innerHTML = `
-            <span role="cell" class="summary-progress-label"><span>${row.label}</span><span class="summary-progress-chevron" aria-hidden="true">${isSelected ? '▾' : '▸'}</span></span>
-            <span role="cell">${formatCurrency(row.planned)}</span>
+            <span role="cell" class="summary-progress-label"><span>${row.label}</span><span class="summary-progress-chevron" aria-hidden="true">${row.isExpandable ? (isSelected ? '▾' : '▸') : ''}</span></span>
+            <span role="cell">${row.planned === null ? '✕' : formatCurrency(row.planned)}</span>
             <span role="cell">${formatCurrency(row.actual)}</span>
             <span role="cell" class="summary-progress-metric ${row.progressClass}">${row.progressText}</span>
             <span role="cell" class="summary-progress-status ${row.statusClass}">${row.statusText}</span>
         `;
         budgetProgressRows.appendChild(rowEl);
+
+        if (isSelected && planDetailCard) {
+            const detailRow = document.createElement('div');
+            detailRow.className = 'summary-progress-detail-row';
+            detailRow.setAttribute('role', 'row');
+            detailRow.appendChild(planDetailCard);
+            budgetProgressRows.appendChild(detailRow);
+        }
     });
 }
 
 function getActivityAmountForPlanItem(item) {
-    const targetType = item.type === PLAN_TYPES.income ? 'income' : 'expense';
+    const targetType = isIncomePlanType(item.type) ? 'income' : 'expense';
     return getEntriesInSelectedRange().reduce((sum, entry) => {
         if (entry.type !== targetType) return sum;
         if (entry.sourceType !== item.type) return sum;
@@ -687,6 +738,20 @@ function getActivityAmountForPlanItem(item) {
 }
 
 function buildPlanDetailRows(type) {
+    if (type === PLAN_TYPES.unexpectedIncome) {
+        return getEntriesInSelectedRange()
+            .filter(entry => entry.type === 'income' && entry.sourceType === PLAN_TYPES.unexpectedIncome)
+            .map(entry => ({
+                id: entry.id,
+                label: entry.reason || 'Unexpected income',
+                type,
+                planned: null,
+                actual: Number(getEntryEffectiveAmount(entry).toFixed(2)),
+                remaining: null,
+                statusClass: 'positive'
+            }));
+    }
+
     return getPlanItemsByType(type).map(item => {
         const actual = Number(getActivityAmountForPlanItem(item).toFixed(2));
         const planned = Number(item.amount || 0);
@@ -698,7 +763,7 @@ function buildPlanDetailRows(type) {
             planned,
             actual,
             remaining,
-            statusClass: type === PLAN_TYPES.income
+            statusClass: isIncomePlanType(type)
                 ? (remaining < 0 ? 'positive' : remaining === 0 ? 'matched' : 'under')
                 : (remaining < 0 ? 'over' : remaining === 0 ? 'matched' : 'under')
         };
@@ -711,6 +776,7 @@ function renderPlanDetail() {
     if (!selectedPlanDetailType) {
         if (planDetailTitle) planDetailTitle.textContent = '항목별 남은 금액';
         if (planDetailRangeLabel) planDetailRangeLabel.textContent = getCurrentSummaryRangeText();
+        planDetailCard.classList.remove('plan-detail-inline');
         planDetailCard.classList.add('hidden');
         planDetailRows.innerHTML = '';
         return;
@@ -723,6 +789,7 @@ function renderPlanDetail() {
     if (planDetailRangeLabel) {
         planDetailRangeLabel.textContent = getCurrentSummaryRangeText();
     }
+    planDetailCard.classList.add('plan-detail-inline');
     planDetailCard.classList.remove('hidden');
     planDetailRows.innerHTML = '';
 
@@ -737,15 +804,15 @@ function renderPlanDetail() {
     rows.forEach(row => {
         const rowEl = document.createElement('div');
         rowEl.className = `plan-detail-row plan-detail-${row.type} plan-detail-${row.statusClass}`;
-        let remainingText = formatCurrency(row.remaining);
-        if (row.remaining < 0) {
-            remainingText = row.type === PLAN_TYPES.income
+        let remainingText = row.remaining === null ? '✕' : formatCurrency(row.remaining);
+        if (row.remaining !== null && row.remaining < 0) {
+            remainingText = isIncomePlanType(row.type)
                 ? `+${formatCurrency(Math.abs(row.remaining))}`
                 : `-${formatCurrency(Math.abs(row.remaining))}`;
         }
         rowEl.innerHTML = `
             <span class="plan-detail-label" role="cell">${row.label}</span>
-            <span role="cell">${formatCurrency(row.planned)}</span>
+            <span role="cell">${row.planned === null ? '✕' : formatCurrency(row.planned)}</span>
             <span role="cell">${formatCurrency(row.actual)}</span>
             <span role="cell" class="plan-detail-remaining ${row.statusClass}">${remainingText}</span>
         `;
@@ -792,6 +859,84 @@ function formatCurrency(num) {
     });
 }
 
+function formatPercent(value) {
+    const amount = Number(value || 0);
+    return `${amount.toFixed(2)}%`;
+}
+
+function parseInvestmentAmount(value) {
+    const normalized = String(value || '').replace(/,/g, '').trim();
+    const parsed = parseFloat(normalized);
+    if (Number.isNaN(parsed)) return 0;
+    return Number(parsed.toFixed(2));
+}
+
+function buildEmptyInvestmentAccounts() {
+    return {
+        tfsa: { invested: 0, current: 0 },
+        rrsp: { invested: 0, current: 0 },
+        korea: { invested: 0, current: 0 }
+    };
+}
+
+function normalizeInvestmentSnapshot(data) {
+    const accounts = buildEmptyInvestmentAccounts();
+    const source = data && data.accounts ? data.accounts : {};
+    ['tfsa', 'rrsp', 'korea'].forEach(key => {
+        const entry = source[key] || {};
+        accounts[key] = {
+            invested: parseInvestmentAmount(entry.invested),
+            current: parseInvestmentAmount(entry.current)
+        };
+    });
+
+    return {
+        id: data && data.id ? String(data.id) : '',
+        snapshotDate: data && typeof data.snapshotDate === 'string' ? data.snapshotDate : '',
+        updatedAt: data && data.updatedAt ? data.updatedAt : null,
+        savedAt: data && data.savedAt ? data.savedAt : null,
+        accounts
+    };
+}
+
+function computeLedgerInvestmentSummary(snapshot) {
+    const normalized = normalizeInvestmentSnapshot(snapshot || {});
+    const tfsaInvested = parseInvestmentAmount(normalized.accounts.tfsa.invested);
+    const tfsaCurrent = parseInvestmentAmount(normalized.accounts.tfsa.current);
+    const rrspInvested = parseInvestmentAmount(normalized.accounts.rrsp.invested);
+    const rrspCurrent = parseInvestmentAmount(normalized.accounts.rrsp.current);
+    const koreaInvested = parseInvestmentAmount(normalized.accounts.korea.invested);
+    const koreaCurrent = parseInvestmentAmount(normalized.accounts.korea.current);
+
+    const canadaInvested = Number((tfsaInvested + rrspInvested).toFixed(2));
+    const canadaCurrent = Number((tfsaCurrent + rrspCurrent).toFixed(2));
+    const canadaReturnRate = canadaInvested > 0
+        ? Number((((canadaCurrent - canadaInvested) / canadaInvested) * 100).toFixed(2))
+        : 0;
+    const koreaReturnRate = koreaInvested > 0
+        ? Number((((koreaCurrent - koreaInvested) / koreaInvested) * 100).toFixed(2))
+        : 0;
+
+    return {
+        canadaReturnRate,
+        koreaReturnRate
+    };
+}
+
+function renderInvestmentHubOverview() {
+    const summary = computeLedgerInvestmentSummary(ledgerInvestmentSnapshot);
+    if (ledgerCanadaInvestmentReturnEl) {
+        ledgerCanadaInvestmentReturnEl.textContent = formatPercent(summary.canadaReturnRate);
+        ledgerCanadaInvestmentReturnEl.classList.toggle('negative', summary.canadaReturnRate < 0);
+        ledgerCanadaInvestmentReturnEl.classList.toggle('positive', summary.canadaReturnRate > 0);
+    }
+    if (ledgerKoreaInvestmentReturnEl) {
+        ledgerKoreaInvestmentReturnEl.textContent = formatPercent(summary.koreaReturnRate);
+        ledgerKoreaInvestmentReturnEl.classList.toggle('negative', summary.koreaReturnRate < 0);
+        ledgerKoreaInvestmentReturnEl.classList.toggle('positive', summary.koreaReturnRate > 0);
+    }
+}
+
 function formatHistoryDateTime(value) {
     if (!value && value !== 0) return 'Unknown time';
     let date = value;
@@ -817,7 +962,11 @@ function formatHistoryDateTime(value) {
 }
 
 function normalizePlanType(value) {
-    return value === PLAN_TYPES.fixed || value === PLAN_TYPES.income ? value : PLAN_TYPES.expected;
+    return value === PLAN_TYPES.fixed
+        || value === PLAN_TYPES.income
+        || value === PLAN_TYPES.unexpectedIncome
+        ? value
+        : PLAN_TYPES.expected;
 }
 
 function normalizeActivitySourceType(value) {
@@ -1037,6 +1186,11 @@ function saveActivityEntries() {
     localStorage.setItem(STORAGE_ACTIVITY, JSON.stringify(activityEntries));
 }
 
+function loadInvestmentSnapshot() {
+    const raw = localStorage.getItem(STORAGE_INVESTMENT_CURRENT);
+    ledgerInvestmentSnapshot = raw ? normalizeInvestmentSnapshot(JSON.parse(raw)) : null;
+}
+
 function hasBalances() {
     return balances && typeof balances === 'object';
 }
@@ -1095,6 +1249,7 @@ function toggleBalancesPanel() {
 function getPlanTypeLabel(type) {
     if (type === PLAN_TYPES.fixed) return '고정지출';
     if (type === PLAN_TYPES.income) return '예상 수입';
+    if (type === PLAN_TYPES.unexpectedIncome) return '예상 외 수입';
     return '예상 지출';
 }
 
@@ -1164,13 +1319,14 @@ function renderPlan() {
 function populateActivityLinkedItems() {
     if (!activityLinkedItemSelect) return;
     const sourceType = activitySourceTypeSelect ? activitySourceTypeSelect.value : 'custom';
-    const items = sourceType === 'custom' ? [] : getPlanItemsByType(normalizePlanType(sourceType));
+    const usesLinkedItem = sourceType !== 'custom' && sourceType !== PLAN_TYPES.unexpectedIncome;
+    const items = usesLinkedItem ? getPlanItemsByType(normalizePlanType(sourceType)) : [];
 
     activityLinkedItemSelect.innerHTML = '';
     if (!items.length) {
         const option = document.createElement('option');
         option.value = '';
-        option.textContent = 'No items available';
+        option.textContent = usesLinkedItem ? 'No items available' : 'Not used for this type';
         activityLinkedItemSelect.appendChild(option);
         return;
     }
@@ -1186,19 +1342,27 @@ function populateActivityLinkedItems() {
 function updateActivitySourceControls() {
     if (!activitySourceTypeSelect || !activityLinkedItemField || !activityReasonInput) return;
     const sourceType = activitySourceTypeSelect.value;
-    const usingLinkedItem = sourceType !== 'custom';
+    const usingLinkedItem = sourceType !== 'custom' && sourceType !== PLAN_TYPES.unexpectedIncome;
     const canUseDetail = normalizePlanType(sourceType) === PLAN_TYPES.expected;
+    const canWriteReason = !usingLinkedItem;
 
-    activityLinkedItemField.classList.toggle('hidden', !usingLinkedItem);
-    if (activityDetailField) activityDetailField.classList.toggle('hidden', !canUseDetail);
+    activityLinkedItemField.classList.remove('hidden');
+    activityLinkedItemField.classList.toggle('is-disabled', !usingLinkedItem);
+    if (activityLinkedItemSelect) activityLinkedItemSelect.disabled = !usingLinkedItem;
+    if (activityDetailField) {
+        activityDetailField.classList.remove('hidden');
+        activityDetailField.classList.toggle('is-disabled', !canUseDetail);
+    }
     if (activityDetailInput) {
         activityDetailInput.disabled = !canUseDetail;
+        activityDetailInput.placeholder = canUseDetail ? 'Chipotle, Costco, brunch with friends...' : 'Only used for expected expense';
         if (!canUseDetail) {
             activityDetailInput.value = '';
         }
     }
-    activityReasonInput.disabled = usingLinkedItem;
-    activityReasonInput.placeholder = usingLinkedItem ? 'Reason is taken from the selected budget item' : 'Food, paycheck, rent...';
+    activityReasonInput.disabled = !canWriteReason;
+    activityReasonInput.placeholder = canWriteReason ? 'Food, paycheck, rent...' : 'Reason comes from the selected budget item';
+    activityReasonInput.parentElement?.classList.toggle('is-disabled', !canWriteReason);
 
     populateActivityLinkedItems();
 
@@ -1589,7 +1753,9 @@ async function addActivityEntry() {
         : null;
     const type = getActivityFormType(sourceType, editingEntry ? editingEntry.type : 'expense');
     const linkedItemId = activityLinkedItemSelect ? activityLinkedItemSelect.value : '';
-    const linkedItem = sourceType === 'custom' ? null : planItems.find(item => item.id === linkedItemId);
+    const linkedItem = (sourceType === 'custom' || sourceType === PLAN_TYPES.unexpectedIncome)
+        ? null
+        : planItems.find(item => item.id === linkedItemId);
     const reason = linkedItem ? linkedItem.label : activityReasonInput.value.trim();
     const detail = activityDetailInput ? activityDetailInput.value.trim() : '';
     const isShared = Boolean(activitySharedInput && activitySharedInput.checked);
@@ -2080,6 +2246,7 @@ if (balanceHistoryList) {
     }
 
     if (requireAuthRef) {
+        renderInvestmentHubOverview();
         requireAuthRef().then(user => {
             currentUser = user;
             startLedgerSync(user);
@@ -2091,7 +2258,9 @@ if (balanceHistoryList) {
     loadBalanceHistory();
     loadPlanItems();
     loadActivityEntries();
+    loadInvestmentSnapshot();
     updateActivitySourceControls();
+    renderInvestmentHubOverview();
 
     if (hasBalances()) {
         showDashboard();

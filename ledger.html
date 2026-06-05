@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Expense Ledger</title>
     <link rel="icon" href="favicon-ledger.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="style.css?v=20260529c" />
+    <link rel="stylesheet" href="style.css?v=20260604e" />
 </head>
 <body class="ledger-body">
     <div class="container">
@@ -57,11 +57,15 @@
                     <h2>Investments</h2>
                     <a href="investments.html" class="primary-btn link-btn">Open tracker</a>
                 </div>
-                <div class="investment-hub-preview">
-                    <div class="investment-hub-pill">Canada accounts</div>
-                    <div class="investment-hub-pill">TFSA + RRSP</div>
-                    <div class="investment-hub-pill">Korea account</div>
-                    <div class="investment-hub-pill">Manual snapshots</div>
+                <div class="investment-hub-overview">
+                    <div class="investment-hub-summary-card">
+                        <div class="investment-hub-summary-label">Canada accounts</div>
+                        <div id="ledgerCanadaInvestmentReturn" class="investment-hub-summary-value">0.00%</div>
+                    </div>
+                    <div class="investment-hub-summary-card">
+                        <div class="investment-hub-summary-label">Korea account</div>
+                        <div id="ledgerKoreaInvestmentReturn" class="investment-hub-summary-value">0.00%</div>
+                    </div>
                 </div>
             </section>
 
@@ -108,7 +112,7 @@
                 </div>
                 <div class="budget-overview-grid">
                     <div class="budget-overview-card">
-                        <div class="budget-overview-label">Expected income</div>
+                        <div class="budget-overview-label">Planned income</div>
                         <div id="incomeTotal" class="budget-overview-value">$0.00</div>
                     </div>
                     <div class="budget-overview-card">
@@ -151,6 +155,7 @@
                             <option value="fixed">Fixed expense</option>
                             <option value="expected">Expected expense</option>
                             <option value="income">Expected income</option>
+                            <option value="unexpected_income">Unexpected income</option>
                         </select>
                     </div>
                     <div id="activityLinkedItemField" class="field wide hidden">
@@ -359,6 +364,6 @@
             }
         })();
     </script>
-    <script src="ledger.js?v=20260529c"></script>
+    <script src="ledger.js?v=20260604e"></script>
 </body>
 </html>

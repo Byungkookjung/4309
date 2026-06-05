@@ -1,6 +1,5 @@
 const investmentForm = document.getElementById('investmentForm');
 const investmentFormTitleEl = document.getElementById('investmentFormTitle');
-const investmentSnapshotDateInput = document.getElementById('investmentSnapshotDate');
 const investmentUpdatedAtEl = document.getElementById('investmentUpdatedAt');
 const investmentHistoryList = document.getElementById('investmentHistoryList');
 const saveInvestmentSnapshotBtn = document.getElementById('saveInvestmentSnapshotBtn');
@@ -106,7 +105,7 @@ function formatCurrencyByAccount(accountKey, value) {
 
 function formatPercent(value) {
     const amount = Number(value || 0);
-    return `${amount.toFixed(1)}%`;
+    return `${amount.toFixed(2)}%`;
 }
 
 function formatSignedCurrency(value, accountKey = '') {
@@ -182,7 +181,7 @@ function computeAccountMetrics(account) {
     const invested = parseAmount(account.invested);
     const current = parseAmount(account.current);
     const gain = Number((current - invested).toFixed(2));
-    const returnRate = invested > 0 ? Number(((gain / invested) * 100).toFixed(1)) : 0;
+    const returnRate = invested > 0 ? Number(((gain / invested) * 100).toFixed(2)) : 0;
     return { invested, current, gain, returnRate };
 }
 
@@ -195,12 +194,12 @@ function computeSnapshotSummary(snapshot) {
     const canadaInvested = Number((tfsa.invested + rrsp.invested).toFixed(2));
     const canadaCurrent = Number((tfsa.current + rrsp.current).toFixed(2));
     const canadaGain = Number((canadaCurrent - canadaInvested).toFixed(2));
-    const canadaReturnRate = canadaInvested > 0 ? Number(((canadaGain / canadaInvested) * 100).toFixed(1)) : 0;
+    const canadaReturnRate = canadaInvested > 0 ? Number(((canadaGain / canadaInvested) * 100).toFixed(2)) : 0;
 
     const portfolioInvested = Number((canadaInvested + korea.invested).toFixed(2));
     const portfolioCurrent = Number((canadaCurrent + korea.current).toFixed(2));
     const portfolioGain = Number((portfolioCurrent - portfolioInvested).toFixed(2));
-    const portfolioReturnRate = portfolioInvested > 0 ? Number(((portfolioGain / portfolioInvested) * 100).toFixed(1)) : 0;
+    const portfolioReturnRate = portfolioInvested > 0 ? Number(((portfolioGain / portfolioInvested) * 100).toFixed(2)) : 0;
 
     return {
         tfsa,
@@ -274,10 +273,6 @@ function renderLiveMetrics() {
 
 function syncFormWithSnapshot(snapshot) {
     const normalized = snapshot ? normalizeSnapshot(snapshot) : normalizeSnapshot({});
-    if (investmentSnapshotDateInput) {
-        investmentSnapshotDateInput.value = normalized.snapshotDate || getTodayDateString();
-        investmentSnapshotDateInput.max = getTodayDateString();
-    }
     ACCOUNT_CONFIG.forEach(account => {
         const fields = accountInputs[account.key];
         const values = normalized.accounts[account.key];
@@ -374,11 +369,7 @@ function parseDateString(value) {
 }
 
 function buildSnapshotFromForm() {
-    const snapshotDate = investmentSnapshotDateInput ? investmentSnapshotDateInput.value : '';
-    if (!snapshotDate) {
-        alert('Please select a snapshot date.');
-        return null;
-    }
+    const snapshotDate = getTodayDateString();
 
     const accounts = buildEmptyAccounts();
     for (const account of ACCOUNT_CONFIG) {
