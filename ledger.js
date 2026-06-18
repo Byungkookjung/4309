@@ -739,17 +739,23 @@ function getActivityAmountForPlanItem(item) {
 
 function buildPlanDetailRows(type) {
     if (type === PLAN_TYPES.unexpectedIncome) {
-        return getEntriesInSelectedRange()
+        const grouped = getEntriesInSelectedRange()
             .filter(entry => entry.type === 'income' && entry.sourceType === PLAN_TYPES.unexpectedIncome)
-            .map(entry => ({
-                id: entry.id,
-                label: entry.reason || 'Unexpected income',
-                type,
-                planned: null,
-                actual: Number(getEntryEffectiveAmount(entry).toFixed(2)),
-                remaining: null,
-                statusClass: 'positive'
-            }));
+            .reduce((acc, entry) => {
+                const label = String(entry.reason || 'Unexpected income').trim() || 'Unexpected income';
+                acc[label] = (acc[label] || 0) + getEntryEffectiveAmount(entry);
+                return acc;
+            }, {});
+
+        return Object.entries(grouped).map(([label, actual]) => ({
+            id: label,
+            label,
+            type,
+            planned: null,
+            actual: Number(actual.toFixed(2)),
+            remaining: null,
+            statusClass: 'positive'
+        }));
     }
 
     return getPlanItemsByType(type).map(item => {
@@ -1486,7 +1492,7 @@ function renderActivity() {
     const totals = entriesInRange.reduce(
         (acc, entry) => {
             if (entry.type === 'income') acc.income += getEntryEffectiveAmount(entry);
-            else acc.expense += getEntryEffectiveAmount(entry);
+            else if (!(hideRentInChart && isRentReason(entry.reason))) acc.expense += getEntryEffectiveAmount(entry);
             return acc;
         },
         { income: 0, expense: 0 }
