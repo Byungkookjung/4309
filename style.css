@@ -2714,6 +2714,134 @@ body.ledger-body .container {
     color: #c0392b;
 }
 
+.exchange-card {
+    background:
+        radial-gradient(circle at top right, rgba(165, 224, 215, 0.22), transparent 35%),
+        linear-gradient(180deg, #ffffff 0%, #f7fbfb 100%);
+}
+
+.exchange-panel {
+    border: 1px solid #dbe7e8;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.55);
+    padding: 14px;
+}
+
+.exchange-panel-header {
+    align-items: center;
+    cursor: pointer;
+}
+
+.exchange-panel-content {
+    margin-top: 14px;
+}
+
+.exchange-panel.collapsed .balance-toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.exchange-panel.collapsed .exchange-panel-content {
+    display: none;
+}
+
+.exchange-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.exchange-updated-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.exchange-source-text {
+    margin-bottom: 0;
+}
+
+.exchange-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.exchange-panel-card {
+    border: 1px solid #dbe7e8;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 16px;
+    box-shadow: 0 10px 24px rgba(39, 84, 88, 0.08);
+}
+
+.exchange-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.exchange-panel-head h3 {
+    color: #23434a;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.exchange-swap-btn {
+    min-height: 34px;
+    padding: 0 12px;
+}
+
+.exchange-rate-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #eef7f6;
+    border: 1px solid #d8eaea;
+    color: #2d5b63;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 14px;
+}
+
+.exchange-form-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.exchange-actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.exchange-history-item .history-actions {
+    align-items: center;
+}
+
+@media (max-width: 760px) {
+    .exchange-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .exchange-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .exchange-header-actions,
+    .exchange-updated-row,
+    .exchange-panel-head {
+        align-items: flex-start;
+    }
+}
+
 .investment-overview-card {
     background:
         radial-gradient(circle at top left, rgba(96, 160, 255, 0.16), transparent 34%),

@@ -3,9 +3,11 @@
 const setupSection = document.getElementById('setupSection');
 const dashboardSection = document.getElementById('dashboardSection');
 const investmentHubSection = document.getElementById('investmentHubSection');
+const exchangeSection = document.getElementById('exchangeSection');
 const spendingSummarySection = document.getElementById('spendingSummarySection');
 const planSection = document.getElementById('planSection');
 const balanceHistorySection = document.getElementById('balanceHistorySection');
+const exchangeHistorySection = document.getElementById('exchangeHistorySection');
 const ledgerCanadaInvestmentReturnEl = document.getElementById('ledgerCanadaInvestmentReturn');
 const ledgerKoreaInvestmentReturnEl = document.getElementById('ledgerKoreaInvestmentReturn');
 
@@ -18,6 +20,10 @@ const editBalancesBtn = document.getElementById('editBalancesBtn');
 const toggleBalancesBtn = document.getElementById('toggleBalancesBtn');
 const balancePanel = document.querySelector('#dashboardSection .balance-panel');
 const balancePanelContent = document.getElementById('balancePanelContent');
+const toggleExchangeBtn = document.getElementById('toggleExchangeBtn');
+const exchangePanel = document.querySelector('#exchangeSection .exchange-panel');
+const exchangePanelHeader = document.querySelector('#exchangeSection .exchange-panel-header');
+const exchangePanelContent = document.getElementById('exchangePanelContent');
 
 const savingDisplay = document.getElementById('savingDisplay');
 const checkingDisplay = document.getElementById('checkingDisplay');
@@ -31,6 +37,23 @@ const balanceHistoryList = document.getElementById('balanceHistoryList');
 const openBalanceHistoryBtn = document.getElementById('openBalanceHistoryBtn');
 const closeBalanceHistoryBtn = document.getElementById('closeBalanceHistoryBtn');
 const clearBalanceHistoryBtn = document.getElementById('clearBalanceHistoryBtn');
+const exchangeHistoryList = document.getElementById('exchangeHistoryList');
+const openExchangeHistoryBtn = document.getElementById('openExchangeHistoryBtn');
+const closeExchangeHistoryBtn = document.getElementById('closeExchangeHistoryBtn');
+const clearExchangeHistoryBtn = document.getElementById('clearExchangeHistoryBtn');
+const saveExchangeSnapshotBtn = document.getElementById('saveExchangeSnapshotBtn');
+const exchangeUpdatedAtEl = document.getElementById('exchangeUpdatedAt');
+const exchangeSourceTextEl = document.getElementById('exchangeSourceText');
+const usdCadRateLabelEl = document.getElementById('usdCadRateLabel');
+const cadKrwRateLabelEl = document.getElementById('cadKrwRateLabel');
+const usdCadFromAmountInput = document.getElementById('usdCadFromAmount');
+const usdCadFromCurrencySelect = document.getElementById('usdCadFromCurrency');
+const usdCadToAmountInput = document.getElementById('usdCadToAmount');
+const usdCadToCurrencySelect = document.getElementById('usdCadToCurrency');
+const cadKrwFromAmountInput = document.getElementById('cadKrwFromAmount');
+const cadKrwFromCurrencySelect = document.getElementById('cadKrwFromCurrency');
+const cadKrwToAmountInput = document.getElementById('cadKrwToAmount');
+const cadKrwToCurrencySelect = document.getElementById('cadKrwToCurrency');
 
 const openPlanBtn = document.getElementById('openPlanBtn');
 const closePlanBtn = document.getElementById('closePlanBtn');
@@ -111,6 +134,7 @@ const dbRef = authApi.db;
 let currentUser = null;
 let balancesUnsub = null;
 let balanceHistoryUnsub = null;
+let exchangeHistoryUnsub = null;
 let planUnsub = null;
 let activityUnsub = null;
 let investmentCurrentUnsub = null;
@@ -132,6 +156,10 @@ function balanceHistoryCollection(user) {
     return dbRef.collection('users').doc(user.uid).collection('ledgerBalanceHistory');
 }
 
+function exchangeHistoryCollection(user) {
+    return dbRef.collection('users').doc(user.uid).collection('ledgerExchangeHistory');
+}
+
 function activityCollection(user) {
     return dbRef.collection('users').doc(user.uid).collection('ledgerEntries');
 }
@@ -144,6 +172,7 @@ function startLedgerSync(user) {
     if (!dbRef) return;
     if (balancesUnsub) balancesUnsub();
     if (balanceHistoryUnsub) balanceHistoryUnsub();
+    if (exchangeHistoryUnsub) exchangeHistoryUnsub();
     if (planUnsub) planUnsub();
     if (activityUnsub) activityUnsub();
     if (investmentCurrentUnsub) investmentCurrentUnsub();
@@ -163,6 +192,14 @@ function startLedgerSync(user) {
         .onSnapshot(snapshot => {
             balanceHistoryEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             renderBalanceHistory();
+        });
+
+    exchangeHistoryUnsub = exchangeHistoryCollection(user)
+        .orderBy('savedAt', 'desc')
+        .limit(30)
+        .onSnapshot(snapshot => {
+            exchangeHistoryEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderExchangeHistory();
         });
 
     planUnsub = planCollection(user).onSnapshot(snapshot => {
@@ -185,12 +222,15 @@ function startLedgerSync(user) {
 
 const STORAGE_BALANCES = 'ledgerBalances';
 const STORAGE_BALANCE_HISTORY = 'ledgerBalanceHistory';
+const STORAGE_EXCHANGE_HISTORY = 'ledgerExchangeHistory';
 const STORAGE_PLAN_ITEMS = 'ledgerPlanItems';
 const STORAGE_ACTIVITY = 'ledgerActivity';
 const STORAGE_INVESTMENT_CURRENT = 'investmentCurrentSnapshot';
+const STORAGE_EXCHANGE_RATES = 'ledgerExchangeRates';
 
 let balances = null;
 let balanceHistoryEntries = [];
+let exchangeHistoryEntries = [];
 let planItems = [];
 let editingPlanId = null;
 let activityEntries = [];
@@ -202,7 +242,11 @@ let toastHideTimer = null;
 let selectedSummaryRange = 'month';
 let selectedSummaryMonth = new Date().getMonth() + 1;
 let balancesCollapsed = false;
+let exchangeCollapsed = false;
 let selectedPlanDetailType = null;
+let exchangeRates = null;
+
+const EXCHANGE_SOURCE_URL = 'https://frankfurter.dev/';
 
 const PLAN_TYPES = {
     fixed: 'fixed',
@@ -865,9 +909,263 @@ function formatCurrency(num) {
     });
 }
 
+function formatWon(num) {
+    return '₩' + Math.round(Number(num || 0)).toLocaleString('ko-KR');
+}
+
 function formatPercent(value) {
     const amount = Number(value || 0);
     return `${amount.toFixed(2)}%`;
+}
+
+function formatExchangeValue(currency, value) {
+    return currency === 'KRW' ? formatWon(value) : formatCurrency(value);
+}
+
+function normalizeExchangeRates(data) {
+    if (!data) return null;
+    const usdCad = Number(data.usdCad || 0);
+    const cadKrw = Number(data.cadKrw || 0);
+    if (!(usdCad > 0) || !(cadKrw > 0)) return null;
+    return {
+        date: String(data.date || ''),
+        usdCad: Number(usdCad.toFixed(6)),
+        cadUsd: Number((1 / usdCad).toFixed(6)),
+        cadKrw: Number(cadKrw.toFixed(6)),
+        krwCad: Number((1 / cadKrw).toFixed(8)),
+        fetchedAt: data.fetchedAt || new Date().toISOString()
+    };
+}
+
+function loadExchangeRates() {
+    const raw = localStorage.getItem(STORAGE_EXCHANGE_RATES);
+    exchangeRates = raw ? normalizeExchangeRates(JSON.parse(raw)) : null;
+}
+
+function saveExchangeRates() {
+    if (!exchangeRates) {
+        localStorage.removeItem(STORAGE_EXCHANGE_RATES);
+        return;
+    }
+    localStorage.setItem(STORAGE_EXCHANGE_RATES, JSON.stringify(exchangeRates));
+}
+
+function loadExchangeHistory() {
+    const raw = localStorage.getItem(STORAGE_EXCHANGE_HISTORY);
+    exchangeHistoryEntries = raw ? JSON.parse(raw) : [];
+}
+
+function saveExchangeHistory() {
+    localStorage.setItem(STORAGE_EXCHANGE_HISTORY, JSON.stringify(exchangeHistoryEntries));
+}
+
+function computeExchangeResult(pairKey, amount, fromCurrency) {
+    if (!exchangeRates || !(amount >= 0)) return { currency: '', value: 0 };
+    if (pairKey === 'usd-cad') {
+        if (fromCurrency === 'USD') {
+            return { currency: 'CAD', value: Number((amount * exchangeRates.usdCad).toFixed(2)) };
+        }
+        return { currency: 'USD', value: Number((amount * exchangeRates.cadUsd).toFixed(2)) };
+    }
+
+    if (fromCurrency === 'CAD') {
+        return { currency: 'KRW', value: Math.round(amount * exchangeRates.cadKrw) };
+    }
+    return { currency: 'CAD', value: Number((amount * exchangeRates.krwCad).toFixed(2)) };
+}
+
+function updateExchangePairUI(pairKey) {
+    if (pairKey === 'usd-cad') {
+        const fromCurrency = usdCadFromCurrencySelect ? usdCadFromCurrencySelect.value : 'USD';
+        const amount = Number(usdCadFromAmountInput ? usdCadFromAmountInput.value : 0);
+        const result = computeExchangeResult(pairKey, amount, fromCurrency);
+        if (usdCadToCurrencySelect) usdCadToCurrencySelect.value = result.currency || (fromCurrency === 'USD' ? 'CAD' : 'USD');
+        if (usdCadToAmountInput) {
+            usdCadToAmountInput.value = exchangeRates ? Number(result.value || 0).toFixed(2) : '';
+        }
+        return;
+    }
+
+    const fromCurrency = cadKrwFromCurrencySelect ? cadKrwFromCurrencySelect.value : 'CAD';
+    const amount = Number(cadKrwFromAmountInput ? cadKrwFromAmountInput.value : 0);
+    const result = computeExchangeResult(pairKey, amount, fromCurrency);
+    if (cadKrwToCurrencySelect) cadKrwToCurrencySelect.value = result.currency || (fromCurrency === 'CAD' ? 'KRW' : 'CAD');
+    if (cadKrwToAmountInput) {
+        cadKrwToAmountInput.value = exchangeRates
+            ? (result.currency === 'KRW' ? String(Math.round(result.value || 0)) : Number(result.value || 0).toFixed(2))
+            : '';
+    }
+}
+
+function renderExchangeSection() {
+    if (exchangeUpdatedAtEl) {
+        exchangeUpdatedAtEl.textContent = exchangeRates
+            ? `Rates: ${exchangeRates.date || 'latest'}`
+            : 'Rates unavailable';
+    }
+    if (exchangeSourceTextEl) {
+        exchangeSourceTextEl.textContent = `Source: Frankfurter`;
+    }
+    if (usdCadRateLabelEl) {
+        usdCadRateLabelEl.textContent = exchangeRates
+            ? `1 USD = ${exchangeRates.usdCad.toFixed(4)} CAD`
+            : '1 USD = -- CAD';
+    }
+    if (cadKrwRateLabelEl) {
+        cadKrwRateLabelEl.textContent = exchangeRates
+            ? `1 CAD = ${exchangeRates.cadKrw.toFixed(2)} KRW`
+            : '1 CAD = -- KRW';
+    }
+    updateExchangePairUI('usd-cad');
+    updateExchangePairUI('cad-krw');
+}
+
+async function fetchExchangeRates() {
+    if (exchangeUpdatedAtEl) exchangeUpdatedAtEl.textContent = 'Loading rates...';
+    try {
+        const [usdCadResponse, cadKrwResponse] = await Promise.all([
+            fetch('https://api.frankfurter.dev/v1/latest?base=USD&symbols=CAD'),
+            fetch('https://api.frankfurter.dev/v1/latest?base=CAD&symbols=KRW')
+        ]);
+
+        if (!usdCadResponse.ok || !cadKrwResponse.ok) {
+            throw new Error('Failed to fetch exchange rates.');
+        }
+
+        const usdCadData = await usdCadResponse.json();
+        const cadKrwData = await cadKrwResponse.json();
+        exchangeRates = normalizeExchangeRates({
+            date: cadKrwData.date || usdCadData.date || '',
+            usdCad: usdCadData && usdCadData.rates ? usdCadData.rates.CAD : 0,
+            cadKrw: cadKrwData && cadKrwData.rates ? cadKrwData.rates.KRW : 0,
+            fetchedAt: new Date().toISOString()
+        });
+        saveExchangeRates();
+        renderExchangeSection();
+    } catch (error) {
+        renderExchangeSection();
+        showToast('Could not refresh exchange rates.');
+    }
+}
+
+function buildExchangeHistoryEntry() {
+    const usdAmount = Number(usdCadFromAmountInput ? usdCadFromAmountInput.value || 0 : 0);
+    const cadAmount = Number(cadKrwFromAmountInput ? cadKrwFromAmountInput.value || 0 : 0);
+    const usdFrom = usdCadFromCurrencySelect ? usdCadFromCurrencySelect.value : 'USD';
+    const cadFrom = cadKrwFromCurrencySelect ? cadKrwFromCurrencySelect.value : 'CAD';
+    const usdResult = computeExchangeResult('usd-cad', usdAmount, usdFrom);
+    const cadResult = computeExchangeResult('cad-krw', cadAmount, cadFrom);
+
+    return {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        savedAt: new Date().toISOString(),
+        rateDate: exchangeRates ? exchangeRates.date : '',
+        usdCad: exchangeRates ? exchangeRates.usdCad : 0,
+        cadKrw: exchangeRates ? exchangeRates.cadKrw : 0,
+        usdCadInput: {
+            amount: usdAmount,
+            from: usdFrom,
+            result: usdResult.value,
+            to: usdResult.currency
+        },
+        cadKrwInput: {
+            amount: cadAmount,
+            from: cadFrom,
+            result: cadResult.value,
+            to: cadResult.currency
+        }
+    };
+}
+
+function renderExchangeHistory() {
+    if (!exchangeHistoryList) return;
+    exchangeHistoryList.innerHTML = '';
+
+    if (!exchangeHistoryEntries.length) {
+        const empty = document.createElement('li');
+        empty.className = 'ledger-history-item empty';
+        empty.textContent = '✨ No saved exchange history yet.';
+        exchangeHistoryList.appendChild(empty);
+        return;
+    }
+
+    exchangeHistoryEntries.forEach(entry => {
+        const item = document.createElement('li');
+        item.className = 'ledger-history-item exchange-history-item';
+        item.dataset.id = String(entry.id);
+        item.innerHTML = `
+            <div class="history-meta">
+                <div class="history-title">${formatHistoryDateTime(entry.savedAt)}</div>
+                <div class="history-sub">Rate date ${entry.rateDate || 'latest'} · USD/CAD ${Number(entry.usdCad || 0).toFixed(4)} · CAD/KRW ${Number(entry.cadKrw || 0).toFixed(2)}</div>
+                <div class="investment-history-breakdown">
+                    <span class="investment-history-line">${Number(entry.usdCadInput.amount || 0).toFixed(2)} ${entry.usdCadInput.from} → ${formatExchangeValue(entry.usdCadInput.to, entry.usdCadInput.result)} ${entry.usdCadInput.to}</span>
+                    <span class="investment-history-line">${Number(entry.cadKrwInput.amount || 0).toFixed(2)} ${entry.cadKrwInput.from} → ${formatExchangeValue(entry.cadKrwInput.to, entry.cadKrwInput.result)} ${entry.cadKrwInput.to}</span>
+                </div>
+            </div>
+            <div class="history-actions">
+                <button type="button" class="icon-btn activity-icon-btn activity-delete-btn" data-action="delete-exchange-history" aria-label="Delete exchange history entry" title="Delete exchange history entry">🗑</button>
+            </div>
+        `;
+        exchangeHistoryList.appendChild(item);
+    });
+}
+
+async function saveExchangeSnapshot() {
+    if (!exchangeRates) {
+        showToast('Refresh exchange rates first.');
+        return;
+    }
+    const entry = buildExchangeHistoryEntry();
+    if (isRemoteEnabled()) {
+        await exchangeHistoryCollection(currentUser).doc(entry.id).set(entry);
+        return;
+    }
+    exchangeHistoryEntries = [entry, ...exchangeHistoryEntries].slice(0, 30);
+    saveExchangeHistory();
+    renderExchangeHistory();
+    showToast('Exchange snapshot saved.');
+}
+
+async function deleteExchangeHistoryEntry(id) {
+    if (!confirm('Delete this exchange history entry?')) return;
+    if (isRemoteEnabled()) {
+        await exchangeHistoryCollection(currentUser).doc(String(id)).delete();
+        return;
+    }
+    exchangeHistoryEntries = exchangeHistoryEntries.filter(entry => String(entry.id) !== String(id));
+    saveExchangeHistory();
+    renderExchangeHistory();
+}
+
+async function clearExchangeHistory() {
+    if (!confirm('Clear all exchange history?')) return;
+    if (!confirm('This will permanently delete every exchange history entry. Continue?')) return;
+    if (isRemoteEnabled()) {
+        const batch = dbRef.batch();
+        exchangeHistoryEntries.forEach(entry => {
+            batch.delete(exchangeHistoryCollection(currentUser).doc(String(entry.id)));
+        });
+        await batch.commit();
+        return;
+    }
+    exchangeHistoryEntries = [];
+    saveExchangeHistory();
+    renderExchangeHistory();
+}
+
+function swapExchangePair(pairKey) {
+    if (pairKey === 'usd-cad') {
+        const nextFrom = usdCadFromCurrencySelect && usdCadFromCurrencySelect.value === 'USD' ? 'CAD' : 'USD';
+        if (usdCadFromCurrencySelect) usdCadFromCurrencySelect.value = nextFrom;
+        if (usdCadToCurrencySelect) usdCadToCurrencySelect.value = nextFrom === 'USD' ? 'CAD' : 'USD';
+        updateExchangePairUI('usd-cad');
+        return;
+    }
+
+    const nextFrom = cadKrwFromCurrencySelect && cadKrwFromCurrencySelect.value === 'CAD' ? 'KRW' : 'CAD';
+    if (cadKrwFromCurrencySelect) cadKrwFromCurrencySelect.value = nextFrom;
+    if (cadKrwToCurrencySelect) cadKrwToCurrencySelect.value = nextFrom === 'CAD' ? 'KRW' : 'CAD';
+    updateExchangePairUI('cad-krw');
 }
 
 function parseInvestmentAmount(value) {
@@ -1252,6 +1550,23 @@ function toggleBalancesPanel() {
     setBalancesCollapsed(!balancesCollapsed);
 }
 
+function setExchangeCollapsed(collapsed) {
+    exchangeCollapsed = Boolean(collapsed);
+    if (exchangePanel) {
+        exchangePanel.classList.toggle('collapsed', exchangeCollapsed);
+    }
+    if (toggleExchangeBtn) {
+        toggleExchangeBtn.setAttribute('aria-expanded', exchangeCollapsed ? 'false' : 'true');
+    }
+    if (exchangePanelContent) {
+        exchangePanelContent.setAttribute('aria-hidden', exchangeCollapsed ? 'true' : 'false');
+    }
+}
+
+function toggleExchangePanel() {
+    setExchangeCollapsed(!exchangeCollapsed);
+}
+
 function getPlanTypeLabel(type) {
     if (type === PLAN_TYPES.fixed) return '고정지출';
     if (type === PLAN_TYPES.income) return '예상 수입';
@@ -1539,8 +1854,10 @@ function showSetup() {
     setupSection.classList.remove('hidden');
     dashboardSection.classList.add('hidden');
     if (investmentHubSection) investmentHubSection.classList.add('hidden');
+    if (exchangeSection) exchangeSection.classList.add('hidden');
     if (spendingSummarySection) spendingSummarySection.classList.add('hidden');
     if (balanceHistorySection) balanceHistorySection.classList.add('hidden');
+    if (exchangeHistorySection) exchangeHistorySection.classList.add('hidden');
     if (activitySection) activitySection.classList.add('hidden');
     if (activitySummarySection) activitySummarySection.classList.add('hidden');
     planSection.classList.add('hidden');
@@ -1568,15 +1885,20 @@ function showDashboard() {
     setupSection.classList.add('hidden');
     dashboardSection.classList.remove('hidden');
     if (investmentHubSection) investmentHubSection.classList.remove('hidden');
+    if (exchangeSection) exchangeSection.classList.remove('hidden');
     if (spendingSummarySection) spendingSummarySection.classList.remove('hidden');
     if (balanceHistorySection) balanceHistorySection.classList.add('hidden');
+    if (exchangeHistorySection) exchangeHistorySection.classList.add('hidden');
     if (activitySection) activitySection.classList.remove('hidden');
     if (activitySummarySection) activitySummarySection.classList.remove('hidden');
     planSection.classList.add('hidden');
     exitEditMode();
     renderDashboard();
     renderBalanceHistory();
+    renderExchangeHistory();
+    renderExchangeSection();
     setBalancesCollapsed(balancesCollapsed);
+    setExchangeCollapsed(exchangeCollapsed);
     renderActivity();
 }
 
@@ -1584,8 +1906,10 @@ function showPlan() {
     setupSection.classList.add('hidden');
     dashboardSection.classList.add('hidden');
     if (investmentHubSection) investmentHubSection.classList.add('hidden');
+    if (exchangeSection) exchangeSection.classList.add('hidden');
     if (spendingSummarySection) spendingSummarySection.classList.add('hidden');
     if (balanceHistorySection) balanceHistorySection.classList.add('hidden');
+    if (exchangeHistorySection) exchangeHistorySection.classList.add('hidden');
     if (activitySection) activitySection.classList.add('hidden');
     if (activitySummarySection) activitySummarySection.classList.add('hidden');
     planSection.classList.remove('hidden');
@@ -1596,12 +1920,28 @@ function showBalanceHistory() {
     setupSection.classList.add('hidden');
     dashboardSection.classList.add('hidden');
     if (investmentHubSection) investmentHubSection.classList.add('hidden');
+    if (exchangeSection) exchangeSection.classList.add('hidden');
     if (spendingSummarySection) spendingSummarySection.classList.add('hidden');
     if (activitySection) activitySection.classList.add('hidden');
     if (activitySummarySection) activitySummarySection.classList.add('hidden');
     planSection.classList.add('hidden');
     if (balanceHistorySection) balanceHistorySection.classList.remove('hidden');
+    if (exchangeHistorySection) exchangeHistorySection.classList.add('hidden');
     renderBalanceHistory();
+}
+
+function showExchangeHistory() {
+    setupSection.classList.add('hidden');
+    dashboardSection.classList.add('hidden');
+    if (investmentHubSection) investmentHubSection.classList.add('hidden');
+    if (exchangeSection) exchangeSection.classList.add('hidden');
+    if (spendingSummarySection) spendingSummarySection.classList.add('hidden');
+    if (activitySection) activitySection.classList.add('hidden');
+    if (activitySummarySection) activitySummarySection.classList.add('hidden');
+    planSection.classList.add('hidden');
+    if (balanceHistorySection) balanceHistorySection.classList.add('hidden');
+    if (exchangeHistorySection) exchangeHistorySection.classList.remove('hidden');
+    renderExchangeHistory();
 }
 
 async function saveBalancesFromInputs() {
@@ -2109,9 +2449,20 @@ if (saveBalancesBtn) saveBalancesBtn.addEventListener('click', saveBalancesFromI
 if (setupBackBtn) setupBackBtn.addEventListener('click', handleSetupBack);
 if (editBalancesBtn) editBalancesBtn.addEventListener('click', showSetup);
 if (toggleBalancesBtn) toggleBalancesBtn.addEventListener('click', toggleBalancesPanel);
+if (toggleExchangeBtn) toggleExchangeBtn.addEventListener('click', toggleExchangePanel);
+if (exchangePanelHeader) {
+    exchangePanelHeader.addEventListener('click', event => {
+        if (event.target.closest('button')) return;
+        toggleExchangePanel();
+    });
+}
 if (openBalanceHistoryBtn) openBalanceHistoryBtn.addEventListener('click', showBalanceHistory);
 if (closeBalanceHistoryBtn) closeBalanceHistoryBtn.addEventListener('click', showDashboard);
 if (clearBalanceHistoryBtn) clearBalanceHistoryBtn.addEventListener('click', clearBalanceHistory);
+if (openExchangeHistoryBtn) openExchangeHistoryBtn.addEventListener('click', showExchangeHistory);
+if (closeExchangeHistoryBtn) closeExchangeHistoryBtn.addEventListener('click', showDashboard);
+if (clearExchangeHistoryBtn) clearExchangeHistoryBtn.addEventListener('click', clearExchangeHistory);
+if (saveExchangeSnapshotBtn) saveExchangeSnapshotBtn.addEventListener('click', saveExchangeSnapshot);
 if (openPlanBtn) openPlanBtn.addEventListener('click', showPlan);
 if (closePlanBtn) closePlanBtn.addEventListener('click', showDashboard);
 if (addPlanItemBtn) addPlanItemBtn.addEventListener('click', addPlanItem);
@@ -2242,6 +2593,22 @@ if (balanceHistoryList) {
         deleteBalanceHistoryEntry(item.dataset.id);
     });
 }
+if (exchangeHistoryList) {
+    exchangeHistoryList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-action="delete-exchange-history"]');
+        if (!button) return;
+        const item = button.closest('.ledger-history-item');
+        if (!item || item.classList.contains('empty')) return;
+        deleteExchangeHistoryEntry(item.dataset.id);
+    });
+}
+if (usdCadFromAmountInput) usdCadFromAmountInput.addEventListener('input', () => updateExchangePairUI('usd-cad'));
+if (usdCadFromCurrencySelect) usdCadFromCurrencySelect.addEventListener('change', () => updateExchangePairUI('usd-cad'));
+if (cadKrwFromAmountInput) cadKrwFromAmountInput.addEventListener('input', () => updateExchangePairUI('cad-krw'));
+if (cadKrwFromCurrencySelect) cadKrwFromCurrencySelect.addEventListener('change', () => updateExchangePairUI('cad-krw'));
+document.querySelectorAll('.exchange-swap-btn').forEach(button => {
+    button.addEventListener('click', () => swapExchangePair(button.dataset.pair));
+});
 
 (function init() {
     setActivityTypeFilter('all');
@@ -2250,6 +2617,10 @@ if (balanceHistoryList) {
     if (activityDateInput) {
         activityDateInput.max = getTodayDateString();
     }
+
+    loadExchangeRates();
+    renderExchangeSection();
+    fetchExchangeRates();
 
     if (requireAuthRef) {
         renderInvestmentHubOverview();
@@ -2262,6 +2633,7 @@ if (balanceHistoryList) {
 
     loadBalances();
     loadBalanceHistory();
+    loadExchangeHistory();
     loadPlanItems();
     loadActivityEntries();
     loadInvestmentSnapshot();

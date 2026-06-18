@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Expense Ledger</title>
     <link rel="icon" href="favicon-ledger.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="style.css?v=20260604e" />
+    <link rel="stylesheet" href="style.css?v=20260618b" />
 </head>
 <body class="ledger-body">
     <div class="container">
@@ -65,6 +65,98 @@
                     <div class="investment-hub-summary-card">
                         <div class="investment-hub-summary-label">Korea account</div>
                         <div id="ledgerKoreaInvestmentReturn" class="investment-hub-summary-value">0.00%</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="exchangeSection" class="ledger-card exchange-card hidden">
+                <div class="exchange-panel">
+                    <div class="ledger-row exchange-panel-header">
+                        <button id="toggleExchangeBtn" class="balance-toggle-btn" type="button" aria-expanded="true" aria-controls="exchangePanelContent">
+                            <span>Exchange</span>
+                            <span class="balance-toggle-icon" aria-hidden="true">&#x25BE;</span>
+                        </button>
+                        <div class="exchange-header-actions">
+                            <button id="openExchangeHistoryBtn" class="icon-btn balance-history-view-btn" type="button" aria-label="View exchange history" title="View exchange history">&#x1F441;</button>
+                        </div>
+                    </div>
+                    <div id="exchangePanelContent" class="exchange-panel-content">
+                        <div class="exchange-updated-row">
+                            <span id="exchangeUpdatedAt" class="summary-range-label">Loading rates...</span>
+                            <span id="exchangeSourceText" class="muted exchange-source-text">Source: Frankfurter</span>
+                        </div>
+                        <div class="exchange-grid">
+                            <article class="exchange-panel-card">
+                        <div class="exchange-panel-head">
+                            <h3>USD / CAD</h3>
+                            <button class="ghost-btn exchange-swap-btn" type="button" data-pair="usd-cad">Swap</button>
+                        </div>
+                        <div class="exchange-rate-chip">
+                            <span id="usdCadRateLabel">1 USD = 0.00 CAD</span>
+                        </div>
+                        <div class="ledger-grid compact-grid exchange-form-grid">
+                            <div class="field">
+                                <label for="usdCadFromAmount">From</label>
+                                <input id="usdCadFromAmount" type="number" step="0.01" placeholder="0.00" />
+                            </div>
+                            <div class="field">
+                                <label for="usdCadFromCurrency">Currency</label>
+                                <select id="usdCadFromCurrency">
+                                    <option value="USD">USD</option>
+                                    <option value="CAD">CAD</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="usdCadToAmount">To</label>
+                                <input id="usdCadToAmount" type="text" readonly />
+                            </div>
+                            <div class="field">
+                                <label for="usdCadToCurrency">Currency</label>
+                                <select id="usdCadToCurrency" disabled>
+                                    <option value="CAD">CAD</option>
+                                    <option value="USD">USD</option>
+                                </select>
+                            </div>
+                        </div>
+                            </article>
+
+                            <article class="exchange-panel-card">
+                        <div class="exchange-panel-head">
+                            <h3>CAD / KRW</h3>
+                            <button class="ghost-btn exchange-swap-btn" type="button" data-pair="cad-krw">Swap</button>
+                        </div>
+                        <div class="exchange-rate-chip">
+                            <span id="cadKrwRateLabel">1 CAD = 0 KRW</span>
+                        </div>
+                        <div class="ledger-grid compact-grid exchange-form-grid">
+                            <div class="field">
+                                <label for="cadKrwFromAmount">From</label>
+                                <input id="cadKrwFromAmount" type="number" step="0.01" placeholder="0.00" />
+                            </div>
+                            <div class="field">
+                                <label for="cadKrwFromCurrency">Currency</label>
+                                <select id="cadKrwFromCurrency">
+                                    <option value="CAD">CAD</option>
+                                    <option value="KRW">KRW</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="cadKrwToAmount">To</label>
+                                <input id="cadKrwToAmount" type="text" readonly />
+                            </div>
+                            <div class="field">
+                                <label for="cadKrwToCurrency">Currency</label>
+                                <select id="cadKrwToCurrency" disabled>
+                                    <option value="KRW">KRW</option>
+                                    <option value="CAD">CAD</option>
+                                </select>
+                            </div>
+                        </div>
+                            </article>
+                        </div>
+                        <div class="exchange-actions">
+                            <button id="saveExchangeSnapshotBtn" class="primary-btn" type="button">Save snapshot</button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -347,6 +439,18 @@
                 <p class="muted">Each saved balance update is kept here so you can review past snapshots.</p>
                 <ul id="balanceHistoryList" class="ledger-history-list"></ul>
             </section>
+
+            <section id="exchangeHistorySection" class="ledger-card hidden">
+                <div class="ledger-row">
+                    <h2>Exchange History</h2>
+                    <div class="balance-history-actions">
+                        <button id="clearExchangeHistoryBtn" class="danger-btn" type="button">Clear history</button>
+                        <button id="closeExchangeHistoryBtn" class="icon-btn back-icon-btn" type="button" aria-label="Back" title="Back">&#x2190;</button>
+                    </div>
+                </div>
+                <p class="muted">Saved exchange snapshots are kept here so you can review past conversions.</p>
+                <ul id="exchangeHistoryList" class="ledger-history-list"></ul>
+            </section>
         </main>
     </div>
 
@@ -364,6 +468,6 @@
             }
         })();
     </script>
-    <script src="ledger.js?v=20260604e"></script>
+    <script src="ledger.js?v=20260618b"></script>
 </body>
 </html>

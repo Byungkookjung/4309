@@ -21,9 +21,12 @@ A simple project that pairs a Todo app with a lightweight expense ledger, built 
 ### Expense Ledger (ledger.html)
 - Account balance setup (Saving/Checking/Etc)
 - Spending plan items add/edit/delete
-- Activity entries for income/expense
-- Summary by range (all/year/month/week)
-- Expense-by-reason donut chart
+- Activity entries for fixed expense, expected expense, expected income, and unexpected income
+- Budget progress with expandable detail rows
+- Expense-by-reason donut chart with rent hide/show toggle
+- Investment tracker for TFSA, RRSP, and Korea account
+- Exchange section for USD/CAD and CAD/KRW with saved history
+- Mobile-friendly layout for ledger sections
 - Google sign-in + Firestore real-time sync
 - Local storage fallback when not signed in
 
@@ -126,6 +129,8 @@ Important for Google sign-in:
 2) Add items in Spending Plan
 3) Add income/expense entries in Activity
 4) Review totals in Summary
+5) Track investments and save portfolio snapshots
+6) Use Exchange to convert USD/CAD or CAD/KRW and save rate history
 
 ## Mobile/Emulator Testing
 
