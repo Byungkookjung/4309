@@ -112,7 +112,7 @@
                 </div>
                 <div class="budget-overview-grid">
                     <div class="budget-overview-card">
-                        <div class="budget-overview-label">Planned income</div>
+                        <div class="budget-overview-label">Monthly income</div>
                         <div id="incomeTotal" class="budget-overview-value">$0.00</div>
                     </div>
                     <div class="budget-overview-card">
@@ -154,8 +154,6 @@
                             <option value="custom">Custom</option>
                             <option value="fixed">Fixed expense</option>
                             <option value="expected">Expected expense</option>
-                            <option value="income">Expected income</option>
-                            <option value="unexpected_income">Unexpected income</option>
                         </select>
                     </div>
                     <div id="activityLinkedItemField" class="field wide hidden">
@@ -246,15 +244,15 @@
                         </div>
                         <section id="planDetailCard" class="plan-detail-card hidden">
                             <div class="ledger-row plan-detail-header">
-                                <h3 id="planDetailTitle">항목별 남은 금액</h3>
+                                <h3 id="planDetailTitle">Remaining by Item</h3>
                                 <span id="planDetailRangeLabel" class="summary-range-label"></span>
                             </div>
                             <div id="planDetailTable" class="plan-detail-table" role="table" aria-label="Budget item details">
                                 <div class="plan-detail-row plan-detail-head" role="row">
-                                    <span role="columnheader">항목</span>
-                                    <span role="columnheader">계획</span>
-                                    <span role="columnheader">실제</span>
-                                    <span role="columnheader">남은 금액</span>
+                                    <span role="columnheader">Item</span>
+                                    <span role="columnheader">Plan</span>
+                                    <span role="columnheader">Actual</span>
+                                    <span role="columnheader">Remaining</span>
                                 </div>
                                 <div id="planDetailRows"></div>
                             </div>
@@ -266,16 +264,19 @@
             <section id="planSection" class="ledger-card hidden">
                 <div class="ledger-row">
                     <h2>Fixed & Expected Expenses</h2>
-                    <button id="closePlanBtn" class="icon-btn back-icon-btn" type="button" aria-label="Back" title="Back">←</button>
+                    <div class="budget-header-actions">
+                        <button id="editPlanModeBtn" class="icon-btn budget-edit-mode-btn" type="button" aria-label="Edit budget items" title="Edit budget items">✎</button>
+                        <button id="closePlanBtn" class="icon-btn back-icon-btn" type="button" aria-label="Back" title="Back">←</button>
+                    </div>
                 </div>
+                <p class="muted">Build your monthly budget with fixed costs and expected spending. Monthly income is fixed at $2,000.00.</p>
 
-                <form id="planForm" class="ledger-grid" onsubmit="return false;">
+                <form id="planForm" class="ledger-grid budget-form-card" onsubmit="return false;">
                     <div class="field">
                         <label for="planType">Type</label>
                         <select id="planType">
                             <option value="fixed">Fixed expense</option>
                             <option value="expected">Expected expense</option>
-                            <option value="income">Expected income</option>
                         </select>
                     </div>
                     <div class="field wide">
@@ -289,44 +290,43 @@
                     <div class="field action">
                         <label aria-hidden="true">&nbsp;</label>
                         <div class="plan-actions">
-                            <button id="addPlanItemBtn" class="primary-btn" type="button">Add expense</button>
+                            <button id="addPlanItemBtn" class="primary-btn" type="button">Add item</button>
                             <button id="removePlanItemBtn" class="clear-btn hidden" type="button" disabled>Remove</button>
                         </div>
                     </div>
                 </form>
+                <p id="planEditHint" class="budget-edit-hint hidden">Edit mode is on. Select a row below to load it into the form.</p>
 
                 <div class="expense-board">
                     <section class="expense-sheet">
-                        <div class="expense-sheet-header fixed">고정지출</div>
+                        <div class="expense-sheet-header fixed">Fixed Expenses</div>
                         <ul id="fixedPlanList" class="ledger-plan-list expense-sheet-list"></ul>
-                        <div class="expense-sheet-total">총 <span id="fixedPlanTotal">$0.00</span></div>
+                        <div class="expense-sheet-total">Total <span id="fixedPlanTotal">$0.00</span></div>
                     </section>
 
                     <section class="expense-sheet">
-                        <div class="expense-sheet-header expected">예상 지출</div>
+                        <div class="expense-sheet-header expected">Expected Expenses</div>
                         <ul id="expectedPlanList" class="ledger-plan-list expense-sheet-list"></ul>
-                        <div class="expense-sheet-total">총 <span id="expectedPlanTotal">$0.00</span></div>
+                        <div class="expense-sheet-total">Total <span id="expectedPlanTotal">$0.00</span></div>
                     </section>
 
                     <section class="expense-sheet summary">
-                        <div class="expense-sheet-header income">예상 수입</div>
-                        <ul id="incomePlanList" class="ledger-plan-list expense-sheet-list"></ul>
-                        <div class="expense-sheet-total">총 <span id="incomePlanTotal">$0.00</span></div>
+                        <div class="expense-sheet-header income">Summary</div>
                         <div class="expense-summary-table">
                             <div class="expense-summary-row">
-                                <span>월 수입</span>
+                                <span>Monthly income</span>
                                 <span id="planIncome">$0.00</span>
                             </div>
                             <div class="expense-summary-row">
-                                <span>고정지출</span>
+                                <span>Fixed expenses</span>
                                 <span id="planFixedTotal">$0.00</span>
                             </div>
                             <div class="expense-summary-row">
-                                <span>예상 지출</span>
+                                <span>Expected expenses</span>
                                 <span id="planTotal">$0.00</span>
                             </div>
                             <div class="expense-summary-row savings">
-                                <span>저축</span>
+                                <span>Savings</span>
                                 <span id="planRemaining" class="remaining">$0.00</span>
                             </div>
                         </div>

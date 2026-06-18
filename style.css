@@ -1947,51 +1947,95 @@ body.ledger-body .container {
 .expense-board {
     display: grid;
     grid-template-columns: 1fr 1fr 0.95fr;
-    gap: 16px;
-    margin: 18px 0;
+    gap: 18px;
+    margin: 18px 0 22px;
     align-items: start;
 }
 
+.budget-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.budget-edit-mode-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    font-size: 17px;
+    box-shadow: none;
+}
+
+.budget-edit-mode-btn.active {
+    border-color: #5a7de5;
+    background: #edf2ff;
+    color: #2a3f7a;
+}
+
+.budget-form-card {
+    padding: 18px;
+    border: 1px solid #e4e8f1;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #fbfcff 0%, #f6f8fd 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    margin-bottom: 10px;
+}
+
+.budget-edit-hint {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #edf2ff;
+    color: #3c4f8e;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
 .expense-sheet {
-    border: 1px solid #d7deed;
-    border-radius: 14px;
+    border: 1px solid #e2e8f3;
+    border-radius: 18px;
     overflow: hidden;
-    background: #fff;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+    box-shadow: 0 10px 24px rgba(22, 34, 72, 0.08);
 }
 
 .expense-sheet-header {
-    padding: 14px 16px;
-    font-size: 1.6rem;
+    padding: 16px 18px;
+    font-size: 1.05rem;
     font-weight: 800;
-    text-align: center;
-    border-bottom: 1px solid #d7deed;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f3;
+    letter-spacing: 0.01em;
 }
 
 .expense-sheet-header.fixed,
 .expense-summary-row:nth-child(2) span:first-child {
-    background: #f2c9c9;
+    background: linear-gradient(135deg, #fde4e4 0%, #f8d4d4 100%);
 }
 
 .expense-sheet-header.expected,
 .expense-summary-row:nth-child(3) span:first-child {
-    background: #f3cfce;
+    background: linear-gradient(135deg, #fff1de 0%, #f9dec2 100%);
 }
 
 .expense-sheet-header.income {
-    background: #ffffff;
+    background: linear-gradient(135deg, #e6f7ee 0%, #d8f1e4 100%);
 }
 
 .expense-sheet-list {
     margin: 0;
     max-height: none;
     gap: 0;
+    background: rgba(248, 250, 254, 0.6);
 }
 
 .expense-sheet-list .ledger-plan-item {
     border-radius: 0;
     border: 0;
     border-bottom: 1px solid #e8edf7;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto;
+    padding: 14px 16px;
+    background: transparent;
 }
 
 .expense-sheet-total {
@@ -2001,12 +2045,12 @@ body.ledger-body .container {
     padding: 14px 16px;
     font-size: 1rem;
     font-weight: 800;
-    border-top: 1px solid #d7deed;
-    background: #f8f9fe;
+    border-top: 1px solid #e2e8f3;
+    background: #f7f9fd;
 }
 
 .expense-summary-table {
-    border-top: 1px solid #d7deed;
+    border-top: 1px solid #e2e8f3;
 }
 
 .expense-summary-row {
@@ -2027,6 +2071,11 @@ body.ledger-body .container {
 
 .expense-summary-row.savings span:first-child {
     background: #ffffff;
+}
+
+.expense-summary-row.savings span:last-child {
+    font-size: 1.05rem;
+    font-weight: 800;
 }
 
 .plan-income-amount {
@@ -2284,11 +2333,37 @@ body.ledger-body .container {
 .plan-label {
     font-weight: 600;
     color: #333;
+    min-width: 0;
+    line-height: 1.35;
+}
+
+.expense-sheet-list .plan-label {
+    font-size: 0.97rem;
 }
 
 .plan-amount {
     font-weight: 700;
     color: #c0392b;
+    white-space: nowrap;
+}
+
+.expense-sheet-list .plan-amount,
+.expense-sheet-list .plan-income-amount {
+    font-size: 1rem;
+}
+
+.expense-sheet-list .ledger-plan-item.is-editable {
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.expense-sheet-list .ledger-plan-item.is-editable:hover {
+    background: #f2f6ff;
+}
+
+.expense-sheet-list .ledger-plan-item.is-selected {
+    background: #eaf0ff;
+    box-shadow: inset 0 0 0 1px #cfdcff;
 }
 
 .ledger-activity-list {
@@ -2382,8 +2457,8 @@ body.ledger-body .container {
     width: 40px;
     height: 40px;
     min-width: 40px;
-    font-size: 18px;
-    box-shadow: 0 8px 18px rgba(22, 34, 72, 0.08);
+    font-size: 15px;
+    box-shadow: none;
 }
 
 .activity-delete-btn {
