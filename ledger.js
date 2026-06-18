@@ -34,8 +34,6 @@ const clearBalanceHistoryBtn = document.getElementById('clearBalanceHistoryBtn')
 
 const openPlanBtn = document.getElementById('openPlanBtn');
 const closePlanBtn = document.getElementById('closePlanBtn');
-const editPlanModeBtn = document.getElementById('editPlanModeBtn');
-const planEditHint = document.getElementById('planEditHint');
 const planForm = document.getElementById('planForm');
 const planTypeSelect = document.getElementById('planType');
 const planItemInput = document.getElementById('planItem');
@@ -44,8 +42,10 @@ const addPlanItemBtn = document.getElementById('addPlanItemBtn');
 const removePlanItemBtn = document.getElementById('removePlanItemBtn');
 const fixedPlanList = document.getElementById('fixedPlanList');
 const expectedPlanList = document.getElementById('expectedPlanList');
+const incomePlanList = document.getElementById('incomePlanList');
 const fixedPlanTotalEl = document.getElementById('fixedPlanTotal');
 const expectedPlanTotalEl = document.getElementById('expectedPlanTotal');
+const incomePlanTotalEl = document.getElementById('incomePlanTotal');
 const planTotalEl = document.getElementById('planTotal');
 const planRemainingEl = document.getElementById('planRemaining');
 const planIncomeEl = document.getElementById('planIncome');
@@ -193,7 +193,6 @@ let balances = null;
 let balanceHistoryEntries = [];
 let planItems = [];
 let editingPlanId = null;
-let planEditMode = false;
 let activityEntries = [];
 let editingActivityId = null;
 let activityTypeFilter = 'all';
@@ -207,10 +206,10 @@ let selectedPlanDetailType = null;
 
 const PLAN_TYPES = {
     fixed: 'fixed',
-    expected: 'expected'
+    expected: 'expected',
+    income: 'income',
+    unexpectedIncome: 'unexpected_income'
 };
-
-const MONTHLY_INCOME = 2000;
 
 const MONTH_NAMES = [
     'January',
@@ -507,7 +506,8 @@ function formatProgressPercent(actual, planned) {
 }
 
 function isIncomePlanType(type) {
-    return false;
+    const normalizedType = normalizePlanType(type);
+    return normalizedType === PLAN_TYPES.income || normalizedType === PLAN_TYPES.unexpectedIncome;
 }
 
 function getEntryEffectiveAmount(entry) {
@@ -595,42 +595,87 @@ function buildBudgetProgressRows() {
             acc.fixed += getEntryEffectiveAmount(entry);
         } else if (entry.sourceType === PLAN_TYPES.expected && entry.type === 'expense') {
             acc.expected += getEntryEffectiveAmount(entry);
+        } else if (entry.sourceType === PLAN_TYPES.income && entry.type === 'income') {
+            acc.income += getEntryEffectiveAmount(entry);
+        } else if (entry.sourceType === PLAN_TYPES.unexpectedIncome && entry.type === 'income') {
+            acc.unexpectedIncome += getEntryEffectiveAmount(entry);
         }
         return acc;
-    }, { fixed: 0, expected: 0 });
+    }, { fixed: 0, expected: 0, income: 0, unexpectedIncome: 0 });
 
     return [
         {
             key: PLAN_TYPES.fixed,
-            label: 'Fixed expenses',
+            label: '고정지출',
             planned: getPlanTotalByType(PLAN_TYPES.fixed),
             actual: actualByType.fixed,
             kind: 'expense'
         },
         {
             key: PLAN_TYPES.expected,
-            label: 'Expected expenses',
+            label: '예상 지출',
             planned: getPlanTotalByType(PLAN_TYPES.expected),
             actual: actualByType.expected,
             kind: 'expense'
+        },
+        {
+            key: PLAN_TYPES.income,
+            label: '예상 수입',
+            planned: getPlanTotalByType(PLAN_TYPES.income),
+            actual: actualByType.income,
+            kind: 'income'
+        },
+        {
+            key: PLAN_TYPES.unexpectedIncome,
+            label: '예상 외 수입',
+            planned: null,
+            actual: actualByType.unexpectedIncome,
+            kind: 'income',
+            nonPlanned: true
         }
     ].map(row => {
+        if (row.nonPlanned) {
+            return {
+                ...row,
+                difference: null,
+                progressText: '✕',
+                statusText: row.actual > 0 ? `${formatCurrency(row.actual)} 입금` : '미입금',
+                statusClass: row.actual > 0 ? 'positive' : 'idle',
+                progressClass: '',
+                isExpandable: true
+            };
+        }
         const difference = Number((row.actual - row.planned).toFixed(2));
         const progressText = formatProgressPercent(row.actual, row.planned);
-        let statusText = 'Waiting';
+        let statusText = '대기';
         let statusClass = 'idle';
 
-        if (row.actual === 0) {
-            statusText = 'Unused';
-        } else if (difference > 0) {
-            statusText = `${formatCurrency(Math.abs(difference))} over`;
-            statusClass = 'over';
-        } else if (difference === 0) {
-            statusText = 'On target';
-            statusClass = 'matched';
+        if (row.kind === 'expense') {
+            if (row.actual === 0) {
+                statusText = '미사용';
+            } else if (difference > 0) {
+                statusText = `${formatCurrency(Math.abs(difference))} 초과`;
+                statusClass = 'over';
+            } else if (difference === 0) {
+                statusText = '정확히 사용';
+                statusClass = 'matched';
+            } else {
+                statusText = `${formatCurrency(Math.abs(difference))} 남음`;
+                statusClass = 'under';
+            }
         } else {
-            statusText = `${formatCurrency(Math.abs(difference))} left`;
-            statusClass = 'under';
+            if (row.actual === 0) {
+                statusText = '미입금';
+            } else if (difference > 0) {
+                statusText = `${formatCurrency(Math.abs(difference))} 초과`;
+                statusClass = 'positive';
+            } else if (difference === 0) {
+                statusText = '목표 달성';
+                statusClass = 'matched';
+            } else {
+                statusText = `${formatCurrency(Math.abs(difference))} 부족`;
+                statusClass = 'under';
+            }
         }
 
         return {
@@ -693,6 +738,20 @@ function getActivityAmountForPlanItem(item) {
 }
 
 function buildPlanDetailRows(type) {
+    if (type === PLAN_TYPES.unexpectedIncome) {
+        return getEntriesInSelectedRange()
+            .filter(entry => entry.type === 'income' && entry.sourceType === PLAN_TYPES.unexpectedIncome)
+            .map(entry => ({
+                id: entry.id,
+                label: entry.reason || 'Unexpected income',
+                type,
+                planned: null,
+                actual: Number(getEntryEffectiveAmount(entry).toFixed(2)),
+                remaining: null,
+                statusClass: 'positive'
+            }));
+    }
+
     return getPlanItemsByType(type).map(item => {
         const actual = Number(getActivityAmountForPlanItem(item).toFixed(2));
         const planned = Number(item.amount || 0);
@@ -704,7 +763,9 @@ function buildPlanDetailRows(type) {
             planned,
             actual,
             remaining,
-            statusClass: remaining < 0 ? 'over' : remaining === 0 ? 'matched' : 'under'
+            statusClass: isIncomePlanType(type)
+                ? (remaining < 0 ? 'positive' : remaining === 0 ? 'matched' : 'under')
+                : (remaining < 0 ? 'over' : remaining === 0 ? 'matched' : 'under')
         };
     });
 }
@@ -713,7 +774,7 @@ function renderPlanDetail() {
     if (!planDetailCard || !planDetailRows || !planDetailTable) return;
 
     if (!selectedPlanDetailType) {
-        if (planDetailTitle) planDetailTitle.textContent = 'Remaining by Item';
+        if (planDetailTitle) planDetailTitle.textContent = '항목별 남은 금액';
         if (planDetailRangeLabel) planDetailRangeLabel.textContent = getCurrentSummaryRangeText();
         planDetailCard.classList.remove('plan-detail-inline');
         planDetailCard.classList.add('hidden');
@@ -723,7 +784,7 @@ function renderPlanDetail() {
 
     const rows = buildPlanDetailRows(selectedPlanDetailType);
     if (planDetailTitle) {
-        planDetailTitle.textContent = `${getPlanTypeLabel(selectedPlanDetailType)} details`;
+        planDetailTitle.textContent = `${getPlanTypeLabel(selectedPlanDetailType)} 상세`;
     }
     if (planDetailRangeLabel) {
         planDetailRangeLabel.textContent = getCurrentSummaryRangeText();
@@ -735,7 +796,7 @@ function renderPlanDetail() {
     if (rows.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'plan-detail-empty';
-        empty.textContent = 'No items to show.';
+        empty.textContent = '표시할 항목이 없습니다.';
         planDetailRows.appendChild(empty);
         return;
     }
@@ -745,7 +806,9 @@ function renderPlanDetail() {
         rowEl.className = `plan-detail-row plan-detail-${row.type} plan-detail-${row.statusClass}`;
         let remainingText = row.remaining === null ? '✕' : formatCurrency(row.remaining);
         if (row.remaining !== null && row.remaining < 0) {
-            remainingText = `-${formatCurrency(Math.abs(row.remaining))}`;
+            remainingText = isIncomePlanType(row.type)
+                ? `+${formatCurrency(Math.abs(row.remaining))}`
+                : `-${formatCurrency(Math.abs(row.remaining))}`;
         }
         rowEl.innerHTML = `
             <span class="plan-detail-label" role="cell">${row.label}</span>
@@ -899,7 +962,11 @@ function formatHistoryDateTime(value) {
 }
 
 function normalizePlanType(value) {
-    return value === PLAN_TYPES.fixed ? value : PLAN_TYPES.expected;
+    return value === PLAN_TYPES.fixed
+        || value === PLAN_TYPES.income
+        || value === PLAN_TYPES.unexpectedIncome
+        ? value
+        : PLAN_TYPES.expected;
 }
 
 function normalizeActivitySourceType(value) {
@@ -954,7 +1021,7 @@ function getExpenseTotal() {
 }
 
 function getIncomeTotal() {
-    return MONTHLY_INCOME;
+    return getPlanTotalByType(PLAN_TYPES.income);
 }
 
 function getEstimatedSavings() {
@@ -1180,30 +1247,10 @@ function toggleBalancesPanel() {
 }
 
 function getPlanTypeLabel(type) {
-    if (type === PLAN_TYPES.fixed) return 'Fixed expense';
-    return 'Expected expense';
-}
-
-function setPlanEditMode(enabled) {
-    planEditMode = Boolean(enabled);
-    if (editPlanModeBtn) {
-        editPlanModeBtn.classList.toggle('active', planEditMode);
-        editPlanModeBtn.setAttribute('aria-pressed', planEditMode ? 'true' : 'false');
-        editPlanModeBtn.setAttribute('title', planEditMode ? 'Finish editing budget items' : 'Edit budget items');
-        editPlanModeBtn.setAttribute('aria-label', planEditMode ? 'Finish editing budget items' : 'Edit budget items');
-    }
-    if (planEditHint) {
-        planEditHint.classList.toggle('hidden', !planEditMode);
-    }
-}
-
-function togglePlanEditMode() {
-    if (planEditMode && editingPlanId) {
-        exitEditMode();
-        return;
-    }
-    setPlanEditMode(!planEditMode);
-    renderPlan();
+    if (type === PLAN_TYPES.fixed) return '고정지출';
+    if (type === PLAN_TYPES.income) return '예상 수입';
+    if (type === PLAN_TYPES.unexpectedIncome) return '예상 외 수입';
+    return '예상 지출';
 }
 
 function renderPlanBucket(listEl, items, amountClass = 'plan-amount') {
@@ -1222,8 +1269,6 @@ function renderPlanBucket(listEl, items, amountClass = 'plan-amount') {
         const li = document.createElement('li');
         li.className = 'ledger-plan-item';
         li.dataset.id = item.id;
-        li.classList.toggle('is-editable', planEditMode);
-        li.classList.toggle('is-selected', editingPlanId === item.id);
 
         const label = document.createElement('div');
         label.className = 'plan-label';
@@ -1233,11 +1278,15 @@ function renderPlanBucket(listEl, items, amountClass = 'plan-amount') {
         amount.className = amountClass;
         amount.textContent = formatCurrency(item.amount);
 
+        const editBtn = document.createElement('button');
+        editBtn.className = 'ghost-btn';
+        editBtn.type = 'button';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => enterEditMode(item.id));
+
         li.appendChild(label);
         li.appendChild(amount);
-        if (planEditMode) {
-            li.addEventListener('click', () => enterEditMode(item.id));
-        }
+        li.appendChild(editBtn);
         listEl.appendChild(li);
     });
 }
@@ -1245,17 +1294,20 @@ function renderPlanBucket(listEl, items, amountClass = 'plan-amount') {
 function renderPlan() {
     const fixedItems = getPlanItemsByType(PLAN_TYPES.fixed);
     const expectedItems = getPlanItemsByType(PLAN_TYPES.expected);
+    const incomeItems = getPlanItemsByType(PLAN_TYPES.income);
 
     renderPlanBucket(fixedPlanList, fixedItems, 'plan-amount');
     renderPlanBucket(expectedPlanList, expectedItems, 'plan-amount');
+    renderPlanBucket(incomePlanList, incomeItems, 'plan-income-amount');
 
     const fixedTotal = getPlanTotalByType(PLAN_TYPES.fixed);
     const expectedTotal = getPlanTotalByType(PLAN_TYPES.expected);
-    const incomeTotal = getIncomeTotal();
+    const incomeTotal = getPlanTotalByType(PLAN_TYPES.income);
     const savings = getEstimatedSavings();
 
     if (fixedPlanTotalEl) fixedPlanTotalEl.textContent = formatCurrency(fixedTotal);
     if (expectedPlanTotalEl) expectedPlanTotalEl.textContent = formatCurrency(expectedTotal);
+    if (incomePlanTotalEl) incomePlanTotalEl.textContent = formatCurrency(incomeTotal);
     if (planIncomeEl) planIncomeEl.textContent = formatCurrency(incomeTotal);
     if (planFixedTotalEl) planFixedTotalEl.textContent = formatCurrency(fixedTotal);
     planTotalEl.textContent = formatCurrency(expectedTotal);
@@ -1267,7 +1319,7 @@ function renderPlan() {
 function populateActivityLinkedItems() {
     if (!activityLinkedItemSelect) return;
     const sourceType = activitySourceTypeSelect ? activitySourceTypeSelect.value : 'custom';
-    const usesLinkedItem = sourceType !== 'custom';
+    const usesLinkedItem = sourceType !== 'custom' && sourceType !== PLAN_TYPES.unexpectedIncome;
     const items = usesLinkedItem ? getPlanItemsByType(normalizePlanType(sourceType)) : [];
 
     activityLinkedItemSelect.innerHTML = '';
@@ -1290,7 +1342,7 @@ function populateActivityLinkedItems() {
 function updateActivitySourceControls() {
     if (!activitySourceTypeSelect || !activityLinkedItemField || !activityReasonInput) return;
     const sourceType = activitySourceTypeSelect.value;
-    const usingLinkedItem = sourceType !== 'custom';
+    const usingLinkedItem = sourceType !== 'custom' && sourceType !== PLAN_TYPES.unexpectedIncome;
     const canUseDetail = normalizePlanType(sourceType) === PLAN_TYPES.expected;
     const canWriteReason = !usingLinkedItem;
 
@@ -1323,10 +1375,7 @@ function updateActivitySourceControls() {
 }
 
 function syncActivitySourceWithType() {
-    if (!activityTypeSelect || !activitySourceTypeSelect) return;
-    if (activityTypeSelect.value === 'income') {
-        activitySourceTypeSelect.value = 'custom';
-    }
+    if (!activitySourceTypeSelect) return;
     updateActivitySourceControls();
     syncActivitySharedControls();
 }
@@ -1401,7 +1450,7 @@ function renderActivity() {
             editBtn.className = 'icon-btn activity-icon-btn';
             editBtn.setAttribute('aria-label', 'Edit activity entry');
             editBtn.setAttribute('title', 'Edit activity entry');
-            editBtn.textContent = '✎';
+            editBtn.textContent = '\u270F\uFE0F';
             editBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
                 enterActivityEditMode(entry.id);
@@ -1412,7 +1461,7 @@ function renderActivity() {
             deleteBtn.className = 'icon-btn activity-icon-btn activity-delete-btn';
             deleteBtn.setAttribute('aria-label', 'Delete activity entry');
             deleteBtn.setAttribute('title', 'Delete activity entry');
-            deleteBtn.textContent = '🗑';
+            deleteBtn.textContent = '\u{1F5D1}';
             deleteBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
                 deleteActivityEntry(entry.id);
@@ -1534,7 +1583,6 @@ function showPlan() {
     if (activitySection) activitySection.classList.add('hidden');
     if (activitySummarySection) activitySummarySection.classList.add('hidden');
     planSection.classList.remove('hidden');
-    setPlanEditMode(false);
     renderPlan();
 }
 
@@ -1593,7 +1641,6 @@ async function saveBalancesFromInputs() {
 function enterEditMode(id) {
     const item = planItems.find(entry => entry.id === id);
     if (!item) return;
-    setPlanEditMode(true);
     editingPlanId = id;
     if (planTypeSelect) planTypeSelect.value = item.type;
     planItemInput.value = item.label;
@@ -1603,12 +1650,10 @@ function enterEditMode(id) {
         removePlanItemBtn.classList.remove('hidden');
         removePlanItemBtn.disabled = false;
     }
-    renderPlan();
 }
 
 function exitEditMode() {
     editingPlanId = null;
-    setPlanEditMode(false);
     if (planTypeSelect) planTypeSelect.value = PLAN_TYPES.fixed;
     planItemInput.value = '';
     planAmountInput.value = '';
@@ -1617,7 +1662,6 @@ function exitEditMode() {
         removePlanItemBtn.disabled = true;
         removePlanItemBtn.classList.add('hidden');
     }
-    renderPlan();
 }
 
 async function addPlanItem() {
@@ -1709,7 +1753,7 @@ async function addActivityEntry() {
         : null;
     const type = getActivityFormType(sourceType, editingEntry ? editingEntry.type : 'expense');
     const linkedItemId = activityLinkedItemSelect ? activityLinkedItemSelect.value : '';
-    const linkedItem = sourceType === 'custom'
+    const linkedItem = (sourceType === 'custom' || sourceType === PLAN_TYPES.unexpectedIncome)
         ? null
         : planItems.find(item => item.id === linkedItemId);
     const reason = linkedItem ? linkedItem.label : activityReasonInput.value.trim();
@@ -2063,7 +2107,6 @@ if (openBalanceHistoryBtn) openBalanceHistoryBtn.addEventListener('click', showB
 if (closeBalanceHistoryBtn) closeBalanceHistoryBtn.addEventListener('click', showDashboard);
 if (clearBalanceHistoryBtn) clearBalanceHistoryBtn.addEventListener('click', clearBalanceHistory);
 if (openPlanBtn) openPlanBtn.addEventListener('click', showPlan);
-if (editPlanModeBtn) editPlanModeBtn.addEventListener('click', togglePlanEditMode);
 if (closePlanBtn) closePlanBtn.addEventListener('click', showDashboard);
 if (addPlanItemBtn) addPlanItemBtn.addEventListener('click', addPlanItem);
 if (planForm) {
