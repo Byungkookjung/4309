@@ -2298,8 +2298,54 @@ body.ledger-body .container {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-height: 320px;
+    max-height: 420px;
     overflow-y: auto;
+}
+
+.ledger-activity-list[data-size="compact"] {
+    max-height: 220px;
+}
+
+.ledger-activity-list[data-size="medium"] {
+    max-height: 420px;
+}
+
+.ledger-activity-list[data-size="expanded"] {
+    max-height: 680px;
+}
+
+.activity-list-toolbar {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.activity-list-toolbar-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #5e6881;
+}
+
+.activity-list-size-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.activity-list-size-btn {
+    min-width: 44px;
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: 12px;
+}
+
+.activity-list-size-btn.active {
+    background: #edf2ff;
+    border-color: #cfd8ec;
+    color: #2a3f7a;
 }
 
 .ledger-activity-item {
@@ -3261,6 +3307,9 @@ body.ledger-body .container {
     .activity-actions {
         width: 100%;
         justify-content: flex-start;
+    }
+    .activity-list-toolbar {
+        justify-content: space-between;
     }
     .summary-chart-body {
         grid-template-columns: 1fr;

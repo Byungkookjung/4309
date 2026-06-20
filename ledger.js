@@ -96,6 +96,8 @@ const addActivityBtnIcon = document.getElementById('addActivityBtnIcon');
 const addActivityBtnText = document.getElementById('addActivityBtnText');
 const cancelActivityEditBtn = document.getElementById('cancelActivityEditBtn');
 const activityList = document.getElementById('activityList');
+const activityListSizeGroup = document.getElementById('activityListSizeGroup');
+const activityListSizeButtons = document.querySelectorAll('.activity-list-size-btn');
 const activityFilterGroup = document.getElementById('activityFilterGroup');
 const activityFilterButtons = document.querySelectorAll('.activity-filter-btn');
 const activitySummarySection = document.getElementById('activitySummarySection');
@@ -225,6 +227,7 @@ const STORAGE_BALANCE_HISTORY = 'ledgerBalanceHistory';
 const STORAGE_EXCHANGE_HISTORY = 'ledgerExchangeHistory';
 const STORAGE_PLAN_ITEMS = 'ledgerPlanItems';
 const STORAGE_ACTIVITY = 'ledgerActivity';
+const STORAGE_ACTIVITY_LIST_SIZE = 'ledgerActivityListSize';
 const STORAGE_INVESTMENT_CURRENT = 'investmentCurrentSnapshot';
 const STORAGE_EXCHANGE_RATES = 'ledgerExchangeRates';
 
@@ -243,6 +246,7 @@ let selectedSummaryRange = 'month';
 let selectedSummaryMonth = new Date().getMonth() + 1;
 let balancesCollapsed = false;
 let exchangeCollapsed = false;
+let activityListSize = 'medium';
 let selectedPlanDetailType = null;
 let exchangeRates = null;
 
@@ -1294,6 +1298,7 @@ function normalizePlanItems(items) {
 }
 
 function normalizeActivityEntry(entry) {
+    const fallbackTimestamp = Number(String(entry.id || '').replace(/\D/g, '')) || Date.now();
     return {
         ...entry,
         id: String(entry.id || Date.now()),
@@ -1304,7 +1309,9 @@ function normalizeActivityEntry(entry) {
         isShared: Boolean(entry.isShared),
         sourceType: entry.sourceType ? normalizeActivitySourceType(entry.sourceType) : 'custom',
         linkedPlanItemId: entry.linkedPlanItemId ? String(entry.linkedPlanItemId) : '',
-        linkedPlanItemLabel: entry.linkedPlanItemLabel ? String(entry.linkedPlanItemLabel) : ''
+        linkedPlanItemLabel: entry.linkedPlanItemLabel ? String(entry.linkedPlanItemLabel) : '',
+        createdAt: entry.createdAt ? String(entry.createdAt) : new Date(fallbackTimestamp).toISOString(),
+        updatedAt: entry.updatedAt ? String(entry.updatedAt) : null
     };
 }
 
@@ -1335,6 +1342,37 @@ function getEstimatedSavings() {
 function loadBalances() {
     const raw = localStorage.getItem(STORAGE_BALANCES);
     balances = raw ? JSON.parse(raw) : null;
+}
+
+function getActivitySortValue(entry) {
+    const createdAt = entry && entry.createdAt ? Date.parse(entry.createdAt) : NaN;
+    if (!Number.isNaN(createdAt)) return createdAt;
+    const numericId = Number(String(entry && entry.id ? entry.id : '').replace(/\D/g, ''));
+    if (!Number.isNaN(numericId) && numericId > 0) return numericId;
+    return parseLedgerDate(entry && entry.date ? entry.date : '');
+}
+
+function loadActivityListSize() {
+    const raw = localStorage.getItem(STORAGE_ACTIVITY_LIST_SIZE);
+    activityListSize = raw === 'compact' || raw === 'expanded' ? raw : 'medium';
+}
+
+function applyActivityListSize() {
+    if (activityList) {
+        activityList.dataset.size = activityListSize;
+    }
+    activityListSizeButtons.forEach(button => {
+        const active = button.dataset.size === activityListSize;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+}
+
+function setActivityListSize(nextSize) {
+    if (!['compact', 'medium', 'expanded'].includes(nextSize)) return;
+    activityListSize = nextSize;
+    localStorage.setItem(STORAGE_ACTIVITY_LIST_SIZE, activityListSize);
+    applyActivityListSize();
 }
 
 function saveBalances() {
@@ -1704,6 +1742,7 @@ function syncActivitySourceWithType() {
 function renderActivity() {
     if (!activityList) return;
     activityList.innerHTML = '';
+    applyActivityListSize();
     renderActivityMonthPicker();
 
     updateActivitySummaryRangeLabels();
@@ -1734,7 +1773,7 @@ function renderActivity() {
     } else {
         filteredEntries
         .slice()
-        .sort((a, b) => parseLedgerDate(b.date) - parseLedgerDate(a.date))
+        .sort((a, b) => getActivitySortValue(b) - getActivitySortValue(a))
         .forEach(entry => {
             const li = document.createElement('li');
             li.className = `ledger-activity-item ${entry.type}`;
@@ -2139,7 +2178,9 @@ async function addActivityEntry() {
         isShared,
         sourceType,
         linkedPlanItemId: linkedItem ? linkedItem.id : '',
-        linkedPlanItemLabel: linkedItem ? linkedItem.label : ''
+        linkedPlanItemLabel: linkedItem ? linkedItem.label : '',
+        createdAt: editingEntry && editingEntry.createdAt ? editingEntry.createdAt : new Date().toISOString(),
+        updatedAt: new Date().toISOString()
     };
 
     if (isRemoteEnabled()) {
@@ -2504,6 +2545,13 @@ if (activityFilterGroup) {
         setActivityTypeFilter(button.dataset.filter);
     });
 }
+if (activityListSizeGroup) {
+    activityListSizeGroup.addEventListener('click', event => {
+        const button = event.target.closest('.activity-list-size-btn');
+        if (!button) return;
+        setActivityListSize(button.dataset.size || 'medium');
+    });
+}
 if (activityMonthPicker) {
     activityMonthPicker.addEventListener('click', event => {
         const button = event.target.closest('.activity-month-btn');
@@ -2612,6 +2660,8 @@ document.querySelectorAll('.exchange-swap-btn').forEach(button => {
 
 (function init() {
     setActivityTypeFilter('all');
+    loadActivityListSize();
+    applyActivityListSize();
     exitEditMode();
     syncActivitySourceWithType();
     if (activityDateInput) {
