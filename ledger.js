@@ -228,6 +228,7 @@ const STORAGE_EXCHANGE_HISTORY = 'ledgerExchangeHistory';
 const STORAGE_PLAN_ITEMS = 'ledgerPlanItems';
 const STORAGE_ACTIVITY = 'ledgerActivity';
 const STORAGE_ACTIVITY_LIST_SIZE = 'ledgerActivityListSize';
+const STORAGE_ACTIVITY_LAST_DATE = 'ledgerActivityLastDate';
 const STORAGE_INVESTMENT_CURRENT = 'investmentCurrentSnapshot';
 const STORAGE_EXCHANGE_RATES = 'ledgerExchangeRates';
 
@@ -349,6 +350,27 @@ function getTodayDateString() {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+function getStoredActivityDate() {
+    const raw = localStorage.getItem(STORAGE_ACTIVITY_LAST_DATE);
+    if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw) || isFutureLedgerDate(raw)) {
+        return '';
+    }
+    return raw;
+}
+
+function getPreferredActivityDate() {
+    return getStoredActivityDate() || getTodayDateString();
+}
+
+function setStoredActivityDate(value) {
+    if (!value) {
+        localStorage.removeItem(STORAGE_ACTIVITY_LAST_DATE);
+        return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || isFutureLedgerDate(value)) return;
+    localStorage.setItem(STORAGE_ACTIVITY_LAST_DATE, value);
 }
 
 function isFutureLedgerDate(value) {
@@ -588,7 +610,7 @@ function syncActivitySharedControls() {
 
 function resetActivityForm() {
     editingActivityId = null;
-    if (activityDateInput) activityDateInput.value = '';
+    if (activityDateInput) activityDateInput.value = getPreferredActivityDate();
     if (activityAmountInput) activityAmountInput.value = '';
     if (activityReasonInput) activityReasonInput.value = '';
     if (activityDetailInput) activityDetailInput.value = '';
@@ -2183,6 +2205,8 @@ async function addActivityEntry() {
         updatedAt: new Date().toISOString()
     };
 
+    setStoredActivityDate(date);
+
     if (isRemoteEnabled()) {
         await activityCollection(currentUser).doc(entry.id).set(entry);
         resetActivityForm();
@@ -2666,6 +2690,10 @@ document.querySelectorAll('.exchange-swap-btn').forEach(button => {
     syncActivitySourceWithType();
     if (activityDateInput) {
         activityDateInput.max = getTodayDateString();
+        activityDateInput.value = getPreferredActivityDate();
+        activityDateInput.addEventListener('change', () => {
+            setStoredActivityDate(activityDateInput.value);
+        });
     }
 
     loadExchangeRates();
