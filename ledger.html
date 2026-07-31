@@ -361,6 +361,52 @@
                         </section>
                     </div>
                 </div>
+                <section class="activity-import-card">
+                    <div class="ledger-row activity-import-header">
+                        <div>
+                            <h3>TXT Activity Import</h3>
+                            <p class="muted">Upload a `.txt` file and convert lines into activity entries at once.</p>
+                        </div>
+                    </div>
+                    <div class="activity-import-grid">
+                        <div class="field wide">
+                            <label for="activityImportFile">TXT file</label>
+                            <input id="activityImportFile" type="file" accept=".txt,text/plain" />
+                        </div>
+                        <div class="field wide">
+                            <label for="activityImportText">Preview</label>
+                            <textarea id="activityImportText" rows="8" placeholder="7/31&#10;- 3.42 Expected expense food&#10;+ 400 Expected income booster juice&#10;- 8.12 Expected expense shopping"></textarea>
+                            <div id="activityImportStatus" class="activity-import-status" aria-live="polite"></div>
+                        </div>
+                        <div class="field action">
+                            <label aria-hidden="true">&nbsp;</label>
+                            <div class="activity-import-actions">
+                                <button id="importActivityBtn" class="primary-btn" type="button">Import TXT</button>
+                                <button id="clearActivityImportBtn" class="ghost-btn" type="button">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="activity-import-format">
+                        <div class="activity-import-format-title">Quick format</div>
+                        <pre>- 8.12 EE groceries
++ 400 EI booster juice
+- 12.75 CE coffee</pre>
+                    </div>
+                    <div class="activity-import-format">
+                        <div class="activity-import-format-title">Budget items you can match</div>
+                        <div id="activityImportBudgetHints" class="activity-import-budget-hints"></div>
+                    </div>
+                    <div class="activity-import-format">
+                        <div class="activity-import-format-title">Abbreviations</div>
+                        <div class="activity-import-abbrev-grid">
+                            <div class="activity-import-abbrev-item"><span>FE</span><strong>Fixed expense</strong></div>
+                            <div class="activity-import-abbrev-item"><span>EE</span><strong>Expected expense</strong></div>
+                            <div class="activity-import-abbrev-item"><span>EI</span><strong>Expected income</strong></div>
+                            <div class="activity-import-abbrev-item"><span>UI</span><strong>Unexpected income</strong></div>
+                            <div class="activity-import-abbrev-item"><span>CE</span><strong>Custom expense</strong></div>
+                        </div>
+                    </div>
+                </section>
             </section>
 
             <section id="planSection" class="ledger-card hidden">

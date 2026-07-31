@@ -105,6 +105,12 @@ const activityTotalIncomeEl = document.getElementById('activityTotalIncome');
 const activityTotalExpenseEl = document.getElementById('activityTotalExpense');
 const activityNetEl = document.getElementById('activityNet');
 const activityMonthPicker = document.getElementById('activityMonthPicker');
+const activityImportFileInput = document.getElementById('activityImportFile');
+const activityImportText = document.getElementById('activityImportText');
+const importActivityBtn = document.getElementById('importActivityBtn');
+const clearActivityImportBtn = document.getElementById('clearActivityImportBtn');
+const activityImportBudgetHints = document.getElementById('activityImportBudgetHints');
+const activityImportStatus = document.getElementById('activityImportStatus');
 const reasonChart = document.getElementById('reasonChart');
 const reasonLegend = document.getElementById('reasonLegend');
 const activityReasonList = document.getElementById('activityReasonList');
@@ -246,7 +252,7 @@ let toastHideTimer = null;
 let selectedSummaryRange = 'month';
 let selectedSummaryMonth = new Date().getMonth() + 1;
 let balancesCollapsed = false;
-let exchangeCollapsed = false;
+let exchangeCollapsed = true;
 let activityListSize = 'medium';
 let selectedPlanDetailType = null;
 let exchangeRates = null;
@@ -378,6 +384,196 @@ function isFutureLedgerDate(value) {
     const inputDate = parseLedgerDate(value);
     const today = parseLedgerDate(getTodayDateString());
     return inputDate.getTime() > today.getTime();
+}
+
+function parseActivityImportDateLine(line) {
+    const match = line.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+    if (!match) return '';
+
+    const month = Number(match[1]);
+    const day = Number(match[2]);
+    let year = match[3] ? Number(match[3]) : new Date().getFullYear();
+
+    if (!Number.isFinite(month) || !Number.isFinite(day) || !Number.isFinite(year)) return '';
+    if (month < 1 || month > 12 || day < 1 || day > 31) return '';
+    if (year < 100) year += 2000;
+
+    const parsed = new Date(year, month - 1, day);
+    if (
+        parsed.getFullYear() !== year
+        || parsed.getMonth() !== month - 1
+        || parsed.getDate() !== day
+    ) {
+        return '';
+    }
+
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function getImportedActivitySourceConfig(label) {
+    const normalized = String(label || '').trim().toLowerCase();
+    if (normalized === 'fe') return { type: 'expense', sourceType: PLAN_TYPES.fixed };
+    if (normalized === 'ee') return { type: 'expense', sourceType: PLAN_TYPES.expected };
+    if (normalized === 'ei') return { type: 'income', sourceType: PLAN_TYPES.income };
+    if (normalized === 'ui') return { type: 'income', sourceType: PLAN_TYPES.unexpectedIncome };
+    if (normalized === 'ce') return { type: 'expense', sourceType: 'custom' };
+    if (normalized === 'fixed expense') return { type: 'expense', sourceType: PLAN_TYPES.fixed };
+    if (normalized === 'expected expense') return { type: 'expense', sourceType: PLAN_TYPES.expected };
+    if (normalized === 'expected income') return { type: 'income', sourceType: PLAN_TYPES.income };
+    if (normalized === 'unexpected income') return { type: 'income', sourceType: PLAN_TYPES.unexpectedIncome };
+    if (normalized === 'custom expense') return { type: 'expense', sourceType: 'custom' };
+    return null;
+}
+
+function parseActivityImportEntryLine(line, currentDate, lineNumber) {
+    const match = line.match(/^([+-])\s*([0-9]+(?:\.[0-9]{1,2})?)\s+(FE|EE|EI|UI|CE|Fixed expense|Expected expense|Expected income|Unexpected income|Custom expense)\s+(.+)$/i);
+    if (!match) {
+        throw new Error(`Line ${lineNumber}: invalid entry format.`);
+    }
+    if (!currentDate) {
+        throw new Error(`Line ${lineNumber}: add a date line like 7/31 before entries.`);
+    }
+
+    const sign = match[1];
+    const amount = Number(match[2]);
+    const sourceLabel = match[3];
+    const reason = match[4].trim();
+    const config = getImportedActivitySourceConfig(sourceLabel);
+
+    if (!config) {
+        throw new Error(`Line ${lineNumber}: unsupported source type "${sourceLabel}".`);
+    }
+    if (!reason) {
+        throw new Error(`Line ${lineNumber}: reason is required.`);
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error(`Line ${lineNumber}: amount must be greater than 0.`);
+    }
+    if (isFutureLedgerDate(currentDate)) {
+        throw new Error(`Line ${lineNumber}: ${currentDate} is in the future.`);
+    }
+    if (config.type === 'expense' && sign !== '-') {
+        throw new Error(`Line ${lineNumber}: expense rows must start with "-".`);
+    }
+    if (config.type === 'income' && sign !== '+') {
+        throw new Error(`Line ${lineNumber}: income rows must start with "+".`);
+    }
+
+    const timestamp = new Date().toISOString();
+    return {
+        id: `${Date.now()}-${lineNumber}-${Math.random().toString(36).slice(2, 8)}`,
+        date: currentDate,
+        type: config.type,
+        amount: Number(amount.toFixed(2)),
+        reason,
+        detail: '',
+        isShared: false,
+        sourceType: config.sourceType,
+        linkedPlanItemId: '',
+        linkedPlanItemLabel: '',
+        createdAt: timestamp,
+        updatedAt: timestamp
+    };
+}
+
+function parseActivityImportText(rawText) {
+    const lines = String(rawText || '').split(/\r?\n/);
+    const entries = [];
+    let currentDate = '';
+
+    lines.forEach((rawLine, index) => {
+        const line = rawLine.trim();
+        const lineNumber = index + 1;
+        if (!line) return;
+
+        const parsedDate = parseActivityImportDateLine(line);
+        if (parsedDate) {
+            currentDate = parsedDate;
+            return;
+        }
+
+        entries.push(parseActivityImportEntryLine(line, currentDate, lineNumber));
+    });
+
+    if (!entries.length) {
+        throw new Error('No valid activity lines were found in the TXT file.');
+    }
+
+    return entries;
+}
+
+function setActivityImportStatus(message = '', tone = '') {
+    if (!activityImportStatus) return;
+    activityImportStatus.textContent = message;
+    activityImportStatus.classList.remove('is-error', 'is-success', 'is-idle');
+
+    if (!message) {
+        activityImportStatus.classList.add('hidden');
+        return;
+    }
+
+    activityImportStatus.classList.remove('hidden');
+    activityImportStatus.classList.add(
+        tone === 'error' ? 'is-error' : tone === 'success' ? 'is-success' : 'is-idle'
+    );
+}
+
+function setImportActivityButtonState(enabled) {
+    if (!importActivityBtn) return;
+    importActivityBtn.disabled = !enabled;
+    importActivityBtn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+}
+
+function validateActivityImportPreview() {
+    const rawText = activityImportText ? activityImportText.value : '';
+    if (!rawText.trim()) {
+        setActivityImportStatus('Paste or upload TXT content to check it before importing.', 'idle');
+        setImportActivityButtonState(false);
+        return null;
+    }
+
+    try {
+        const entries = parseActivityImportText(rawText);
+        setActivityImportStatus(`Ready to import ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}.`, 'success');
+        setImportActivityButtonState(true);
+        return entries;
+    } catch (error) {
+        setActivityImportStatus(error && error.message ? error.message : 'Failed to parse TXT content.', 'error');
+        setImportActivityButtonState(false);
+        return null;
+    }
+}
+
+function renderActivityImportBudgetHints() {
+    if (!activityImportBudgetHints) return;
+
+    const sections = [
+        { label: 'FE', type: PLAN_TYPES.fixed, empty: 'No fixed expense items yet.' },
+        { label: 'EE', type: PLAN_TYPES.expected, empty: 'No expected expense items yet.' },
+        { label: 'EI', type: PLAN_TYPES.income, empty: 'No expected income items yet.' }
+    ];
+
+    activityImportBudgetHints.innerHTML = '';
+
+    sections.forEach(section => {
+        const block = document.createElement('div');
+        block.className = 'activity-import-budget-group';
+
+        const title = document.createElement('div');
+        title.className = 'activity-import-budget-label';
+        title.textContent = section.label;
+
+        const items = getPlanItemsByType(section.type);
+        const value = document.createElement('div');
+        value.className = 'activity-import-budget-items';
+        value.textContent = items.length
+            ? items.map(item => item.label).join(' • ')
+            : section.empty;
+
+        block.appendChild(title);
+        block.appendChild(value);
+        activityImportBudgetHints.appendChild(block);
+    });
 }
 
 function isEntryInRange(entryDateValue, range, now, startOfWeek, endOfWeek, selectedMonth = now.getMonth() + 1) {
@@ -669,9 +865,11 @@ function buildBudgetProgressRows() {
             acc.income += getEntryEffectiveAmount(entry);
         } else if (entry.sourceType === PLAN_TYPES.unexpectedIncome && entry.type === 'income') {
             acc.unexpectedIncome += getEntryEffectiveAmount(entry);
+        } else if (entry.sourceType === 'custom' && entry.type === 'expense') {
+            acc.customExpense += getEntryEffectiveAmount(entry);
         }
         return acc;
-    }, { fixed: 0, expected: 0, income: 0, unexpectedIncome: 0 });
+    }, { fixed: 0, expected: 0, income: 0, unexpectedIncome: 0, customExpense: 0 });
 
     return [
         {
@@ -702,6 +900,14 @@ function buildBudgetProgressRows() {
             actual: actualByType.unexpectedIncome,
             kind: 'income',
             nonPlanned: true
+        },
+        {
+            key: 'custom_expense',
+            label: '커스텀 지출',
+            planned: null,
+            actual: actualByType.customExpense,
+            kind: 'expense',
+            nonPlanned: true
         }
     ].map(row => {
         if (row.nonPlanned) {
@@ -709,8 +915,10 @@ function buildBudgetProgressRows() {
                 ...row,
                 difference: null,
                 progressText: '✕',
-                statusText: row.actual > 0 ? `${formatCurrency(row.actual)} 입금` : '미입금',
-                statusClass: row.actual > 0 ? 'positive' : 'idle',
+                statusText: row.actual > 0
+                    ? (row.kind === 'income' ? `${formatCurrency(row.actual)} 입금` : `${formatCurrency(row.actual)} 사용`)
+                    : (row.kind === 'income' ? '미입금' : '미사용'),
+                statusClass: row.actual > 0 ? (row.kind === 'income' ? 'positive' : 'over') : 'idle',
                 progressClass: '',
                 isExpandable: true
             };
@@ -825,6 +1033,28 @@ function buildPlanDetailRows(type) {
             actual: Number(actual.toFixed(2)),
             remaining: null,
             statusClass: 'positive'
+        }));
+    }
+
+    if (type === 'custom_expense') {
+        const targetType = 'expense';
+        const grouped = getEntriesInSelectedRange()
+            .filter(entry => entry.type === targetType && entry.sourceType === 'custom')
+            .reduce((acc, entry) => {
+                const fallbackLabel = 'Custom expense';
+                const label = String(entry.reason || fallbackLabel).trim() || fallbackLabel;
+                acc[label] = (acc[label] || 0) + getEntryEffectiveAmount(entry);
+                return acc;
+            }, {});
+
+        return Object.entries(grouped).map(([label, actual]) => ({
+            id: label,
+            label,
+            type,
+            planned: null,
+            actual: Number(actual.toFixed(2)),
+            remaining: null,
+            statusClass: 'over'
         }));
     }
 
@@ -1591,6 +1821,7 @@ function renderDashboard() {
     plannedTotalEl.textContent = formatCurrency(expected);
     remainingTotalEl.textContent = formatCurrency(savings);
     setRemainingStyles(remainingTotalEl, savings);
+    renderActivityImportBudgetHints();
 }
 
 function setBalancesCollapsed(collapsed) {
@@ -1631,6 +1862,7 @@ function getPlanTypeLabel(type) {
     if (type === PLAN_TYPES.fixed) return '고정지출';
     if (type === PLAN_TYPES.income) return '예상 수입';
     if (type === PLAN_TYPES.unexpectedIncome) return '예상 외 수입';
+    if (type === 'custom_expense') return '커스텀 지출';
     return '예상 지출';
 }
 
@@ -1695,6 +1927,7 @@ function renderPlan() {
     planRemainingEl.textContent = formatCurrency(savings);
     setRemainingStyles(planRemainingEl, savings);
     renderPlanDetail();
+    renderActivityImportBudgetHints();
 }
 
 function populateActivityLinkedItems() {
@@ -2223,6 +2456,65 @@ async function addActivityEntry() {
     renderActivity();
 }
 
+async function importActivityEntriesFromText() {
+    const rawText = activityImportText ? activityImportText.value : '';
+    if (!rawText.trim()) {
+        alert('Please upload or paste TXT content first.');
+        setActivityImportStatus('Please upload or paste TXT content first.', 'error');
+        return;
+    }
+
+    const importedEntries = validateActivityImportPreview();
+    if (!importedEntries) {
+        return;
+    }
+
+    if (!confirm(`Import ${importedEntries.length} activity entr${importedEntries.length === 1 ? 'y' : 'ies'}?`)) {
+        return;
+    }
+
+    if (isRemoteEnabled()) {
+        const batch = dbRef.batch();
+        importedEntries.forEach(entry => {
+            const ref = activityCollection(currentUser).doc(entry.id);
+            batch.set(ref, entry);
+        });
+        await batch.commit();
+    } else {
+        activityEntries = normalizeActivityEntries([...activityEntries, ...importedEntries]);
+        saveActivityEntries();
+        renderActivity();
+    }
+
+    setStoredActivityDate(importedEntries[importedEntries.length - 1].date);
+    setActivityImportStatus(`Imported ${importedEntries.length} entr${importedEntries.length === 1 ? 'y' : 'ies'}.`, 'success');
+    window.location.reload();
+}
+
+function clearActivityImport() {
+    if (activityImportText) activityImportText.value = '';
+    if (activityImportFileInput) activityImportFileInput.value = '';
+    validateActivityImportPreview();
+}
+
+function handleActivityImportFile(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        if (activityImportText) {
+            activityImportText.value = String(reader.result || '');
+        }
+        validateActivityImportPreview();
+    };
+    reader.onerror = () => {
+        alert('Failed to read the selected TXT file.');
+        setActivityImportStatus('Failed to read the selected TXT file.', 'error');
+    };
+    reader.readAsText(file);
+}
+
 async function editActivityEntry(id) {
     enterActivityEditMode(id);
 }
@@ -2548,6 +2840,18 @@ if (activityForm) {
 if (cancelActivityEditBtn) {
     cancelActivityEditBtn.addEventListener('click', resetActivityForm);
 }
+if (activityImportFileInput) {
+    activityImportFileInput.addEventListener('change', handleActivityImportFile);
+}
+if (activityImportText) {
+    activityImportText.addEventListener('input', validateActivityImportPreview);
+}
+if (importActivityBtn) {
+    importActivityBtn.addEventListener('click', importActivityEntriesFromText);
+}
+if (clearActivityImportBtn) {
+    clearActivityImportBtn.addEventListener('click', clearActivityImport);
+}
 if (activitySourceTypeSelect) {
     activitySourceTypeSelect.addEventListener('change', syncActivitySourceWithType);
 }
@@ -2630,6 +2934,7 @@ if (legendToggleBtn) {
 
 updateRentToggleUI();
 resetActivityForm();
+validateActivityImportPreview();
 if (chartWrap) {
     chartWrap.addEventListener('click', handleChartClick);
 } else if (reasonChart) {

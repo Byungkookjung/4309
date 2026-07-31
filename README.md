@@ -22,6 +22,8 @@ A simple project that pairs a Todo app with a lightweight expense ledger, built 
 - Account balance setup (Saving/Checking/Etc)
 - Spending plan items add/edit/delete
 - Activity entries for fixed expense, expected expense, expected income, and unexpected income
+- Activity date remembers the last selected day until you change it
+- TXT activity import with preview validation and shorthand types (`FE`, `EE`, `EI`, `UI`, `CE`)
 - Budget progress with expandable detail rows
 - Expense-by-reason donut chart with rent hide/show toggle
 - Investment tracker for TFSA, RRSP, and Korea account
@@ -51,6 +53,7 @@ From the Todo screen, use the header icon to open the Expense Ledger. The Ledger
 - `app.js`: Todo App logic
 - `ledger.html`: Expense Ledger UI
 - `ledger.js`: Ledger logic
+- `activity-import-sample.txt`: Sample TXT import file for ledger activity
 - `login.html`: Google sign-in screen
 - `auth.js`: Firebase config + auth helpers
 - `login.js`: Login page logic
@@ -128,9 +131,29 @@ Important for Google sign-in:
 1) Save balances in Account Setup
 2) Add items in Spending Plan
 3) Add income/expense entries in Activity
-4) Review totals in Summary
-5) Track investments and save portfolio snapshots
-6) Use Exchange to convert USD/CAD or CAD/KRW and save rate history
+4) Optional: import many activity lines at once from a `.txt` file in Activity Summary
+5) Review totals in Summary
+6) Track investments and save portfolio snapshots
+7) Use Exchange to convert USD/CAD or CAD/KRW and save rate history
+
+### Activity TXT Import
+
+Supported shorthand:
+
+- `FE`: Fixed expense
+- `EE`: Expected expense
+- `EI`: Expected income
+- `UI`: Unexpected income
+- `CE`: Custom expense
+
+Example:
+
+```txt
+7/31
+- 8.12 EE groceries
++ 400 EI booster juice
+- 12.75 CE coffee
+```
 
 ## Mobile/Emulator Testing
 
