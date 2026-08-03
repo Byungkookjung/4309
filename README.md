@@ -20,10 +20,12 @@ A simple project that pairs a Todo app with a lightweight expense ledger, built 
 
 ### Expense Ledger (ledger.html)
 - Account balance setup (Saving/Checking/Etc)
-- Spending plan items add/edit/delete
+- Balance history snapshots with review/delete/clear actions
+- Spending plan items add/edit/delete for fixed expenses, expected expenses, and expected income
 - Activity entries for fixed expense, expected expense, expected income, and unexpected income
 - Activity date remembers the last selected day until you change it
-- TXT activity import with preview validation and shorthand types (`FE`, `EE`, `EI`, `UI`, `CE`)
+- Shared expense checkbox in the Activity form
+- TXT activity import with live preview validation, line-level errors, and shorthand types
 - Budget progress with expandable detail rows
 - Expense-by-reason donut chart with rent hide/show toggle
 - Investment tracker for TFSA, RRSP, and Korea account
@@ -131,8 +133,8 @@ Important for Google sign-in:
 1) Save balances in Account Setup
 2) Add items in Spending Plan
 3) Add income/expense entries in Activity
-4) Optional: import many activity lines at once from a `.txt` file in Activity Summary
-5) Review totals in Summary
+4) Review monthly totals and budget progress in Activity Summary
+5) Optional: import many activity lines at once from a `.txt` file in Activity Summary
 6) Track investments and save portfolio snapshots
 7) Use Exchange to convert USD/CAD or CAD/KRW and save rate history
 
@@ -146,13 +148,27 @@ Supported shorthand:
 - `UI`: Unexpected income
 - `CE`: Custom expense
 
+Supported line format:
+
+```txt
+[+ or -] [amount] [type] [reason] [optional detail...]
+```
+
+Notes:
+
+- A date line such as `8/3` applies to the entries below it until the next date line
+- Import is blocked until all preview errors are fixed
+- After a successful import, the ledger refreshes automatically
+- The first text after the type becomes the `reason`
+- Any remaining text on the same line becomes the `detail`
+
 Example:
 
 ```txt
-7/31
-- 8.12 EE groceries
-+ 400 EI booster juice
-- 12.75 CE coffee
+8/3
+- 4.91 EE taxi uber
++ 400 EI paycheck booster_juice
+- 13.64 FE apple apple.com
 ```
 
 ## Mobile/Emulator Testing

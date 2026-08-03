@@ -437,7 +437,9 @@ function parseActivityImportEntryLine(line, currentDate, lineNumber) {
     const sign = match[1];
     const amount = Number(match[2]);
     const sourceLabel = match[3];
-    const reason = match[4].trim();
+    const rawReasonDetail = match[4].trim();
+    const [reason, ...detailParts] = rawReasonDetail.split(/\s+/);
+    const detail = detailParts.join(' ').trim();
     const config = getImportedActivitySourceConfig(sourceLabel);
 
     if (!config) {
@@ -466,7 +468,7 @@ function parseActivityImportEntryLine(line, currentDate, lineNumber) {
         type: config.type,
         amount: Number(amount.toFixed(2)),
         reason,
-        detail: '',
+        detail,
         isShared: false,
         sourceType: config.sourceType,
         linkedPlanItemId: '',
@@ -811,7 +813,7 @@ function resetActivityForm() {
     if (activityReasonInput) activityReasonInput.value = '';
     if (activityDetailInput) activityDetailInput.value = '';
     if (activitySharedInput) activitySharedInput.checked = false;
-    if (activitySourceTypeSelect) activitySourceTypeSelect.value = 'custom';
+    if (activitySourceTypeSelect) activitySourceTypeSelect.value = PLAN_TYPES.expected;
     if (activityLinkedItemSelect) activityLinkedItemSelect.innerHTML = '';
     if (addActivityBtnText) addActivityBtnText.textContent = 'Add entry';
     if (addActivityBtnIcon) addActivityBtnIcon.textContent = '+';
@@ -865,11 +867,9 @@ function buildBudgetProgressRows() {
             acc.income += getEntryEffectiveAmount(entry);
         } else if (entry.sourceType === PLAN_TYPES.unexpectedIncome && entry.type === 'income') {
             acc.unexpectedIncome += getEntryEffectiveAmount(entry);
-        } else if (entry.sourceType === 'custom' && entry.type === 'expense') {
-            acc.customExpense += getEntryEffectiveAmount(entry);
         }
         return acc;
-    }, { fixed: 0, expected: 0, income: 0, unexpectedIncome: 0, customExpense: 0 });
+    }, { fixed: 0, expected: 0, income: 0, unexpectedIncome: 0 });
 
     return [
         {
@@ -899,14 +899,6 @@ function buildBudgetProgressRows() {
             planned: null,
             actual: actualByType.unexpectedIncome,
             kind: 'income',
-            nonPlanned: true
-        },
-        {
-            key: 'custom_expense',
-            label: '커스텀 지출',
-            planned: null,
-            actual: actualByType.customExpense,
-            kind: 'expense',
             nonPlanned: true
         }
     ].map(row => {
@@ -1033,28 +1025,6 @@ function buildPlanDetailRows(type) {
             actual: Number(actual.toFixed(2)),
             remaining: null,
             statusClass: 'positive'
-        }));
-    }
-
-    if (type === 'custom_expense') {
-        const targetType = 'expense';
-        const grouped = getEntriesInSelectedRange()
-            .filter(entry => entry.type === targetType && entry.sourceType === 'custom')
-            .reduce((acc, entry) => {
-                const fallbackLabel = 'Custom expense';
-                const label = String(entry.reason || fallbackLabel).trim() || fallbackLabel;
-                acc[label] = (acc[label] || 0) + getEntryEffectiveAmount(entry);
-                return acc;
-            }, {});
-
-        return Object.entries(grouped).map(([label, actual]) => ({
-            id: label,
-            label,
-            type,
-            planned: null,
-            actual: Number(actual.toFixed(2)),
-            remaining: null,
-            statusClass: 'over'
         }));
     }
 
@@ -1862,7 +1832,6 @@ function getPlanTypeLabel(type) {
     if (type === PLAN_TYPES.fixed) return '고정지출';
     if (type === PLAN_TYPES.income) return '예상 수입';
     if (type === PLAN_TYPES.unexpectedIncome) return '예상 외 수입';
-    if (type === 'custom_expense') return '커스텀 지출';
     return '예상 지출';
 }
 

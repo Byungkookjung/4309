@@ -1683,10 +1683,15 @@ body.ledger-body .container {
     flex-wrap: wrap;
 }
 
-#activityForm .checkbox-field {
-    grid-column: 1 / -1;
+#activityForm #activityDetailField {
+    grid-column: 1 / span 6 !important;
+}
+
+#activityForm .activity-shared-field {
+    grid-column: 7 / span 6 !important;
     align-items: flex-start;
-    padding-top: 2px;
+    justify-content: flex-end;
+    padding-top: 34px;
 }
 
 #activityForm .field.action {
@@ -1698,6 +1703,16 @@ body.ledger-body .container {
 }
 
 @media (max-width: 760px) {
+    #activityForm #activityDetailField,
+    #activityForm .activity-shared-field {
+        grid-column: span 1 !important;
+    }
+
+    #activityForm .activity-shared-field {
+        justify-content: flex-start;
+        padding-top: 2px;
+    }
+
     .activity-filter-group {
         justify-content: flex-end;
     }
@@ -2694,10 +2709,10 @@ body.ledger-body .container {
 }
 
 .activity-import-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: grid !important;
+    grid-template-columns: 1fr !important;
     gap: 14px;
-    align-items: start;
+    align-items: stretch;
 }
 
 .activity-import-grid .field {
@@ -2707,9 +2722,22 @@ body.ledger-body .container {
     min-width: 0;
 }
 
+.activity-import-file-field {
+    order: 1;
+}
+
+.activity-import-preview-field {
+    order: 2;
+}
+
+.activity-import-grid .field.action {
+    order: 3;
+}
+
 .activity-import-grid .field.wide,
 .activity-import-grid .field.action {
-    grid-column: auto;
+    width: 100%;
+    grid-column: 1 / -1 !important;
 }
 
 .activity-import-grid label {
@@ -2719,7 +2747,6 @@ body.ledger-body .container {
 }
 
 .activity-import-grid .field.action {
-    grid-column: 1 / -1;
     align-self: start;
 }
 
@@ -2883,11 +2910,12 @@ body.ledger-body .container {
 
 @media (max-width: 1100px) {
     .activity-import-grid {
-        grid-template-columns: 1fr;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
     }
 
     .activity-import-grid .field.action {
-        grid-column: auto;
+        width: 100%;
     }
 
     .activity-import-budget-group {
@@ -3544,7 +3572,8 @@ body.ledger-body .container {
         justify-content: space-between;
     }
     .activity-import-grid {
-        grid-template-columns: 1fr;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
     }
     .summary-chart-body {
         grid-template-columns: 1fr;
