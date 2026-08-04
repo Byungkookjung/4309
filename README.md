@@ -1,78 +1,118 @@
-# Todo App + Expense Ledger
+# Weekly Work Sheet + Expense Ledger
 
-A simple project that pairs a Todo app with a lightweight expense ledger, built with HTML, CSS, and JavaScript. It now supports Google sign-in and real-time Firestore sync across devices.
+HTML, CSS, and vanilla JavaScript project with Google sign-in, Firestore sync, and local fallback storage.
+
+It currently includes two main tools:
+
+- `index.html`: weekly work hour tracker and payout logger
+- `ledger.html`: personal expense ledger and planning dashboard
 
 ## Live Site
 
 - `https://todo-ledger.web.app`
 
-## Features
+## Main Features
 
-### Todo App (index.html)
-- Add, edit, and delete tasks
-- Mark tasks complete/incomplete
-- Optional due dates with date-based sorting
-- Filters: All, Active, Completed, Today, Upcoming
-- Calendar view with date filtering and highlights
-- Remaining task count + clear completed
-- Google sign-in + Firestore real-time sync
-- Local storage fallback when not signed in
+### Weekly Work Sheet
 
-### Expense Ledger (ledger.html)
-- Account balance setup (Saving/Checking/Etc)
-- Balance history snapshots with review/delete/clear actions
-- Spending plan items add/edit/delete for fixed expenses, expected expenses, and expected income
-- Activity entries for fixed expense, expected expense, expected income, and unexpected income
-- Activity date remembers the last selected day until you change it
-- Shared expense checkbox in the Activity form
-- TXT activity import with live preview validation, line-level errors, and shorthand types
-- Budget progress with expandable detail rows
-- Expense-by-reason donut chart with rent hide/show toggle
-- Investment tracker for TFSA, RRSP, and Korea account
-- Exchange section for USD/CAD and CAD/KRW with saved history
-- Mobile-friendly layout for ledger sections
-- Google sign-in + Firestore real-time sync
-- Local storage fallback when not signed in
+- Two-week work sheet view with Friday-based week blocks
+- Editable check-in and check-out times for past and current dates
+- Auto break rule:
+  - `0.5h` break when shift duration is `5.5h` or more
+  - `0h` break otherwise
+- Holiday toggle per day
+- Expected income calculation using:
+  - base hourly rate
+  - holiday multiplier
+- Shift calendar with daily worked hours
+- Click-to-open day detail card that collapses again on second click
+- Weekend and holiday dates highlighted in red on the calendar
+- Pay settings hidden by default and editable through a pencil button
+- Flexible time paste support for inputs such as:
+  - `10`
+  - `1000`
+  - `10:00`
+  - `오전 10:00`
+  - `오후 5:00`
+  - `5pm`
+- Keyboard week navigation with `←` and `→`
 
-## How to Run
+### Actual Payout Log
 
-### Mac/Linux
-1) In Terminal, go to the project folder: `cd /Users/suyeonkim/Desktop/4309`  
-2) Give the script permission (first time only): `chmod +x start-server.sh`  
-3) Run the server: `./start-server.sh`  
+- Paystub-style payout entry form
+- Auto-calculated `Regular pay` from `Hours × hourly rate`
+- Support for:
+  - Holiday work pay
+  - Stat holiday pay
+  - Tips
+  - Vacation payout
+  - Deductions
+- Auto-calculated:
+  - `Gross pay`
+  - `Net pay`
+- Editable payout history entries
+- Delete payout history entries
 
-### Windows
-1) Run the local server: `start-server.bat`  
+### Expense Ledger
 
-### Open the app
-1) Open `http://localhost:8000/login.html` and sign in with Google  
+- Balance setup for `Checking`, `Saving`, and `Etc`
+- Balance history page with item delete and clear-all actions
+- Fixed expense, expected expense, and expected income planning
+- Activity tracking with category-linked budget items
+- TXT import with validation, preview, shorthand support, and refresh after import
+- Budget progress breakdowns
+- Investment tracker
+- Exchange tracker
+- Firebase sync with local fallback
 
-From the Todo screen, use the header icon to open the Expense Ledger. The Ledger also links back to the Todo app.
+## Pages
+
+- `login.html`: Google sign-in page
+- `index.html`: Weekly Work Sheet
+- `ledger.html`: Expense Ledger
+- `investments.html`: Investment tracker page
 
 ## Key Files
 
-- `index.html`: Todo App UI
-- `app.js`: Todo App logic
+- `index.html`: Weekly Work Sheet UI
+- `app.js`: Weekly Work Sheet logic
 - `ledger.html`: Expense Ledger UI
-- `ledger.js`: Ledger logic
-- `activity-import-sample.txt`: Sample TXT import file for ledger activity
-- `login.html`: Google sign-in screen
-- `auth.js`: Firebase config + auth helpers
-- `login.js`: Login page logic
-- `style.css`: Shared styles
-- `deploy.bat`: One-click git commit + push + Firebase Hosting deploy
-- `start-server.bat`, `start-server.sh`: Local server scripts
+- `ledger.js`: Expense Ledger logic
+- `style.css`: shared styles
+- `auth.js`: Firebase config and auth helpers
+- `login.html`: login screen
+- `login.js`: login page logic
+- `activity-import-sample.txt`: sample ledger TXT import file
+- `firebase.json`: Firebase Hosting config
 
-## Firebase Setup (Required for Sync)
+## Local Run
 
-1) Create a Firebase project and add a Web app  
-2) In Firebase Console:
-   - Authentication -> Sign-in method -> enable Google
-   - Authentication -> Settings -> Authorized domains -> add `localhost`
-   - Firestore Database -> Create database
-3) Update `auth.js` with your `firebaseConfig`
-4) Firestore rules (minimum):
-```
+### Mac / Linux
+
+1. `cd /Users/suyeonkim/Desktop/4309`
+2. `chmod +x start-server.sh`
+3. `./start-server.sh`
+
+### Windows
+
+1. Run `start-server.bat`
+
+### Open
+
+1. Open `http://localhost:8000/login.html`
+2. Sign in with Google
+3. Use the money icon to move between the work sheet and ledger
+
+## Firebase Setup
+
+1. Create a Firebase project and web app
+2. Enable Google sign-in
+3. Create Firestore
+4. Update `auth.js` with your Firebase config
+
+Minimum Firestore rules:
+
+```txt
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -83,96 +123,40 @@ service cloud.firestore {
 }
 ```
 
-## Firebase Hosting Deploy
+## Deploy
 
-This project is now configured for Firebase Hosting with:
+This project is configured for Firebase Hosting with project id `todo-ledger`.
 
-- `firebase.json`
-- `.firebaserc` using project id `todo-ledger`
+Manual deploy:
 
-Deploy steps:
+1. `firebase login`
+2. `cd /Users/suyeonkim/Desktop/4309`
+3. `firebase deploy --only hosting`
 
-1) Install the Firebase CLI  
-`npm.cmd install -g firebase-tools`
-
-2) Log in  
-`firebase.cmd login`
-
-3) From the project folder, deploy  
-`firebase.cmd deploy`
-
-4) Faster workflow on Windows  
-Run `deploy.bat` to:
-   - stage all changes
-   - create a git commit
-   - push to `origin/main`
-   - deploy Hosting with `firebase.cmd deploy --only hosting`
-
-Default Hosting URLs after deploy:
+Hosting URLs:
 
 - `https://todo-ledger.web.app`
 - `https://todo-ledger.firebaseapp.com`
 
-Important for Google sign-in:
+For Google sign-in, add both domains in Firebase Authentication authorized domains.
 
-- In Firebase Console -> Authentication -> Settings -> Authorized domains
-- Make sure these are allowed:
-  - `todo-ledger.web.app`
-  - `todo-ledger.firebaseapp.com`
+## Testing
 
-## Quick Usage
+Recent validation included:
 
-### Todo App
-1) Type a task and click Add (or press Enter)
-2) Optional: set a due date
-3) Toggle completion with the checkbox
-4) Edit via the Edit button or double-click
-5) Use filters or the calendar to narrow results
+- `node --check app.js`
+- `git diff --check`
+- Playwright checks for:
+  - break rule
+  - holiday calculations
+  - Friday week start
+  - responsive calendar layout
+  - payout auto-calculation
+  - payout edit flow
+  - keyboard and calendar interactions
 
-### Expense Ledger
-1) Save balances in Account Setup
-2) Add items in Spending Plan
-3) Add income/expense entries in Activity
-4) Review monthly totals and budget progress in Activity Summary
-5) Optional: import many activity lines at once from a `.txt` file in Activity Summary
-6) Track investments and save portfolio snapshots
-7) Use Exchange to convert USD/CAD or CAD/KRW and save rate history
+## Notes
 
-### Activity TXT Import
-
-Supported shorthand:
-
-- `FE`: Fixed expense
-- `EE`: Expected expense
-- `EI`: Expected income
-- `UI`: Unexpected income
-- `CE`: Custom expense
-
-Supported line format:
-
-```txt
-[+ or -] [amount] [type] [reason] [optional detail...]
-```
-
-Notes:
-
-- A date line such as `8/3` applies to the entries below it until the next date line
-- Import is blocked until all preview errors are fixed
-- After a successful import, the ledger refreshes automatically
-- The first text after the type becomes the `reason`
-- Any remaining text on the same line becomes the `detail`
-
-Example:
-
-```txt
-8/3
-- 4.91 EE taxi uber
-+ 400 EI paycheck booster_juice
-- 13.64 FE apple apple.com
-```
-
-## Mobile/Emulator Testing
-
-- **Windows**: `WINDOWS_TESTING_GUIDE.md`
-- **Mac (iOS)**: `IOS_SIMULATOR_GUIDE.md`
-- **All platforms**: `EMULATOR_GUIDE.md`
+- Work sheet payout calculations use the currently saved pay settings
+- Payout history stores the calculated values at save time
+- Expense ledger TXT import supports shorthand types such as `FE`, `EE`, `EI`, and `UI`

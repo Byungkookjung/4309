@@ -3,95 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#667eea">
-    <meta name="description" content="A modern Todo List app with calendar features">
-    <title>Todo App</title>
+    <meta name="theme-color" content="#8db8e4">
+    <meta name="description" content="Simple weekly work schedule tracker with auto-calculated hours and expected income">
+    <title>Weekly Work Sheet</title>
     <link rel="icon" href="favicon-todo.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=20260509n">
+    <link rel="stylesheet" href="style.css?v=20260803e">
 </head>
-<body>
-    <div class="container">
-        <header class="app-header">
+<body class="work-body sheet-body">
+    <div class="container work-container sheet-container">
+        <header class="app-header work-header sheet-header">
             <div class="header-actions header-actions-left">
                 <button id="ledgerBtn" class="icon-btn" type="button" aria-label="Open Expense Ledger" title="Expense Ledger">
                     &#x1F4B0;
                 </button>
             </div>
-            <h1>&#x1F4DD; My Todo App</h1>
-            <p class="subtitle">&#x1F4DD; Stay organized and productive</p>
+            <h1>&#x1F4C6; Weekly Work Sheet</h1>
             <div class="header-actions header-actions-right auth-actions">
                 <button id="logoutBtn" class="ghost-btn" type="button">Log out</button>
             </div>
-            <div class="view-toggle">
-                <button id="listViewBtn" class="view-btn active">List</button>
-                <button id="calendarViewBtn" class="view-btn">Calendar</button>
-            </div>
         </header>
 
-        <div id="calendarSection" class="calendar-section hidden">
-            <div class="calendar-header">
-                <button id="prevMonth" class="nav-btn">&#x2B05;&#xFE0F;</button>
-                <h2 id="currentMonth"></h2>
-                <button id="nextMonth" class="nav-btn">&#x27A1;&#xFE0F;</button>
-            </div>
-            <div id="calendar" class="calendar"></div>
-            <div id="calendarTasks" class="calendar-tasks">
-                <div class="calendar-tasks-header">
-                    <h3 id="calendarTasksTitle">Select a date to view tasks</h3>
-                    <span id="calendarTasksCount"></span>
+        <section class="sheet-topbar">
+            <div class="sheet-rate-card">
+                <div class="sheet-rate-header">
+                    <div>
+                        <span class="sheet-kicker">Pay Settings</span>
+                        <strong id="currentHourlyRate" class="sheet-rate-value">$15.00/hr</strong>
+                        <span id="currentHolidayRate" class="sheet-rate-subvalue">Holiday: 1.5x</span>
+                    </div>
+                    <button id="editRateBtn" class="icon-btn activity-icon-btn" type="button" aria-label="Edit pay settings" title="Edit pay settings">&#9998;</button>
                 </div>
-                <ul id="calendarTasksList" class="calendar-tasks-list"></ul>
-                <div id="calendarTasksEmpty" class="calendar-tasks-empty">Select a date to view tasks.</div>
+                <form id="rateForm" class="sheet-rate-form hidden" onsubmit="return false;">
+                    <label for="hourlyRateInput" class="sr-only">Hourly rate</label>
+                    <input id="hourlyRateInput" type="number" step="0.01" min="0" placeholder="15.00" />
+                    <label for="holidayMultiplierInput" class="sr-only">Holiday multiplier</label>
+                    <input id="holidayMultiplierInput" type="number" step="0.1" min="1" placeholder="1.5" />
+                    <button id="saveRateBtn" class="primary-btn" type="submit">Save rate</button>
+                    <button id="cancelRateEditBtn" class="ghost-btn" type="button">Cancel</button>
+                </form>
             </div>
-        </div>
-
-        <div id="listSection" class="list-section">
-            <div class="input-section">
-                <div class="input-wrapper">
-                    <input 
-                        type="text" 
-                        id="todoInput" 
-                        placeholder="Add a new task..." 
-                        autocomplete="off"
-                    >
-                    <input 
-                        type="date" 
-                        id="todoDate" 
-                        class="date-input"
-                        title="Optional: Set a due date"
-                    >
-                    <button id="addBtn" class="add-btn">Add</button>
+            <div class="sheet-summary-strip" aria-label="Summary">
+                <div class="sheet-summary-item">
+                    <span>2-week total hours</span>
+                    <strong id="twoWeekHours">0.00</strong>
+                </div>
+                <div class="sheet-summary-item">
+                    <span>2-week expected income</span>
+                    <strong id="twoWeekIncome">$0.00</strong>
+                </div>
+                <div class="sheet-summary-item">
+                    <span>Actual payouts total</span>
+                    <strong id="actualPayoutTotal">$0.00</strong>
                 </div>
             </div>
+        </section>
 
-        <div class="filter-section">
-            <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="active">Active</button>
-            <button class="filter-btn" data-filter="completed">Completed</button>
-            <button class="filter-btn" data-filter="today">Today</button>
-            <button class="filter-btn" data-filter="upcoming">Upcoming</button>
-        </div>
+        <section class="sheet-nav-card">
+            <div class="sheet-nav-copy">
+                <h2 id="sheetRangeTitle">This schedule block</h2>
+            </div>
+            <div class="sheet-nav-actions">
+                <button id="prevWeekBlockBtn" class="icon-btn mini-icon-btn" type="button" aria-label="Previous two weeks">&#x2190;</button>
+                <button id="todayWeekBlockBtn" class="ghost-btn" type="button">This week</button>
+                <button id="nextWeekBlockBtn" class="icon-btn mini-icon-btn" type="button" aria-label="Next two weeks">&#x2192;</button>
+            </div>
+        </section>
 
-        <div class="stats">
-            <span id="taskCount">0 tasks</span>
-            <button id="clearCompleted" class="clear-btn">Clear Completed</button>
-        </div>
+        <main class="sheet-main">
+            <section class="sheet-board" aria-label="Weekly sheets">
+                <article class="sheet-card">
+                    <div id="weekCardOne"></div>
+                </article>
+                <article class="sheet-card">
+                    <div id="weekCardTwo"></div>
+                </article>
+            </section>
 
-        <ul id="todoList" class="todo-list">
-            <!-- Todos will be added here dynamically -->
-        </ul>
+            <section id="sheetCalendarGrid" class="sheet-calendar-grid">
+                <article id="sheetCalendarCard" class="sheet-card">
+                    <div class="section-heading">
+                        <div>
+                            <h3>Shift Calendar</h3>
+                        </div>
+                        <div class="sheet-nav-actions">
+                            <button id="prevCalendarMonthBtn" class="icon-btn mini-icon-btn" type="button" aria-label="Previous month">&#x2190;</button>
+                            <strong id="calendarMonthLabel" class="sheet-calendar-month">August 2026</strong>
+                            <button id="nextCalendarMonthBtn" class="icon-btn mini-icon-btn" type="button" aria-label="Next month">&#x2192;</button>
+                        </div>
+                    </div>
+                    <div id="sheetCalendar" class="calendar work-calendar sheet-calendar"></div>
+                </article>
 
-        <div id="emptyState" class="empty-state">
-            <p>&#x2728; No tasks yet. Add one above to get started!</p>
-        </div>
+                <article id="selectedDayCard" class="sheet-card">
+                    <div class="section-heading">
+                        <div>
+                            <h3 id="selectedDayTitle">Selected Day</h3>
+                            <p id="selectedDayMeta">Choose a day on the calendar to review saved time.</p>
+                        </div>
+                    </div>
+                    <div id="selectedDayDetail" class="work-stack-list"></div>
+                </article>
+            </section>
 
-        <div id="selectedDateInfo" class="selected-date-info hidden">
-            <p>&#x1F4C5; Showing tasks for: <span id="selectedDateText"></span></p>
-            <button id="clearDateFilter" class="clear-date-btn">Clear Date Filter</button>
-        </div>
+            <section class="sheet-log-grid">
+                <article class="sheet-card payout-card">
+                    <div class="section-heading">
+                        <div>
+                            <h3>Actual Payout Log</h3>
+                        </div>
+                    </div>
+                    <form id="payoutForm" class="sheet-payout-form" onsubmit="return false;">
+                        <div class="field">
+                            <label for="payoutDate">Pay date</label>
+                            <input id="payoutDate" type="date" />
+                        </div>
+                        <div class="field">
+                            <label for="payoutHours">Hours</label>
+                            <input id="payoutHours" type="number" step="0.01" min="0" />
+                        </div>
+                        <div class="field">
+                            <label for="payoutRegularPay">Regular pay</label>
+                            <input id="payoutRegularPay" type="text" readonly />
+                        </div>
+                        <div class="field">
+                            <label for="payoutHolidayWorkPay">Holiday work pay</label>
+                            <input id="payoutHolidayWorkPay" type="number" step="0.01" min="0" />
+                        </div>
+                        <div class="field">
+                            <label for="payoutStatHolidayPay">Stat holiday pay</label>
+                            <input id="payoutStatHolidayPay" type="number" step="0.01" min="0" />
+                        </div>
+                        <div class="field">
+                            <label for="payoutTips">Tips</label>
+                            <input id="payoutTips" type="number" step="0.01" min="0" />
+                        </div>
+                        <div class="field">
+                            <label for="payoutVacation">Vacation payout</label>
+                            <input id="payoutVacation" type="number" step="0.01" min="0" />
+                        </div>
+                        <div class="field">
+                            <label for="payoutDeductions">Deductions</label>
+                            <input id="payoutDeductions" type="number" step="0.01" min="0" />
+                        </div>
+                        <div class="field">
+                            <label for="payoutGross">Gross pay</label>
+                            <input id="payoutGross" type="text" readonly />
+                        </div>
+                        <div class="field">
+                            <label for="payoutAmount">Net pay</label>
+                            <input id="payoutAmount" type="text" readonly />
+                        </div>
+                        <div class="field action wide">
+                            <button id="savePayoutBtn" class="primary-btn" type="submit">Save payout</button>
+                        </div>
+                    </form>
+                </article>
 
-        <!-- Ledger button moved to header -->
-
+                <article class="sheet-card payout-history-card">
+                    <div class="section-heading">
+                        <div>
+                            <h3>Payout History</h3>
+                        </div>
+                    </div>
+                    <div id="payoutList" class="work-stack-list"></div>
+                </article>
+            </section>
+        </main>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -106,6 +183,6 @@
             }
         })();
     </script>
-    <script src="app.js"></script>
+    <script src="app.js?v=20260803e"></script>
 </body>
 </html>
