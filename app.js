@@ -662,6 +662,103 @@ function getChronologicalPayouts() {
     });
 }
 
+function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues }) {
+    const hasPayoutData = payoutValues.some(value => value !== 0);
+    const hasTipData = tipValues.some(value => value !== 0);
+    if (!ordered.length || (!hasPayoutData && !hasTipData)) {
+        return '<div class="work-empty">No payout data to chart yet.</div>';
+    }
+
+    const width = 760;
+    const height = 240;
+    const paddingX = 26;
+    const paddingTop = 24;
+    const paddingBottom = 42;
+    const chartWidth = width - paddingX * 2;
+    const chartHeight = height - paddingTop - paddingBottom;
+    const allValues = [...payoutValues, ...tipValues, 0];
+    const maxValue = Math.max(...allValues, 1);
+    const minValue = Math.min(...allValues, 0);
+    const valueRange = Math.max(maxValue - minValue, 1);
+    const baselineY = paddingTop + ((maxValue - 0) / valueRange) * chartHeight;
+
+    const payoutPoints = ordered.map((item, index) => {
+        const x = ordered.length === 1
+            ? width / 2
+            : paddingX + (chartWidth * index) / (ordered.length - 1);
+        return {
+            x,
+            y: paddingTop + ((maxValue - payoutValues[index]) / valueRange) * chartHeight,
+            value: payoutValues[index],
+            label: formatCompactDate(parseISODate(item.date))
+        };
+    });
+    const tipPoints = ordered.map((item, index) => {
+        const x = ordered.length === 1
+            ? width / 2
+            : paddingX + (chartWidth * index) / (ordered.length - 1);
+        return {
+            x,
+            y: paddingTop + ((maxValue - tipValues[index]) / valueRange) * chartHeight,
+            value: tipValues[index],
+            label: formatCompactDate(parseISODate(item.date))
+        };
+    });
+
+    const payoutPointString = payoutPoints.map(point => `${point.x},${point.y}`).join(' ');
+    const payoutAreaString = `${paddingX},${height - paddingBottom} ${payoutPointString} ${payoutPoints[payoutPoints.length - 1].x},${height - paddingBottom}`;
+    const tipPointString = tipPoints.map(point => `${point.x},${point.y}`).join(' ');
+    const guides = [0.25, 0.5, 0.75].map(ratio => {
+        const y = paddingTop + chartHeight * ratio;
+        return `<line x1="${paddingX}" y1="${y}" x2="${width - paddingX}" y2="${y}" class="payout-guide-line" />`;
+    }).join('');
+    const labels = payoutPoints.map(point => `
+        <text x="${point.x}" y="${height - 14}" text-anchor="middle" class="payout-axis-label">${safeText(point.label)}</text>
+    `).join('');
+    const payoutDots = payoutPoints.map(point => `
+        <g class="payout-point-group">
+            <circle cx="${point.x}" cy="${point.y}" r="5.5" class="payout-point payout-point-main" />
+        </g>
+    `).join('');
+    const tipDots = tipPoints.map(point => `
+        <g class="payout-point-group">
+            <circle cx="${point.x}" cy="${point.y}" r="5" class="payout-point payout-point-tip" />
+        </g>
+    `).join('');
+    const tooltips = payoutPoints.map((point, index) => `
+        <div class="payout-trend-dot" style="left:${(point.x / width) * 100}%;top:${(Math.min(point.y, tipPoints[index].y) / height) * 100}%;">
+            <span>${safeText(point.label)} · Payout ${safeText(formatCurrency(point.value))} · Tips ${safeText(formatCurrency(tipPoints[index].value))}</span>
+        </div>
+    `).join('');
+
+    return `
+        <section class="payout-chart-block payout-chart-combined">
+            <div class="payout-chart-title-row">
+                <strong>Trend</strong>
+                <div class="payout-chart-legend">
+                    <span class="payout-legend-item"><i class="legend-line payout-legend-line"></i>Payout</span>
+                    <span class="payout-legend-item"><i class="legend-line tip-legend-line"></i>Tips</span>
+                </div>
+            </div>
+            <div class="payout-chart-shell">
+                <svg viewBox="0 0 ${width} ${height}" class="payout-chart-svg" role="img" aria-label="Payout and tips trend line chart">
+                    ${guides}
+                    <line x1="${paddingX}" y1="${baselineY}" x2="${width - paddingX}" y2="${baselineY}" class="payout-base-line" />
+                    ${hasPayoutData ? `<polygon points="${payoutAreaString}" class="payout-area" />` : ''}
+                    ${hasPayoutData ? `<polyline points="${payoutPointString}" class="payout-line" />` : ''}
+                    ${hasTipData ? `<polyline points="${tipPointString}" class="tip-line" />` : ''}
+                    ${labels}
+                    ${hasPayoutData ? payoutDots : ''}
+                    ${hasTipData ? tipDots : ''}
+                </svg>
+                <div class="payout-dot-layer">
+                    ${tooltips}
+                </div>
+            </div>
+        </section>
+    `;
+}
+
 function renderPayoutTrend() {
     const ordered = getChronologicalPayouts();
     if (!ordered.length) {
@@ -731,65 +828,11 @@ function renderPayoutTrend() {
         </div>
     `;
 
-    const width = 760;
-    const height = 240;
-    const paddingX = 26;
-    const paddingTop = 24;
-    const paddingBottom = 42;
-    const chartWidth = width - paddingX * 2;
-    const chartHeight = height - paddingTop - paddingBottom;
-    const maxValue = Math.max(...values, 1);
-    const minValue = Math.min(...values, 0);
-    const valueRange = Math.max(maxValue - minValue, 1);
-    const baselineY = paddingTop + ((maxValue - 0) / valueRange) * chartHeight;
-
-    const points = ordered.map((item, index) => {
-        const x = ordered.length === 1
-            ? width / 2
-            : paddingX + (chartWidth * index) / (ordered.length - 1);
-        const y = paddingTop + ((maxValue - Number(item.amount || 0)) / valueRange) * chartHeight;
-        return {
-            x,
-            y,
-            value: Number(item.amount || 0),
-            label: formatCompactDate(parseISODate(item.date))
-        };
+    payoutTrendChart.innerHTML = buildCombinedTrendChartMarkup({
+        ordered,
+        payoutValues: values,
+        tipValues
     });
-
-    const pointString = points.map(point => `${point.x},${point.y}`).join(' ');
-    const areaString = points.length
-        ? `${paddingX},${height - paddingBottom} ${pointString} ${points[points.length - 1].x},${height - paddingBottom}`
-        : '';
-    const guides = [0.25, 0.5, 0.75].map(ratio => {
-        const y = paddingTop + chartHeight * ratio;
-        return `<line x1="${paddingX}" y1="${y}" x2="${width - paddingX}" y2="${y}" class="payout-guide-line" />`;
-    }).join('');
-    const labels = points.map(point => `
-        <g class="payout-point-group">
-            <circle cx="${point.x}" cy="${point.y}" r="5.5" class="payout-point" />
-            <text x="${point.x}" y="${height - 14}" text-anchor="middle" class="payout-axis-label">${safeText(point.label)}</text>
-        </g>
-    `).join('');
-    const tooltips = points.map(point => `
-        <div class="payout-trend-dot" style="left:${(point.x / width) * 100}%;top:${(point.y / height) * 100}%;">
-            <span>${safeText(point.label)} · ${safeText(formatCurrency(point.value))}</span>
-        </div>
-    `).join('');
-
-    payoutTrendChart.innerHTML = `
-        <div class="payout-chart-shell">
-            <svg viewBox="0 0 ${width} ${height}" class="payout-chart-svg" role="img" aria-label="Payout trend line chart">
-                ${guides}
-                <line x1="${paddingX}" y1="${baselineY}" x2="${width - paddingX}" y2="${baselineY}" class="payout-base-line" />
-                <polygon points="${areaString}" class="payout-area" />
-                <polyline points="${pointString}" class="payout-line" />
-                ${labels}
-            </svg>
-            <div class="payout-dot-layer">
-                ${tooltips}
-            </div>
-        </div>
-    `;
 }
 
 function renderPayouts() {

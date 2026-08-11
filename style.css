@@ -4732,6 +4732,57 @@ body.work-body .container.work-container {
     padding: 16px;
 }
 
+.payout-chart-block {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 18px;
+    border: 1px solid #d7e2f0;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+.payout-chart-title-row strong {
+    color: #203252;
+    font-size: 0.98rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+}
+
+.payout-chart-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.payout-chart-legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.payout-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #5f7593;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.legend-line {
+    width: 24px;
+    height: 0;
+    border-top: 3px solid #4d74e6;
+    border-radius: 999px;
+}
+
+.tip-legend-line {
+    border-top-color: #2fa566;
+}
+
 .payout-chart-shell {
     position: relative;
     width: 100%;
@@ -4772,6 +4823,19 @@ body.work-body .container.work-container {
     fill: #ffffff;
     stroke: #2f6fed;
     stroke-width: 3;
+}
+
+.payout-point-tip {
+    stroke: #2fa566;
+    stroke-width: 3;
+}
+
+.tip-line {
+    fill: none;
+    stroke: #2fa566;
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .payout-axis-label {
