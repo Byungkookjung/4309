@@ -38,6 +38,8 @@ const weekCardOne = document.getElementById('weekCardOne');
 const weekCardTwo = document.getElementById('weekCardTwo');
 const payoutForm = document.getElementById('payoutForm');
 const payoutDateInput = document.getElementById('payoutDate');
+const payoutPeriodStartInput = document.getElementById('payoutPeriodStart');
+const payoutPeriodEndInput = document.getElementById('payoutPeriodEnd');
 const payoutHoursInput = document.getElementById('payoutHours');
 const payoutRegularPayInput = document.getElementById('payoutRegularPay');
 const payoutHolidayWorkPayInput = document.getElementById('payoutHolidayWorkPay');
@@ -49,6 +51,8 @@ const payoutGrossInput = document.getElementById('payoutGross');
 const payoutAmountInput = document.getElementById('payoutAmount');
 const savePayoutBtn = document.getElementById('savePayoutBtn');
 const payoutList = document.getElementById('payoutList');
+const payoutTrendStats = document.getElementById('payoutTrendStats');
+const payoutTrendChart = document.getElementById('payoutTrendChart');
 const prevCalendarMonthBtn = document.getElementById('prevCalendarMonthBtn');
 const nextCalendarMonthBtn = document.getElementById('nextCalendarMonthBtn');
 const calendarMonthLabel = document.getElementById('calendarMonthLabel');
@@ -99,6 +103,12 @@ function formatCurrency(value) {
 
 function formatCompactDate(date) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function addDays(date, days) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
 }
 
 function computeGrossPay(regularPay, holidayWorkPay, statHolidayPay, tips, vacationPayout) {
@@ -231,6 +241,8 @@ function normalizePayout(raw) {
     return {
         id: String(raw.id || Date.now()),
         date: raw.date || isoDate(new Date()),
+        payPeriodStart: raw.payPeriodStart || '',
+        payPeriodEnd: raw.payPeriodEnd || '',
         hours: Number(raw.hours || 0),
         regularPay,
         holidayWorkPay,
@@ -520,6 +532,8 @@ function renderShiftCalendar() {
         const shift = getShiftByDate(dateString);
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
         const isHoliday = Boolean(shift?.isHoliday);
+        const isFutureDate = dateString > today;
+        const hoursLabel = hours ? (isFutureDate ? 'scheduled' : 'worked') : '';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'calendar-day work-calendar-day';
@@ -530,7 +544,7 @@ function renderShiftCalendar() {
         button.innerHTML = `
             <span class="day-number">${day}</span>
             <span class="work-calendar-hours">${hours ? `${hours.toFixed(2)}h` : ''}</span>
-            <span class="work-calendar-count">${hours ? 'worked' : ''}</span>
+            <span class="work-calendar-count">${hoursLabel}</span>
         `;
         button.addEventListener('click', () => {
             selectedCalendarDate = selectedCalendarDate === dateString ? null : dateString;
@@ -593,9 +607,13 @@ function renderTopSummary() {
     const weekOne = getWeekDates(weekBlockOffset);
     const weekTwo = getWeekDates(weekBlockOffset + 1);
     const blockDates = [...weekOne, ...weekTwo];
+    const blockEnd = isoDate(weekTwo[6]);
+    const payoutDate = isoDate(addDays(weekTwo[6], 7));
     const totalHours = blockDates.reduce((sum, date) => sum + getOrCreateShift(isoDate(date)).totalHours, 0);
     const totalIncome = Number((totalHours * Number(settings.hourlyRate || 0)).toFixed(2));
-    const payoutTotal = payouts.reduce((sum, item) => sum + item.amount, 0);
+    const payoutTotal = payouts
+        .filter(item => item.date === payoutDate)
+        .reduce((sum, item) => sum + item.amount, 0);
 
     twoWeekHours.textContent = totalHours.toFixed(2);
     twoWeekIncome.textContent = formatCurrency(totalIncome);
@@ -603,6 +621,9 @@ function renderTopSummary() {
 }
 
 function buildPayoutMarkup(item) {
+    const periodText = item.payPeriodStart && item.payPeriodEnd
+        ? `${formatCompactDate(parseISODate(item.payPeriodStart))} - ${formatCompactDate(parseISODate(item.payPeriodEnd))}`
+        : '';
     return `
         <article class="work-item-card" data-payout-id="${safeText(item.id)}">
             <div class="work-item-main">
@@ -610,6 +631,7 @@ function buildPayoutMarkup(item) {
                     <strong>${safeText(formatCompactDate(parseISODate(item.date)))}</strong>
                     <span class="sheet-payout-amount">${formatCurrency(item.amount)}</span>
                 </div>
+                ${periodText ? `<div class="work-item-subline">Pay period: ${safeText(periodText)}</div>` : ''}
                 <div class="work-item-stats payouts">
                     <span>${item.hours ? `${item.hours.toFixed(2)}h` : '0.00h'}</span>
                     <span>Gross ${formatCurrency(item.grossPay || item.amount)}</span>
@@ -630,6 +652,143 @@ function buildPayoutMarkup(item) {
                 <button type="button" class="icon-btn activity-icon-btn activity-delete-btn" data-action="delete-payout" title="Delete payout" aria-label="Delete payout">&#128465;</button>
             </div>
         </article>
+    `;
+}
+
+function getChronologicalPayouts() {
+    return payouts.slice().sort((a, b) => {
+        if (a.date === b.date) return a.createdAt > b.createdAt ? 1 : -1;
+        return a.date > b.date ? 1 : -1;
+    });
+}
+
+function renderPayoutTrend() {
+    const ordered = getChronologicalPayouts();
+    if (!ordered.length) {
+        payoutTrendStats.innerHTML = `
+            <div class="payout-trend-stat">
+                <span>Latest payout</span>
+                <strong>$0.00</strong>
+            </div>
+            <div class="payout-trend-stat">
+                <span>Average payout</span>
+                <strong>$0.00</strong>
+            </div>
+            <div class="payout-trend-stat">
+                <span>Highest payout</span>
+                <strong>$0.00</strong>
+            </div>
+            <div class="payout-trend-stat tip-stat">
+                <span>Latest tips</span>
+                <strong>$0.00</strong>
+            </div>
+            <div class="payout-trend-stat tip-stat">
+                <span>Average tips</span>
+                <strong>$0.00</strong>
+            </div>
+            <div class="payout-trend-stat tip-stat">
+                <span>Highest tips</span>
+                <strong>$0.00</strong>
+            </div>
+        `;
+        payoutTrendChart.innerHTML = '<div class="work-empty">No payout data to chart yet.</div>';
+        return;
+    }
+
+    const values = ordered.map(item => Number(item.amount || 0));
+    const tipValues = ordered.map(item => Number(item.tips || 0));
+    const latest = values[values.length - 1] || 0;
+    const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+    const highest = Math.max(...values, 0);
+    const latestTips = tipValues[tipValues.length - 1] || 0;
+    const averageTips = tipValues.reduce((sum, value) => sum + value, 0) / tipValues.length;
+    const highestTips = Math.max(...tipValues, 0);
+
+    payoutTrendStats.innerHTML = `
+        <div class="payout-trend-stat">
+            <span>Latest payout</span>
+            <strong>${formatCurrency(latest)}</strong>
+        </div>
+        <div class="payout-trend-stat">
+            <span>Average payout</span>
+            <strong>${formatCurrency(average)}</strong>
+        </div>
+        <div class="payout-trend-stat">
+            <span>Highest payout</span>
+            <strong>${formatCurrency(highest)}</strong>
+        </div>
+        <div class="payout-trend-stat tip-stat">
+            <span>Latest tips</span>
+            <strong>${formatCurrency(latestTips)}</strong>
+        </div>
+        <div class="payout-trend-stat tip-stat">
+            <span>Average tips</span>
+            <strong>${formatCurrency(averageTips)}</strong>
+        </div>
+        <div class="payout-trend-stat tip-stat">
+            <span>Highest tips</span>
+            <strong>${formatCurrency(highestTips)}</strong>
+        </div>
+    `;
+
+    const width = 760;
+    const height = 240;
+    const paddingX = 26;
+    const paddingTop = 24;
+    const paddingBottom = 42;
+    const chartWidth = width - paddingX * 2;
+    const chartHeight = height - paddingTop - paddingBottom;
+    const maxValue = Math.max(...values, 1);
+    const minValue = Math.min(...values, 0);
+    const valueRange = Math.max(maxValue - minValue, 1);
+    const baselineY = paddingTop + ((maxValue - 0) / valueRange) * chartHeight;
+
+    const points = ordered.map((item, index) => {
+        const x = ordered.length === 1
+            ? width / 2
+            : paddingX + (chartWidth * index) / (ordered.length - 1);
+        const y = paddingTop + ((maxValue - Number(item.amount || 0)) / valueRange) * chartHeight;
+        return {
+            x,
+            y,
+            value: Number(item.amount || 0),
+            label: formatCompactDate(parseISODate(item.date))
+        };
+    });
+
+    const pointString = points.map(point => `${point.x},${point.y}`).join(' ');
+    const areaString = points.length
+        ? `${paddingX},${height - paddingBottom} ${pointString} ${points[points.length - 1].x},${height - paddingBottom}`
+        : '';
+    const guides = [0.25, 0.5, 0.75].map(ratio => {
+        const y = paddingTop + chartHeight * ratio;
+        return `<line x1="${paddingX}" y1="${y}" x2="${width - paddingX}" y2="${y}" class="payout-guide-line" />`;
+    }).join('');
+    const labels = points.map(point => `
+        <g class="payout-point-group">
+            <circle cx="${point.x}" cy="${point.y}" r="5.5" class="payout-point" />
+            <text x="${point.x}" y="${height - 14}" text-anchor="middle" class="payout-axis-label">${safeText(point.label)}</text>
+        </g>
+    `).join('');
+    const tooltips = points.map(point => `
+        <div class="payout-trend-dot" style="left:${(point.x / width) * 100}%;top:${(point.y / height) * 100}%;">
+            <span>${safeText(point.label)} · ${safeText(formatCurrency(point.value))}</span>
+        </div>
+    `).join('');
+
+    payoutTrendChart.innerHTML = `
+        <div class="payout-chart-shell">
+            <svg viewBox="0 0 ${width} ${height}" class="payout-chart-svg" role="img" aria-label="Payout trend line chart">
+                ${guides}
+                <line x1="${paddingX}" y1="${baselineY}" x2="${width - paddingX}" y2="${baselineY}" class="payout-base-line" />
+                <polygon points="${areaString}" class="payout-area" />
+                <polyline points="${pointString}" class="payout-line" />
+                ${labels}
+            </svg>
+            <div class="payout-dot-layer">
+                ${tooltips}
+            </div>
+        </div>
     `;
 }
 
@@ -679,6 +838,8 @@ function resetPayoutForm() {
     editingPayoutId = null;
     payoutForm.reset();
     payoutDateInput.value = isoDate(new Date());
+    payoutPeriodStartInput.value = '';
+    payoutPeriodEndInput.value = '';
     savePayoutBtn.textContent = 'Save payout';
     refreshPayoutTotals();
 }
@@ -688,6 +849,8 @@ function startEditPayout(id) {
     if (!item) return;
     editingPayoutId = item.id;
     payoutDateInput.value = item.date || isoDate(new Date());
+    payoutPeriodStartInput.value = item.payPeriodStart || '';
+    payoutPeriodEndInput.value = item.payPeriodEnd || '';
     payoutHoursInput.value = item.hours ? String(item.hours) : '';
     payoutHolidayWorkPayInput.value = item.holidayWorkPay ? String(item.holidayWorkPay) : '';
     payoutStatHolidayPayInput.value = item.statHolidayPay ? String(item.statHolidayPay) : '';
@@ -746,6 +909,8 @@ function isTypingTarget(element) {
 
 async function handleSavePayout() {
     const date = payoutDateInput.value;
+    const payPeriodStart = payoutPeriodStartInput.value;
+    const payPeriodEnd = payoutPeriodEndInput.value;
     const hours = Number(payoutHoursInput.value || 0);
     const regularPay = computeRegularPay(hours, settings.hourlyRate);
     const holidayWorkPay = Number(payoutHolidayWorkPayInput.value || 0);
@@ -755,13 +920,19 @@ async function handleSavePayout() {
     const deductions = Number(payoutDeductionsInput.value || 0);
     const grossPay = computeGrossPay(regularPay, holidayWorkPay, statHolidayPay, tips, vacationPayout);
     const amount = computeNetPay(grossPay, deductions);
-    if (!date || amount <= 0) {
-        alert('Please enter a pay date and valid paystub amounts.');
+    if (!date || !payPeriodStart || !payPeriodEnd || amount <= 0) {
+        alert('Please enter a pay date, pay period, and valid paystub amounts.');
+        return;
+    }
+    if (payPeriodStart > payPeriodEnd) {
+        alert('Pay period start must be on or before pay period end.');
         return;
     }
     await persistPayout(normalizePayout({
         id: editingPayoutId || `${date}-${Date.now()}`,
         date,
+        payPeriodStart,
+        payPeriodEnd,
         hours,
         regularPay,
         holidayWorkPay,
@@ -783,6 +954,7 @@ function renderAll() {
     renderShiftCalendar();
     renderSelectedDayDetail();
     renderPayouts();
+    renderPayoutTrend();
 }
 
 function initializeDefaults() {

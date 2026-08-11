@@ -118,6 +118,14 @@
                             <input id="payoutDate" type="date" />
                         </div>
                         <div class="field">
+                            <label for="payoutPeriodStart">Pay period start</label>
+                            <input id="payoutPeriodStart" type="date" />
+                        </div>
+                        <div class="field">
+                            <label for="payoutPeriodEnd">Pay period end</label>
+                            <input id="payoutPeriodEnd" type="date" />
+                        </div>
+                        <div class="field">
                             <label for="payoutHours">Hours</label>
                             <input id="payoutHours" type="number" step="0.01" min="0" />
                         </div>
@@ -167,6 +175,16 @@
                     </div>
                     <div id="payoutList" class="work-stack-list"></div>
                 </article>
+            </section>
+
+            <section class="sheet-card payout-trend-card">
+                <div class="section-heading">
+                    <div>
+                        <h3>Payout Trend</h3>
+                    </div>
+                </div>
+                <div id="payoutTrendStats" class="payout-trend-stats"></div>
+                <div id="payoutTrendChart" class="payout-trend-chart"></div>
             </section>
         </main>
     </div>
