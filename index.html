@@ -42,18 +42,32 @@
                     <button id="cancelRateEditBtn" class="ghost-btn" type="button">Cancel</button>
                 </form>
             </div>
-            <div class="sheet-summary-strip" aria-label="Summary">
-                <div class="sheet-summary-item">
-                    <span>2-week total hours</span>
-                    <strong id="twoWeekHours">0.00</strong>
+            <div class="sheet-summary-panel">
+                <div class="sheet-summary-strip" aria-label="Summary">
+                    <div class="sheet-summary-item accent-hours">
+                        <span>2-week total hours</span>
+                        <strong id="twoWeekHours">0.00</strong>
+                    </div>
+                    <div class="sheet-summary-item accent-income">
+                        <span>2-week expected income</span>
+                        <strong id="twoWeekIncome">$0.00</strong>
+                    </div>
+                    <div class="sheet-summary-item accent-payout">
+                        <span>Actual payouts total</span>
+                        <strong id="actualPayoutTotal">$0.00</strong>
+                    </div>
+                    <div class="sheet-summary-item accent-next">
+                        <span>Next payout</span>
+                        <strong id="nextPayoutDate">Aug 20</strong>
+                        <small id="followingPayoutDate" class="sheet-summary-subline">Next: Sep 3</small>
+                    </div>
                 </div>
-                <div class="sheet-summary-item">
-                    <span>2-week expected income</span>
-                    <strong id="twoWeekIncome">$0.00</strong>
-                </div>
-                <div class="sheet-summary-item">
-                    <span>Actual payouts total</span>
-                    <strong id="actualPayoutTotal">$0.00</strong>
+                <div id="payoutCompareStrip" class="sheet-compare-strip" aria-label="Expected income versus actual payout">
+                    <div class="sheet-compare-copy">
+                        <span class="sheet-compare-kicker">Pay period check</span>
+                        <strong id="payoutCompareTitle">Expected vs actual</strong>
+                    </div>
+                    <div id="payoutCompareValue" class="sheet-compare-value">$0.00 남음</div>
                 </div>
             </div>
         </section>
@@ -63,9 +77,9 @@
                 <h2 id="sheetRangeTitle">This schedule block</h2>
             </div>
             <div class="sheet-nav-actions">
-                <button id="prevWeekBlockBtn" class="icon-btn mini-icon-btn" type="button" aria-label="Previous two weeks">&#x2190;</button>
-                <button id="todayWeekBlockBtn" class="ghost-btn" type="button">This week</button>
-                <button id="nextWeekBlockBtn" class="icon-btn mini-icon-btn" type="button" aria-label="Next two weeks">&#x2192;</button>
+                <button id="prevWeekBlockBtn" class="icon-btn mini-icon-btn" type="button" aria-label="Previous pay period">&#x2190;</button>
+                <button id="todayWeekBlockBtn" class="ghost-btn" type="button">Current pay period</button>
+                <button id="nextWeekBlockBtn" class="icon-btn mini-icon-btn" type="button" aria-label="Next pay period">&#x2192;</button>
             </div>
         </section>
 

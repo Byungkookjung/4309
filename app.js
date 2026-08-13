@@ -30,6 +30,10 @@ const rateForm = document.getElementById('rateForm');
 const twoWeekHours = document.getElementById('twoWeekHours');
 const twoWeekIncome = document.getElementById('twoWeekIncome');
 const actualPayoutTotal = document.getElementById('actualPayoutTotal');
+const nextPayoutDate = document.getElementById('nextPayoutDate');
+const followingPayoutDate = document.getElementById('followingPayoutDate');
+const payoutCompareTitle = document.getElementById('payoutCompareTitle');
+const payoutCompareValue = document.getElementById('payoutCompareValue');
 const sheetRangeTitle = document.getElementById('sheetRangeTitle');
 const prevWeekBlockBtn = document.getElementById('prevWeekBlockBtn');
 const nextWeekBlockBtn = document.getElementById('nextWeekBlockBtn');
@@ -285,14 +289,22 @@ function getFriday(date = new Date()) {
     return d;
 }
 
-function getFridayWeekStart(offset = 0) {
-    const start = getFriday(new Date());
-    start.setDate(start.getDate() + offset * 7);
+function getPayPeriodAnchor() {
+    return new Date(2026, 6, 31);
+}
+
+function getPayPeriodStart(offset = 0, referenceDate = new Date()) {
+    const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+    const anchor = getPayPeriodAnchor();
+    const dayDiff = Math.floor((today - anchor) / 86400000);
+    const completedBlocks = Math.floor(dayDiff / 14);
+    const start = new Date(anchor);
+    start.setDate(anchor.getDate() + (completedBlocks + offset) * 14);
     return start;
 }
 
 function getWeekStart(offset = 0) {
-    return getFridayWeekStart(offset);
+    return getPayPeriodStart(offset);
 }
 
 function getWeekDates(offset = 0) {
@@ -302,6 +314,24 @@ function getWeekDates(offset = 0) {
         date.setDate(start.getDate() + index);
         return date;
     });
+}
+
+function getPayPeriodDates(offset = 0) {
+    const start = getPayPeriodStart(offset);
+    return Array.from({ length: 14 }, (_, index) => {
+        const date = new Date(start);
+        date.setDate(start.getDate() + index);
+        return date;
+    });
+}
+
+function getBlockWeeks(offset = 0) {
+    const blockDates = getPayPeriodDates(offset);
+    return {
+        weekOne: blockDates.slice(0, 7),
+        weekTwo: blockDates.slice(7, 14),
+        blockDates
+    };
 }
 
 function getShiftByDate(dateString) {
@@ -333,6 +363,30 @@ function getWeekHolidayHours(weekDates) {
         const shift = getOrCreateShift(isoDate(date));
         return sum + (shift.isHoliday ? shift.totalHours : 0);
     }, 0).toFixed(2));
+}
+
+function getBlockExpectedIncome(blockDates) {
+    return Number(blockDates.reduce((sum, date) => {
+        const shift = getOrCreateShift(isoDate(date));
+        const multiplier = shift.isHoliday ? Number(settings.holidayMultiplier || 1.5) : 1;
+        return sum + shift.totalHours * Number(settings.hourlyRate || 0) * multiplier;
+    }, 0).toFixed(2));
+}
+
+function getBlockPayoutDate(blockDates) {
+    return isoDate(addDays(blockDates[13], 7));
+}
+
+function getBlockPayoutTotal(blockDates) {
+    const blockStart = isoDate(blockDates[0]);
+    const blockEnd = isoDate(blockDates[13]);
+    const payoutDate = getBlockPayoutDate(blockDates);
+    return Number(payouts
+        .filter(item => (
+            item.payPeriodStart === blockStart && item.payPeriodEnd === blockEnd
+        ) || item.date === payoutDate)
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0)
+        .toFixed(2));
 }
 
 function renderRate() {
@@ -385,12 +439,12 @@ function buildWeekTableMarkup(weekDates) {
                 <thead>
                     <tr>
                         <th></th>
-                        <th>Day of the week</th>
-                        <th>Check-in time</th>
-                        <th>Check-out time</th>
-                        <th>Break hours</th>
+                        <th>Day</th>
+                        <th>In</th>
+                        <th>Out</th>
+                        <th>Break</th>
                         <th>Holiday</th>
-                        <th>Total hours</th>
+                        <th>Hours</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -484,8 +538,7 @@ async function handleShiftInput(row) {
 }
 
 function renderWeekSheets() {
-    const weekOne = getWeekDates(weekBlockOffset);
-    const weekTwo = getWeekDates(weekBlockOffset + 1);
+    const { weekOne, weekTwo } = getBlockWeeks(weekBlockOffset);
     weekCardOne.innerHTML = buildWeekTableMarkup(weekOne);
     weekCardTwo.innerHTML = buildWeekTableMarkup(weekTwo);
     attachWeekTableHandlers(weekCardOne);
@@ -604,20 +657,33 @@ function renderSelectedDayDetail() {
 }
 
 function renderTopSummary() {
-    const weekOne = getWeekDates(weekBlockOffset);
-    const weekTwo = getWeekDates(weekBlockOffset + 1);
-    const blockDates = [...weekOne, ...weekTwo];
-    const blockEnd = isoDate(weekTwo[6]);
-    const payoutDate = isoDate(addDays(weekTwo[6], 7));
+    const { blockDates } = getBlockWeeks(weekBlockOffset);
+    const payoutDate = parseISODate(getBlockPayoutDate(blockDates));
+    const followingDate = payoutDate ? addDays(payoutDate, 14) : null;
     const totalHours = blockDates.reduce((sum, date) => sum + getOrCreateShift(isoDate(date)).totalHours, 0);
-    const totalIncome = Number((totalHours * Number(settings.hourlyRate || 0)).toFixed(2));
-    const payoutTotal = payouts
-        .filter(item => item.date === payoutDate)
-        .reduce((sum, item) => sum + item.amount, 0);
+    const totalIncome = getBlockExpectedIncome(blockDates);
+    const payoutTotal = getBlockPayoutTotal(blockDates);
+    const difference = Number((payoutTotal - totalIncome).toFixed(2));
 
     twoWeekHours.textContent = totalHours.toFixed(2);
     twoWeekIncome.textContent = formatCurrency(totalIncome);
     actualPayoutTotal.textContent = formatCurrency(payoutTotal);
+    if (nextPayoutDate) {
+        nextPayoutDate.textContent = payoutDate ? formatCompactDate(payoutDate) : '--';
+    }
+    if (followingPayoutDate) {
+        followingPayoutDate.textContent = followingDate ? `Next: ${formatCompactDate(followingDate)}` : '';
+    }
+    if (payoutCompareTitle) {
+        payoutCompareTitle.textContent = `${formatCompactDate(blockDates[0])} - ${formatCompactDate(blockDates[13])}`;
+    }
+    if (payoutCompareValue) {
+        const absDifference = formatCurrency(Math.abs(difference));
+        payoutCompareValue.textContent = difference === 0
+            ? 'Expected = actual'
+            : (difference > 0 ? `${absDifference} over expected` : `${absDifference} left to hit expected`);
+        payoutCompareValue.className = `sheet-compare-value ${difference === 0 ? 'neutral' : (difference > 0 ? 'positive' : 'negative')}`;
+    }
 }
 
 function buildPayoutMarkup(item) {
@@ -879,10 +945,11 @@ async function deletePayout(id) {
 
 function resetPayoutForm() {
     editingPayoutId = null;
+    const { blockDates } = getBlockWeeks(weekBlockOffset);
     payoutForm.reset();
-    payoutDateInput.value = isoDate(new Date());
-    payoutPeriodStartInput.value = '';
-    payoutPeriodEndInput.value = '';
+    payoutDateInput.value = getBlockPayoutDate(blockDates);
+    payoutPeriodStartInput.value = isoDate(blockDates[0]);
+    payoutPeriodEndInput.value = isoDate(blockDates[13]);
     savePayoutBtn.textContent = 'Save payout';
     refreshPayoutTotals();
 }
@@ -1050,11 +1117,11 @@ nextCalendarMonthBtn.addEventListener('click', () => {
     renderShiftCalendar();
 });
 prevWeekBlockBtn.addEventListener('click', () => {
-    weekBlockOffset -= 2;
+    weekBlockOffset -= 1;
     renderAll();
 });
 nextWeekBlockBtn.addEventListener('click', () => {
-    weekBlockOffset += 2;
+    weekBlockOffset += 1;
     renderAll();
 });
 todayWeekBlockBtn.addEventListener('click', () => {
@@ -1065,12 +1132,12 @@ document.addEventListener('keydown', event => {
     if (isTypingTarget(document.activeElement)) return;
     if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        weekBlockOffset -= 2;
+        weekBlockOffset -= 1;
         renderAll();
     }
     if (event.key === 'ArrowRight') {
         event.preventDefault();
-        weekBlockOffset += 2;
+        weekBlockOffset += 1;
         renderAll();
     }
 });
