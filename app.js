@@ -357,8 +357,8 @@ function buildWeekTableMarkup(weekDates) {
             <tr data-date="${safeText(dateString)}">
                 <td class="sheet-date-cell ${weekendClass}">${date.getDate()}</td>
                 <td class="sheet-day-cell ${weekendClass}">${safeText(weekdayLabel(date))}</td>
-                <td><input class="sheet-time-input" data-field="checkIn" type="time" value="${safeText(shift.checkIn)}" /></td>
-                <td><input class="sheet-time-input" data-field="checkOut" type="time" value="${safeText(shift.checkOut)}" /></td>
+                <td><input class="sheet-time-input" data-field="checkIn" type="time" aria-label="Check-in time" value="${safeText(shift.checkIn)}" /><button class="mobile-time-trigger" type="button" data-time-field="checkIn" aria-label="Edit check-in time for ${dateString}">${safeText(shift.checkIn || 'Set time')}</button></td>
+                <td><input class="sheet-time-input" data-field="checkOut" type="time" aria-label="Check-out time" value="${safeText(shift.checkOut)}" /><button class="mobile-time-trigger" type="button" data-time-field="checkOut" aria-label="Edit check-out time for ${dateString}">${safeText(shift.checkOut || 'Set time')}</button></td>
                 <td><input class="sheet-break-input" data-field="breakHours" type="text" value="${safeText(shift.breakHours ? String(shift.breakHours) : '0')}" readonly tabindex="-1" aria-label="Automatic break hours" /></td>
                 <td class="sheet-holiday-cell"><label class="sheet-holiday-toggle" aria-label="Holiday"><input data-field="isHoliday" type="checkbox" ${shift.isHoliday ? 'checked' : ''} /></label></td>
                 <td class="sheet-total-cell">${shift.totalHours.toFixed(2)}</td>
@@ -669,11 +669,11 @@ function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues }) {
         return '<div class="work-empty">No payout data to chart yet.</div>';
     }
 
-    const width = 760;
-    const height = 240;
-    const paddingX = 26;
-    const paddingTop = 24;
-    const paddingBottom = 42;
+    const width = Math.max(480, ordered.length * 112 + 16);
+    const height = 300;
+    const paddingX = 64;
+    const paddingTop = 40;
+    const paddingBottom = 64;
     const chartWidth = width - paddingX * 2;
     const chartHeight = height - paddingTop - paddingBottom;
     const allValues = [...payoutValues, ...tipValues, 0];
@@ -706,7 +706,7 @@ function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues }) {
     });
 
     const payoutPointString = payoutPoints.map(point => `${point.x},${point.y}`).join(' ');
-    const payoutAreaString = `${paddingX},${height - paddingBottom} ${payoutPointString} ${payoutPoints[payoutPoints.length - 1].x},${height - paddingBottom}`;
+    const payoutAreaString = `${payoutPoints[0].x},${baselineY} ${payoutPointString} ${payoutPoints[payoutPoints.length - 1].x},${baselineY}`;
     const tipPointString = tipPoints.map(point => `${point.x},${point.y}`).join(' ');
     const guides = [0.25, 0.5, 0.75].map(ratio => {
         const y = paddingTop + chartHeight * ratio;
@@ -715,20 +715,18 @@ function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues }) {
     const labels = payoutPoints.map(point => `
         <text x="${point.x}" y="${height - 14}" text-anchor="middle" class="payout-axis-label">${safeText(point.label)}</text>
     `).join('');
-    const payoutDots = payoutPoints.map(point => `
+    const payoutDots = payoutPoints.map((point, index) => `
         <g class="payout-point-group">
+            <title>${safeText(point.label)}: Payout ${safeText(formatCurrency(point.value))}, Tips ${safeText(formatCurrency(tipPoints[index].value))}</title>
             <circle cx="${point.x}" cy="${point.y}" r="5.5" class="payout-point payout-point-main" />
+            <text x="${point.x}" y="${point.y - 15}" text-anchor="middle" class="trend-value trend-value-payout">${safeText(formatCurrency(point.value))}</text>
         </g>
     `).join('');
     const tipDots = tipPoints.map(point => `
         <g class="payout-point-group">
             <circle cx="${point.x}" cy="${point.y}" r="5" class="payout-point payout-point-tip" />
+            <text x="${point.x}" y="${point.y + 25}" text-anchor="middle" class="trend-value trend-value-tip">${safeText(formatCurrency(point.value))}</text>
         </g>
-    `).join('');
-    const tooltips = payoutPoints.map((point, index) => `
-        <div class="payout-trend-dot" style="left:${(point.x / width) * 100}%;top:${(Math.min(point.y, tipPoints[index].y) / height) * 100}%;">
-            <span>${safeText(point.label)} · Payout ${safeText(formatCurrency(point.value))} · Tips ${safeText(formatCurrency(tipPoints[index].value))}</span>
-        </div>
     `).join('');
 
     return `
@@ -740,8 +738,9 @@ function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues }) {
                     <span class="payout-legend-item"><i class="legend-line tip-legend-line"></i>Tips</span>
                 </div>
             </div>
-            <div class="payout-chart-shell">
-                <svg viewBox="0 0 ${width} ${height}" class="payout-chart-svg" role="img" aria-label="Payout and tips trend line chart">
+            <div class="payout-chart-shell numbered-trend" tabindex="0" role="region" aria-label="Recent payout and tips amounts. Scroll horizontally to view all dates.">
+                <svg viewBox="0 0 ${width} ${height}" style="min-width:${width}px" class="payout-chart-svg" role="img" aria-label="Payout and tips trend line chart">
+                    <desc>${ordered.map((item, index) => safeText(`${item.date}: Payout ${formatCurrency(payoutValues[index])}, Tips ${formatCurrency(tipValues[index])}`)).join('; ')}</desc>
                     ${guides}
                     <line x1="${paddingX}" y1="${baselineY}" x2="${width - paddingX}" y2="${baselineY}" class="payout-base-line" />
                     ${hasPayoutData ? `<polygon points="${payoutAreaString}" class="payout-area" />` : ''}
@@ -751,9 +750,6 @@ function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues }) {
                     ${hasPayoutData ? payoutDots : ''}
                     ${hasTipData ? tipDots : ''}
                 </svg>
-                <div class="payout-dot-layer">
-                    ${tooltips}
-                </div>
             </div>
         </section>
     `;
@@ -829,9 +825,9 @@ function renderPayoutTrend() {
     `;
 
     payoutTrendChart.innerHTML = buildCombinedTrendChartMarkup({
-        ordered,
-        payoutValues: values,
-        tipValues
+        ordered: ordered.slice(-10),
+        payoutValues: values.slice(-10),
+        tipValues: tipValues.slice(-10)
     });
 }
 

@@ -1,11 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-    <rect width="64" height="64" rx="12" fill="#1f7a8c" />
-    <rect x="14" y="16" width="36" height="32" rx="4" fill="#fdfcf7" />
-    <rect x="18" y="22" width="20" height="3" rx="1.5" fill="#1f7a8c" />
-    <rect x="18" y="28" width="28" height="3" rx="1.5" fill="#1f7a8c" />
-    <rect x="18" y="34" width="24" height="3" rx="1.5" fill="#1f7a8c" />
-    <rect x="18" y="40" width="16" height="3" rx="1.5" fill="#1f7a8c" />
-    <circle cx="46" cy="22" r="6" fill="#f4d35e" />
-    <rect x="44" y="18.5" width="4" height="7" rx="1.5" fill="#1f7a8c" />
-    <rect x="42.5" y="20" width="7" height="4" rx="1.5" fill="#1f7a8c" />
+    <defs>
+        <linearGradient id="green" x2="0.8" y2="1">
+            <stop stop-color="#428575" />
+            <stop offset="1" stop-color="#204e48" />
+        </linearGradient>
+    </defs>
+    <rect width="64" height="64" rx="16" fill="url(#green)" />
+    <path d="M14 24v-3a5 5 0 0 1 4-5l25-5a3 3 0 0 1 4 3v12" fill="#a8d2bf" />
+    <rect x="11" y="22" width="42" height="30" rx="8" fill="#122f2b" opacity=".2" />
+    <rect x="11" y="20" width="42" height="30" rx="8" fill="#f5faf6" />
+    <rect x="36" y="29" width="19" height="14" rx="5" fill="#d7b975" />
+    <circle cx="43" cy="36" r="2.5" fill="#285c50" />
 </svg>

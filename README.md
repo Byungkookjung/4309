@@ -36,6 +36,8 @@ It currently includes two main tools:
   - `오후 5:00`
   - `5pm`
 - Keyboard week navigation with `←` and `→`
+- Mobile time editor with large check-in/check-out inputs, quick time choices, and calculated hours/break preview
+- Save, cancel, or clear times in the mobile editor; changes are saved only on Save
 
 ### Actual Payout Log
 
@@ -52,6 +54,25 @@ It currently includes two main tools:
   - `Net pay`
 - Editable payout history entries
 - Delete payout history entries
+- Scrollable payout history
+- Pay period start/end fields and schedule-block payout totals based on the following Thursday's pay date
+
+### Payout Trend
+
+- Payout and tips displayed as blue and green lines on the same dollar scale
+- Most recent 10 payout records shown in chronological order
+- Amount labels above payout points and below tips points
+- Horizontal scrolling on smaller screens keeps dates and amounts readable
+- Latest, average, and highest payout/tips summaries use the full payout history
+
+### Responsive Design
+
+- Coordinated blue/white cards, buttons, inputs, and typography across both main pages
+- Calendar and wallet SVG favicons for the work sheet and ledger
+- Long titles, Korean descriptions, and unbroken URLs wrap within cards
+- Mobile month filters wrap; wide weekly tables and trend charts scroll horizontally
+- Calendar details appear below the calendar on smaller screens
+- Visible keyboard focus and reduced-motion support
 
 ### Expense Ledger
 
@@ -79,6 +100,8 @@ It currently includes two main tools:
 - `ledger.html`: Expense Ledger UI
 - `ledger.js`: Expense Ledger logic
 - `style.css`: shared styles
+- `polish.css`: visual refinements and responsive overrides for both main pages
+- `mobile-time.js`: mobile shift time editor
 - `auth.js`: Firebase config and auth helpers
 - `login.html`: login screen
 - `login.js`: login page logic
@@ -92,6 +115,9 @@ It currently includes two main tools:
 1. `cd /Users/suyeonkim/Desktop/4309`
 2. `chmod +x start-server.sh`
 3. `./start-server.sh`
+
+Alternatively, run `python3 -m http.server 8000` from the project directory.
+If port 8000 is already in use, check the existing server or use another port such as 8001.
 
 ### Windows
 
@@ -145,6 +171,7 @@ For Google sign-in, add both domains in Firebase Authentication authorized domai
 Recent validation included:
 
 - `node --check app.js`
+- `node --check mobile-time.js`
 - `git diff --check`
 - Playwright checks for:
   - break rule
@@ -154,6 +181,15 @@ Recent validation included:
   - payout auto-calculation
   - payout edit flow
   - keyboard and calendar interactions
+
+September 2026 visual update checks used isolated browser data, without writing to production Firestore:
+
+- Mobile editor save, cancel, clear, and hours preview at 360, 390, and 430px
+- Long Korean/English titles, descriptions, unbroken URLs, and large amounts at 360, 390, 768, 1024, and 1440px
+- Page/text overflow checks and browser JavaScript error checks
+- Recent-10-record payout/tips labels and chart scrolling at 390 and 1440px
+
+These checks used desktop Chrome with resized viewports; native iOS/Android time pickers were not tested on physical devices.
 
 ## Notes
 

@@ -1,0 +1,298 @@
+/* Presentation only: keep the existing layouts and interaction states. */
+.mobile-time-trigger { display: none; }
+.mobile-time-dialog {
+    margin: auto;
+    width: min(440px, calc(100% - 24px));
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    padding: 24px;
+    border: 1px solid #dce5ed;
+    border-radius: 20px;
+    color: #24364c;
+    box-shadow: 0 20px 80px #24364c30;
+}
+.mobile-time-dialog::backdrop { background: #182c4666; }
+.mobile-time-dialog form { display: grid; gap: 18px; }
+.mobile-time-dialog .field { min-width: 0; display: grid; gap: 10px; }
+.mobile-time-dialog input[type="time"] { width: 100%; min-width: 0; min-height: 56px; padding: 12px; font: inherit; font-size: 20px; }
+.time-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; }
+.time-shortcuts .ghost-btn { padding: 0 10px; }
+.mobile-time-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mobile-time-actions button { flex: 1 0 auto; }
+.mobile-time-summary { background: #edf4fb; padding: 12px; border-radius: 10px; }
+.mobile-time-error { color: #b33131; }
+.mobile-time-error:empty { display: none; }
+@media (max-width: 760px) {
+    .weekly-sheet-table .sheet-time-input { display: none; }
+    .mobile-time-trigger {
+        display: block;
+        width: 100%;
+        min-height: 48px;
+        background: #edf4fb;
+        border: 1px solid #d3dfe9;
+        border-radius: 8px;
+        color: #3567a6;
+        font-size: 16px;
+    }
+}
+:root {
+    --ui-ink: #24364c;
+    --ui-muted: #64768b;
+    --ui-line: #dce5ed;
+    --ui-soft: #f3f7fb;
+    --ui-blue: #3567a6;
+    --ui-shadow: 0 4px 18px rgba(32, 54, 81, 0.045);
+}
+
+body.ledger-body,
+body.sheet-body {
+    color: var(--ui-ink);
+    background: radial-gradient(ellipse at 0 0, #e3edf8, transparent 55%),
+        radial-gradient(ellipse at 100% 15%, #e9f1ee, transparent 45%), #f4f6f9;
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+}
+
+body.ledger-body > .container,
+body.sheet-body > .container.work-container {
+    background: rgba(255, 255, 255, 0.86);
+    border-color: rgba(220, 229, 237, 0.85);
+    box-shadow: 0 16px 60px rgba(32, 54, 81, 0.06);
+}
+
+.app-header h1 {
+    color: var(--ui-ink);
+    letter-spacing: -0.045em;
+    font-weight: 750;
+}
+
+.section-heading h3,
+.ledger-row h2,
+.ledger-card.accent .ledger-row h2,
+.sheet-nav-copy h2 {
+    color: var(--ui-ink);
+    letter-spacing: -0.025em;
+}
+
+.subtitle, .muted, .section-heading p { color: var(--ui-muted); }
+
+.ledger-card, .ledger-card.accent,
+.sheet-card, .sheet-rate-card, .sheet-nav-card {
+    background: #fff;
+    border-color: var(--ui-line);
+    border-radius: 18px;
+    box-shadow: var(--ui-shadow);
+}
+
+.balance-card, .sheet-summary-item,
+.investment-hub-summary-card {
+    background: linear-gradient(145deg, #edf4fb, #f8fafc);
+    border-color: #dce7f1;
+    border-radius: 14px;
+    box-shadow: inset 0 1px 0 #fff;
+}
+
+.balance-value, .sheet-summary-item strong, .sheet-rate-value {
+    color: var(--ui-ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.035em;
+}
+
+.balance-title, .sheet-summary-item span, .sheet-kicker,
+.sheet-rate-subvalue { color: #526e8c; }
+
+.primary-btn, .save-balances-btn {
+    background: linear-gradient(180deg, #4277b7, #3567a6);
+    color: #fff;
+    border: 1px solid #3567a6;
+    border-radius: 12px;
+    box-shadow: 0 3px 8px rgba(53, 103, 166, 0.14);
+    font-weight: 650;
+}
+
+.primary-btn:hover:not(:disabled) {
+    background: #2b5891;
+    box-shadow: 0 4px 12px rgba(53, 103, 166, 0.2);
+}
+
+.ghost-btn, .icon-btn, .activity-filter-btn {
+    background: #fff;
+    border-color: var(--ui-line);
+    color: #42566f;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(32, 54, 81, 0.035);
+}
+
+.ghost-btn:hover:not(:disabled), .icon-btn:hover:not(:disabled) {
+    background: var(--ui-soft);
+    border-color: #b5c9dd;
+    box-shadow: 0 3px 9px rgba(32, 54, 81, 0.07);
+}
+
+.activity-filter-btn.active, .filter-btn.active {
+    background: #eaf2fc;
+    border-color: #98b7db;
+    color: #2e5d97;
+    box-shadow: none;
+}
+
+.danger-btn, .clear-btn {
+    border-radius: 12px;
+    box-shadow: none;
+}
+
+.field input:not([type="checkbox"]):not([type="radio"]),
+.field select, .field textarea, .sheet-rate-form input {
+    border: 1px solid #d3dfe9;
+    border-radius: 12px;
+    background-color: #fcfdff;
+    color: var(--ui-ink);
+    box-shadow: inset 0 1px 2px rgba(32, 54, 81, 0.02);
+}
+
+.field input[readonly], .field input:disabled,
+.field select:disabled { background-color: #f0f4f8; color: #738397; }
+.field label { color: #526379; }
+input::placeholder, textarea::placeholder { color: #8491a1; opacity: 1; }
+input[type="checkbox"] { accent-color: var(--ui-blue); }
+
+button:focus-visible, a:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 3px solid #88afd8;
+    outline-offset: 3px;
+}
+
+.sheet-month-tag { background: #d9e8f7; color: #355b82; }
+.sheet-range-tag { background: #f0f5fa; color: #526e8c; }
+.weekly-sheet-table th, .weekly-sheet-table td { border-color: #d4e0eb; }
+.weekly-sheet-table th { background: #e0ecf7; color: #35516e; font-weight: 700; }
+.weekly-sheet-table tbody td:nth-child(1),
+.weekly-sheet-table tbody td:nth-child(2),
+.sheet-total-cell { background: #f0f6fb; }
+.weekly-sheet-table tfoot td { background: #e6eff8; }
+.weekly-sheet-table tbody tr:hover td { box-shadow: inset 0 0 0 100px rgba(53, 103, 166, 0.025); }
+
+.sheet-calendar { background: #f4f7fb; border-radius: 16px; }
+.sheet-calendar .calendar-day { border-color: #e0e8f1; border-radius: 14px; }
+.sheet-calendar .calendar-day:hover { border-color: #8dadd0; }
+
+.expense-sheet, .work-item-card, .ledger-history-item,
+.ledger-activity-item { border-color: var(--ui-line); box-shadow: none; }
+.expense-sheet { border-radius: 14px; }
+.expense-sheet-header.fixed { background: #e9eff8; color: #39567b; }
+.expense-sheet-header.expected { background: #f5eee8; color: #7b5c42; }
+.expense-sheet-header.income { background: #e7f2ee; color: #346e59; }
+.expense-sheet-total, .totals-row { background: var(--ui-soft); border-color: var(--ui-line); }
+
+.payout-trend-chart { background: linear-gradient(180deg, #f1f6fc, #fff); border-color: var(--ui-line); }
+.payout-trend-stat { border-color: #dce7f1; box-shadow: none; }
+.numbered-trend {
+    overflow-x: auto;
+    min-height: 0;
+    border-radius: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: #b5c9dd #f0f5fa;
+}
+.numbered-trend .payout-chart-svg { overflow: hidden; }
+.numbered-trend .payout-line, .numbered-trend .tip-line { stroke-width: 3; }
+.numbered-trend .payout-area { fill: rgba(88, 131, 235, 0.065); }
+.trend-value {
+    font-size: 12px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    paint-order: stroke;
+    stroke: #f8fbff;
+    stroke-width: 5px;
+    stroke-linejoin: round;
+}
+.trend-value-payout { fill: #315ca5; }
+.trend-value-tip { fill: #227448; }
+
+@media (max-width: 1180px) {
+    .sheet-calendar-grid.detail-open {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .sheet-calendar { gap: 4px; padding: 8px; }
+    .sheet-calendar .calendar-day {
+        padding: 6px 2px;
+        border-radius: 8px;
+    }
+    .sheet-calendar .work-calendar-hours {
+        font-size: 0.65rem;
+        letter-spacing: -0.03em;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+}
+
+/* Content can shrink within grids; prose wraps while tables keep scrolling. */
+body.sheet-body, body.ledger-body { line-height: 1.55; overflow-wrap: break-word; }
+.container :where(section, article, form, .field, .history-meta, .work-item-main,
+    .ledger-activity-item > *, .ledger-plan-item > *, .ledger-history-item > *,
+    .sheet-summary-item, .payout-trend-stat, .balance-card) { min-width: 0; }
+.container :where(h1, h2, h3, p, label, .plan-label, .history-title,
+    .history-sub, .activity-detail, .work-card-note, .work-item-stats,
+    .balance-value, .budget-overview-value, .payout-trend-stat strong) {
+    overflow-wrap: anywhere;
+    white-space: normal;
+    line-height: 1.5;
+}
+.container :where(.primary-btn, .ghost-btn, .danger-btn, .clear-btn, .activity-filter-btn) {
+    min-height: 44px;
+    height: auto;
+    max-width: 100%;
+    padding: 10px 14px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+}
+.container .icon-btn { flex-shrink: 0; }
+.container .field :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    font-size: 16px;
+    line-height: 1.5;
+}
+.container textarea { white-space: pre-wrap; overflow-wrap: anywhere; resize: vertical; }
+.container :where(.history-actions, .balance-history-actions, .work-item-actions,
+    .expense-sheet-total, .sheet-card-header, .payout-chart-title-row) {
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.ledger-activity-item, .ledger-plan-item { grid-template-columns: minmax(0, 1fr) auto auto; }
+.ledger-history-item { grid-template-columns: minmax(0, 1fr) auto; }
+.history-total, .activity-amount, .plan-amount {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+}
+.activity-month-picker { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 8px; }
+.activity-month-btn { min-height: 44px; padding: 8px 6px; }
+.expense-sheet { overflow: visible; }
+.expense-sheet-header { border-radius: 14px 14px 0 0; }
+.sheet-table-wrap, .numbered-trend { max-width: 100%; overflow-x: auto; }
+
+@media (max-width: 1180px) {
+    .sheet-summary-item strong { overflow-wrap: anywhere; }
+    .expense-board { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 761px) {
+    .app-header h1, .app-header .subtitle { margin-left: 100px; margin-right: 100px; }
+}
+@media (max-width: 760px) {
+    .app-header .header-actions-left { position: static; transform: none; margin: 10px 0; }
+    .sheet-header h1 { padding: 0; font-size: clamp(1.65rem, 6vw, 2.1rem); }
+    .ledger-activity-item, .ledger-plan-item { grid-template-columns: minmax(0, 1fr) auto; }
+    .ledger-activity-item > :first-child, .ledger-plan-item > :first-child { grid-column: 1 / -1; }
+    .ledger-history-item { grid-template-columns: minmax(0, 1fr); }
+    .sheet-range-tag { white-space: normal; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+}
