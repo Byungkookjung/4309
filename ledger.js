@@ -1997,7 +1997,8 @@ function renderActivity() {
     } else {
         filteredEntries
         .slice()
-        .sort((a, b) => getActivitySortValue(b) - getActivitySortValue(a))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))
+            || getActivitySortValue(b) - getActivitySortValue(a))
         .forEach(entry => {
             const li = document.createElement('li');
             li.className = `ledger-activity-item ${entry.type}`;
