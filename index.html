@@ -24,6 +24,10 @@
             </div>
         </header>
 
+        <section class="sheet-job-bar" aria-label="Current job">
+            <div><span class="sheet-kicker">Workplace</span><h2 id="currentJobName">Booster Juice</h2></div>
+            <button id="switchJobBtn" class="ghost-btn" type="button">Switch job</button>
+        </section>
         <section class="sheet-topbar">
             <div class="sheet-rate-card">
                 <div class="sheet-rate-header">
@@ -35,10 +39,14 @@
                     <button id="editRateBtn" class="icon-btn activity-icon-btn" type="button" aria-label="Edit pay settings" title="Edit pay settings">&#9998;</button>
                 </div>
                 <form id="rateForm" class="sheet-rate-form hidden" onsubmit="return false;">
-                    <label for="hourlyRateInput" class="sr-only">Hourly rate</label>
+                    <label for="hourlyRateInput">Hourly rate</label>
                     <input id="hourlyRateInput" type="number" step="0.01" min="0" placeholder="15.00" />
-                    <label for="holidayMultiplierInput" class="sr-only">Holiday multiplier</label>
+                    <label for="holidayMultiplierInput">Holiday multiplier</label>
                     <input id="holidayMultiplierInput" type="number" step="0.1" min="1" placeholder="1.5" />
+                    <label for="periodAnchorInput">2-week period start</label>
+                    <input id="periodAnchorInput" type="date" required />
+                    <label for="payoutDelayInput">Payday: days after period ends</label>
+                    <input id="payoutDelayInput" type="number" min="0" max="60" step="1" required />
                     <button id="saveRateBtn" class="primary-btn" type="submit">Save rate</button>
                     <button id="cancelRateEditBtn" class="ghost-btn" type="button">Cancel</button>
                 </form>
@@ -200,6 +208,16 @@
                 </div>
                 <div id="payoutTrendStats" class="payout-trend-stats"></div>
                 <div id="payoutTrendChart" class="payout-trend-chart"></div>
+            </section>
+            <section class="sheet-card payout-trend-card" aria-labelledby="combinedPayoutTitle">
+                <div class="section-heading">
+                    <div>
+                        <h3 id="combinedPayoutTitle">Combined Payout Trend</h3>
+                        <p>Both jobs &middot; Latest 10 pay dates &middot; Net pay</p>
+                    </div>
+                </div>
+                <div id="combinedPayoutStats" class="combined-payout-stats"></div>
+                <div id="combinedPayoutChart" class="payout-trend-chart" aria-live="polite"></div>
             </section>
         </main>
     </div>

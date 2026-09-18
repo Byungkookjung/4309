@@ -293,6 +293,114 @@ body.sheet-body, body.ledger-body { line-height: 1.55; overflow-wrap: break-word
     .sheet-range-tag { white-space: normal; }
 }
 
+.combined-payout-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.combined-payout-stats .payout-trend-stat { min-width: 0; overflow-wrap: anywhere; }
+.combined-payout-stats .payout-trend-stat:last-child { background: linear-gradient(120deg, #e8f3ef, #f4f9fc); }
+@media (max-width: 600px) {
+    .combined-payout-stats { grid-template-columns: minmax(0, 1fr); }
+}
+
+.sheet-job-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+    border: 1px solid #d3dfe9;
+    border-radius: 20px;
+    background: linear-gradient(110deg, #edf5fc, #fff);
+}
+.sheet-job-bar h2 { margin: 4px 0 0; font-size: 1.3rem; overflow-wrap: anywhere; }
+.sheet-job-bar > div { min-width: 0; }
+.sheet-job-bar button { white-space: normal; min-height: 44px; }
+.sheet-rate-form:not(.hidden) { display: grid; grid-template-columns: minmax(0, 1fr); }
+.sheet-rate-form label { font-size: .82rem; color: #526379; }
+.sheet-rate-form input { min-width: 0; width: 100%; box-sizing: border-box; }
+body[data-job="iron"] .sheet-job-bar { background: linear-gradient(110deg, #e8f3ef, #fff); }
+body[data-job="iron"] .tip-stat,
+.sheet-payout-form .field[hidden] { display: none; }
+body[data-job="iron"] .payout-trend-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 600px) {
+    .sheet-job-bar { align-items: stretch; flex-direction: column; padding: 16px; gap: 12px; }
+    .sheet-job-bar button { width: 100%; }
+    body[data-job="iron"] .payout-trend-stats { grid-template-columns: minmax(0, 1fr); }
+}
+
+body.sheet-body[data-job="booster"] {
+    --job-accent: #7543b5;
+    --job-dark: #59318d;
+    --job-soft: #f4eefb;
+    --job-tint: #e9dbf7;
+    --job-line: #dac6ed;
+    --job-glow: #e8d9f6;
+}
+body.sheet-body[data-job="iron"] {
+    --job-accent: #137c80;
+    --job-dark: #0d5d63;
+    --job-soft: #eaf7f5;
+    --job-tint: #cdece7;
+    --job-line: #aed9d4;
+    --job-glow: #cceae7;
+}
+body.sheet-body[data-job] {
+    --ui-blue: var(--job-accent);
+    --ui-line: var(--job-line);
+    --ui-soft: var(--job-soft);
+    background: radial-gradient(ellipse at 0 0, var(--job-glow), transparent 60%),
+        radial-gradient(ellipse at 100% 35%, var(--job-soft), transparent 55%), #f8f9fc;
+    background-attachment: fixed;
+}
+.sheet-body[data-job] .sheet-job-bar,
+.sheet-body[data-job] .sheet-summary-item,
+.sheet-body[data-job] .payout-trend-stat,
+.sheet-body[data-job] .sheet-rate-card {
+    background: linear-gradient(120deg, var(--job-soft), #fff);
+    border-color: var(--job-line);
+}
+.sheet-body[data-job] .sheet-summary-panel { background: var(--job-soft); border-color: var(--job-line); }
+.sheet-body[data-job] .sheet-job-bar h2,
+.sheet-body[data-job] .sheet-kicker,
+.sheet-body[data-job] .sheet-summary-item span,
+.sheet-body[data-job] .sheet-rate-subvalue { color: var(--job-dark); }
+.sheet-body[data-job] .primary-btn,
+.sheet-body[data-job] #switchJobBtn {
+    background: var(--job-accent);
+    border-color: var(--job-accent);
+    color: #fff;
+    box-shadow: 0 3px 10px var(--job-tint);
+}
+.sheet-body[data-job] .primary-btn:hover:not(:disabled),
+.sheet-body[data-job] #switchJobBtn:hover:not(:disabled) { background: var(--job-dark); }
+.sheet-body[data-job] .ghost-btn:not(#switchJobBtn),
+.sheet-body[data-job] .icon-btn { color: var(--job-dark); }
+.sheet-body[data-job] :focus-visible { outline-color: var(--job-accent); }
+.sheet-body[data-job] .sheet-month-tag,
+.sheet-body[data-job] .weekly-sheet-table th,
+.sheet-body[data-job] .weekly-sheet-table tfoot td { background: var(--job-tint); color: var(--job-dark); }
+.sheet-body[data-job] .sheet-range-tag,
+.sheet-body[data-job] .weekly-sheet-table tbody td:nth-child(-n+2),
+.sheet-body[data-job] .sheet-total-cell,
+.sheet-body[data-job] .sheet-calendar,
+.sheet-body[data-job] .mobile-time-summary,
+.sheet-body[data-job] .mobile-time-trigger { background: var(--job-soft); }
+.sheet-body[data-job] .mobile-time-trigger { color: var(--job-dark); border-color: var(--job-line); }
+.sheet-body[data-job] .weekly-sheet-table :is(th, td) { border-color: var(--job-line); }
+.sheet-body[data-job] .sheet-calendar .calendar-day.selected {
+    background: var(--job-tint);
+    border-color: var(--job-accent);
+}
+.sheet-body[data-job] .sheet-calendar .calendar-day.today { border-color: var(--job-accent); }
+.sheet-body[data-job] .payout-line,
+.sheet-body[data-job] .payout-point-main { stroke: var(--job-accent); }
+.sheet-body[data-job] .payout-area { fill: var(--job-tint); fill-opacity: .5; }
+.sheet-body[data-job] .payout-legend-line { background: var(--job-accent); }
+.sheet-body[data-job] .trend-value-payout { fill: var(--job-dark); }
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
 }

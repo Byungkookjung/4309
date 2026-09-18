@@ -15,7 +15,11 @@ It currently includes two main tools:
 
 ### Weekly Work Sheet
 
-- Two-week work sheet view with Friday-based week blocks
+- One-button switching between Booster Juice and Iron peak Auto Repair
+- Separate shifts, hourly rates, payout history, and charts for each job; existing records remain under Booster Juice
+- Iron peak Auto Repair excludes tips from its payout form, totals, history, and chart
+- Two-week work sheet view with a configurable period start and payday delay in Pay Settings
+- New jobs initially use $15/hour, a 1.5x holiday multiplier, the July 31, 2026 period anchor, and payday seven days after period end; adjust these to the actual job schedule
 - Editable check-in and check-out times for past and current dates
 - Auto break rule:
   - `0.5h` break when shift duration is `5.5h` or more
@@ -55,9 +59,11 @@ It currently includes two main tools:
 - Editable payout history entries
 - Delete payout history entries
 - Scrollable payout history
-- Pay period start/end fields and schedule-block payout totals based on the following Thursday's pay date
+- Pay period start/end fields and schedule-block payout totals based on each job's configured payday
 
 ### Payout Trend
+
+- A final Combined Payout Trend section charts both jobs' net deposits over the latest 10 pay dates. Summary cards show only each job's latest payout (with its date) and the sum of those two payouts.
 
 - Payout and tips displayed as blue and green lines on the same dollar scale
 - Most recent 10 payout records shown in chronological order

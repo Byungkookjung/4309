@@ -1,6 +1,23 @@
-const STORAGE_SHIFTS = 'weeklySheetShifts';
-const STORAGE_PAYOUTS = 'weeklySheetPayouts';
-const STORAGE_SETTINGS = 'weeklySheetSettings';
+const JOBS = {
+    booster: { name: 'Booster Juice', tips: true, suffix: '' },
+    iron: { name: 'Iron peak Auto Repair', tips: false, suffix: 'IronPeak' }
+};
+const requestedJob = new URLSearchParams(window.location.search).get('job') || localStorage.getItem('weeklySheetJob');
+const activeJobId = Object.hasOwn(JOBS, requestedJob) ? requestedJob : 'booster';
+const activeJob = JOBS[activeJobId];
+localStorage.setItem('weeklySheetJob', activeJobId);
+const STORAGE_SHIFTS = `weeklySheetShifts${activeJob.suffix}`;
+const STORAGE_PAYOUTS = `weeklySheetPayouts${activeJob.suffix}`;
+const STORAGE_SETTINGS = `weeklySheetSettings${activeJob.suffix}`;
+
+function normalizeSettings(raw = {}) {
+    return {
+        hourlyRate: Number(raw.hourlyRate ?? 15),
+        holidayMultiplier: Number(raw.holidayMultiplier ?? 1.5),
+        periodAnchor: raw.periodAnchor || '2026-07-31',
+        payoutDelay: Number(raw.payoutDelay ?? 7)
+    };
+}
 
 const authApi = window.__ledgerAuth || {};
 const requireAuthRef = authApi.requireAuth;
@@ -9,10 +26,14 @@ const dbRef = authApi.db;
 let currentUser = null;
 let shifts = [];
 let payouts = [];
-let settings = { hourlyRate: 15, holidayMultiplier: 1.5 };
+let settings = normalizeSettings();
 let shiftUnsub = null;
 let payoutUnsub = null;
 let settingsUnsub = null;
+let otherPayoutUnsub = null;
+let otherJobPayouts = [];
+let combinedPayoutsReady = true;
+let combinedPayoutsError = false;
 let weekBlockOffset = 0;
 let currentCalendarMonth = new Date();
 let selectedCalendarDate = null;
@@ -27,6 +48,8 @@ const editRateBtn = document.getElementById('editRateBtn');
 const saveRateBtn = document.getElementById('saveRateBtn');
 const cancelRateEditBtn = document.getElementById('cancelRateEditBtn');
 const rateForm = document.getElementById('rateForm');
+const periodAnchorInput = document.getElementById('periodAnchorInput');
+const payoutDelayInput = document.getElementById('payoutDelayInput');
 const twoWeekHours = document.getElementById('twoWeekHours');
 const twoWeekIncome = document.getElementById('twoWeekIncome');
 const actualPayoutTotal = document.getElementById('actualPayoutTotal');
@@ -72,15 +95,15 @@ function isRemoteEnabled() {
 }
 
 function shiftsCollection(user) {
-    return dbRef.collection('users').doc(user.uid).collection('weeklyWorkShifts');
+    return dbRef.collection('users').doc(user.uid).collection(`weeklyWorkShifts${activeJob.suffix}`);
 }
 
-function payoutsCollection(user) {
-    return dbRef.collection('users').doc(user.uid).collection('weeklyWorkPayouts');
+function payoutsCollection(user, jobId = activeJobId) {
+    return dbRef.collection('users').doc(user.uid).collection(`weeklyWorkPayouts${JOBS[jobId].suffix}`);
 }
 
 function settingsDoc(user) {
-    return dbRef.collection('users').doc(user.uid).collection('weeklyWorkMeta').doc('settings');
+    return dbRef.collection('users').doc(user.uid).collection('weeklyWorkMeta').doc(`settings${activeJob.suffix}`);
 }
 
 function isoDate(date) {
@@ -263,15 +286,19 @@ function normalizePayout(raw) {
 
 function loadLocalState() {
     try {
+        const otherJob = JOBS[activeJobId === 'booster' ? 'iron' : 'booster'];
+        otherJobPayouts = JSON.parse(localStorage.getItem(`weeklySheetPayouts${otherJob.suffix}`) || '[]').map(normalizePayout);
+    } catch (error) {
+        otherJobPayouts = [];
+    }
+    try {
         shifts = JSON.parse(localStorage.getItem(STORAGE_SHIFTS) || '[]').map(normalizeShift);
         payouts = JSON.parse(localStorage.getItem(STORAGE_PAYOUTS) || '[]').map(normalizePayout);
-        settings = JSON.parse(localStorage.getItem(STORAGE_SETTINGS) || '{"hourlyRate":15,"holidayMultiplier":1.5}');
-        settings.hourlyRate = Number(settings.hourlyRate || 15);
-        settings.holidayMultiplier = Number(settings.holidayMultiplier || 1.5);
+        settings = normalizeSettings(JSON.parse(localStorage.getItem(STORAGE_SETTINGS) || '{}'));
     } catch (error) {
         shifts = [];
         payouts = [];
-        settings = { hourlyRate: 15, holidayMultiplier: 1.5 };
+        settings = normalizeSettings();
     }
 }
 
@@ -290,13 +317,14 @@ function getFriday(date = new Date()) {
 }
 
 function getPayPeriodAnchor() {
-    return new Date(2026, 6, 31);
+    return parseISODate(settings.periodAnchor);
 }
 
 function getPayPeriodStart(offset = 0, referenceDate = new Date()) {
     const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
     const anchor = getPayPeriodAnchor();
-    const dayDiff = Math.floor((today - anchor) / 86400000);
+    const dayDiff = (Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+        - Date.UTC(anchor.getFullYear(), anchor.getMonth(), anchor.getDate())) / 86400000;
     const completedBlocks = Math.floor(dayDiff / 14);
     const start = new Date(anchor);
     start.setDate(anchor.getDate() + (completedBlocks + offset) * 14);
@@ -374,7 +402,7 @@ function getBlockExpectedIncome(blockDates) {
 }
 
 function getBlockPayoutDate(blockDates) {
-    return isoDate(addDays(blockDates[13], 7));
+    return isoDate(addDays(blockDates[13], settings.payoutDelay));
 }
 
 function getBlockPayoutTotal(blockDates) {
@@ -392,8 +420,10 @@ function getBlockPayoutTotal(blockDates) {
 function renderRate() {
     currentHourlyRate.textContent = `${formatCurrency(settings.hourlyRate)} / hr`;
     currentHolidayRate.textContent = `Holiday: ${Number(settings.holidayMultiplier || 1.5).toFixed(1)}x`;
-    hourlyRateInput.value = Number(settings.hourlyRate || 15).toFixed(2);
+    hourlyRateInput.value = Number(settings.hourlyRate).toFixed(2);
     holidayMultiplierInput.value = Number(settings.holidayMultiplier || 1.5).toFixed(1);
+    periodAnchorInput.value = settings.periodAnchor;
+    payoutDelayInput.value = settings.payoutDelay;
     rateForm.classList.toggle('hidden', !isEditingRate);
 }
 
@@ -709,7 +739,7 @@ function buildPayoutMarkup(item) {
                     <span>Stat holiday ${formatCurrency(item.statHolidayPay || 0)}</span>
                 </div>
                 <div class="work-item-stats payouts">
-                    <span>Tips ${formatCurrency(item.tips || 0)}</span>
+                    ${activeJob.tips ? `<span>Tips ${formatCurrency(item.tips || 0)}</span>` : ''}
                     <span>Vacation ${formatCurrency(item.vacationPayout || 0)}</span>
                 </div>
             </div>
@@ -728,9 +758,9 @@ function getChronologicalPayouts() {
     });
 }
 
-function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues }) {
+function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues, showTips = activeJob.tips }) {
     const hasPayoutData = payoutValues.some(value => value !== 0);
-    const hasTipData = tipValues.some(value => value !== 0);
+    const hasTipData = showTips && tipValues.some(value => value !== 0);
     if (!ordered.length || (!hasPayoutData && !hasTipData)) {
         return '<div class="work-empty">No payout data to chart yet.</div>';
     }
@@ -783,7 +813,7 @@ function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues }) {
     `).join('');
     const payoutDots = payoutPoints.map((point, index) => `
         <g class="payout-point-group">
-            <title>${safeText(point.label)}: Payout ${safeText(formatCurrency(point.value))}, Tips ${safeText(formatCurrency(tipPoints[index].value))}</title>
+            <title>${safeText(point.label)}: Payout ${safeText(formatCurrency(point.value))}${showTips ? `, Tips ${safeText(formatCurrency(tipPoints[index].value))}` : ''}</title>
             <circle cx="${point.x}" cy="${point.y}" r="5.5" class="payout-point payout-point-main" />
             <text x="${point.x}" y="${point.y - 15}" text-anchor="middle" class="trend-value trend-value-payout">${safeText(formatCurrency(point.value))}</text>
         </g>
@@ -801,12 +831,12 @@ function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues }) {
                 <strong>Trend</strong>
                 <div class="payout-chart-legend">
                     <span class="payout-legend-item"><i class="legend-line payout-legend-line"></i>Payout</span>
-                    <span class="payout-legend-item"><i class="legend-line tip-legend-line"></i>Tips</span>
+                    ${showTips ? '<span class="payout-legend-item"><i class="legend-line tip-legend-line"></i>Tips</span>' : ''}
                 </div>
             </div>
-            <div class="payout-chart-shell numbered-trend" tabindex="0" role="region" aria-label="Recent payout and tips amounts. Scroll horizontally to view all dates.">
-                <svg viewBox="0 0 ${width} ${height}" style="min-width:${width}px" class="payout-chart-svg" role="img" aria-label="Payout and tips trend line chart">
-                    <desc>${ordered.map((item, index) => safeText(`${item.date}: Payout ${formatCurrency(payoutValues[index])}, Tips ${formatCurrency(tipValues[index])}`)).join('; ')}</desc>
+            <div class="payout-chart-shell numbered-trend" tabindex="0" role="region" aria-label="Recent payouts. Scroll horizontally to view all dates.">
+                <svg viewBox="0 0 ${width} ${height}" style="min-width:${width}px" class="payout-chart-svg" role="img" aria-label="Payout trend line chart">
+                    <desc>${ordered.map((item, index) => safeText(`${item.date}: Payout ${formatCurrency(payoutValues[index])}${showTips ? `, Tips ${formatCurrency(tipValues[index])}` : ''}`)).join('; ')}</desc>
                     ${guides}
                     <line x1="${paddingX}" y1="${baselineY}" x2="${width - paddingX}" y2="${baselineY}" class="payout-base-line" />
                     ${hasPayoutData ? `<polygon points="${payoutAreaString}" class="payout-area" />` : ''}
@@ -897,6 +927,57 @@ function renderPayoutTrend() {
     });
 }
 
+function getCombinedPayoutDates() {
+    const byDate = new Map();
+    const jobEntries = activeJobId === 'booster'
+        ? { booster: payouts, iron: otherJobPayouts }
+        : { booster: otherJobPayouts, iron: payouts };
+    Object.entries(jobEntries).forEach(([jobId, entries]) => {
+        entries.forEach(entry => {
+            if (!entry.date) return;
+            if (!byDate.has(entry.date)) byDate.set(entry.date, { date: entry.date, booster: 0, iron: 0 });
+            // Sum integer cents so same-day deposits retain exact monetary precision.
+            byDate.get(entry.date)[jobId] += Math.round(Number(entry.amount || 0) * 100);
+        });
+    });
+    return Array.from(byDate.values())
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(-10)
+        .map(item => ({ date: item.date, booster: item.booster / 100, iron: item.iron / 100,
+            amount: (item.booster + item.iron) / 100 }));
+}
+
+function renderCombinedPayoutTrend() {
+    const stats = document.getElementById('combinedPayoutStats');
+    const chart = document.getElementById('combinedPayoutChart');
+    if (!stats || !chart) return;
+    stats.innerHTML = '';
+    if (combinedPayoutsError || !combinedPayoutsReady) {
+        chart.innerHTML = `<div class="work-empty">${combinedPayoutsError
+            ? 'Could not load both jobs. Please reload to try again.' : 'Loading both jobs...'}</div>`;
+        return;
+    }
+    const ordered = getCombinedPayoutDates();
+    if (!ordered.length) {
+        chart.innerHTML = '<div class="work-empty">No payouts from either job yet.</div>';
+        return;
+    }
+    const latest = entries => entries.filter(item => item.date).slice().sort((a, b) =>
+        b.date.localeCompare(a.date) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')))[0];
+    const booster = latest(activeJobId === 'booster' ? payouts : otherJobPayouts);
+    const iron = latest(activeJobId === 'iron' ? payouts : otherJobPayouts);
+    const boosterAmount = Number(booster?.amount || 0);
+    const ironAmount = Number(iron?.amount || 0);
+    const latestDate = entry => entry ? `Latest: ${entry.date}` : 'No payout yet';
+    stats.innerHTML = [
+        ['Booster Juice', boosterAmount, latestDate(booster)],
+        ['Iron peak Auto Repair', ironAmount, latestDate(iron)],
+        ['Combined net pay', (Math.round(boosterAmount * 100) + Math.round(ironAmount * 100)) / 100, 'Latest payout from each job']
+    ].map(([label, amount, caption]) => `<div class="payout-trend-stat"><span>${label}</span><strong>${formatCurrency(amount)}</strong><small>${safeText(caption)}</small></div>`).join('');
+    chart.innerHTML = buildCombinedTrendChartMarkup({ ordered,
+        payoutValues: ordered.map(item => item.amount), tipValues: ordered.map(() => 0), showTips: false });
+}
+
 function renderPayouts() {
     const ordered = sortPayouts(payouts);
     if (!ordered.length) {
@@ -974,7 +1055,7 @@ function refreshPayoutTotals() {
     payoutRegularPayInput.value = regularPay.toFixed(2);
     const holidayWorkPay = Number(payoutHolidayWorkPayInput.value || 0);
     const statHolidayPay = Number(payoutStatHolidayPayInput.value || 0);
-    const tips = Number(payoutTipsInput.value || 0);
+    const tips = activeJob.tips ? Number(payoutTipsInput.value || 0) : 0;
     const vacationPayout = Number(payoutVacationInput.value || 0);
     const deductions = Number(payoutDeductionsInput.value || 0);
     const grossPay = computeGrossPay(regularPay, holidayWorkPay, statHolidayPay, tips, vacationPayout);
@@ -984,16 +1065,26 @@ function refreshPayoutTotals() {
 }
 
 async function saveHourlyRate() {
+    if (!rateForm.reportValidity()) return;
     const hourlyRate = Number(hourlyRateInput.value || 15);
     const holidayMultiplier = Number(holidayMultiplierInput.value || 1.5);
     settings.hourlyRate = hourlyRate;
     settings.holidayMultiplier = holidayMultiplier;
+    settings.periodAnchor = periodAnchorInput.value;
+    settings.payoutDelay = Number(payoutDelayInput.value);
     if (isRemoteEnabled()) {
         await settingsDoc(currentUser).set(settings);
     } else {
         saveLocalState();
     }
     isEditingRate = false;
+    if (!editingPayoutId) {
+        const { blockDates } = getBlockWeeks(weekBlockOffset);
+        payoutPeriodStartInput.value = isoDate(blockDates[0]);
+        payoutPeriodEndInput.value = isoDate(blockDates[13]);
+        payoutDateInput.value = getBlockPayoutDate(blockDates);
+    }
+    refreshPayoutTotals();
     renderAll();
 }
 
@@ -1021,7 +1112,7 @@ async function handleSavePayout() {
     const regularPay = computeRegularPay(hours, settings.hourlyRate);
     const holidayWorkPay = Number(payoutHolidayWorkPayInput.value || 0);
     const statHolidayPay = Number(payoutStatHolidayPayInput.value || 0);
-    const tips = Number(payoutTipsInput.value || 0);
+    const tips = activeJob.tips ? Number(payoutTipsInput.value || 0) : 0;
     const vacationPayout = Number(payoutVacationInput.value || 0);
     const deductions = Number(payoutDeductionsInput.value || 0);
     const grossPay = computeGrossPay(regularPay, holidayWorkPay, statHolidayPay, tips, vacationPayout);
@@ -1061,6 +1152,7 @@ function renderAll() {
     renderSelectedDayDetail();
     renderPayouts();
     renderPayoutTrend();
+    renderCombinedPayoutTrend();
 }
 
 function initializeDefaults() {
@@ -1072,6 +1164,16 @@ function startRemoteSync(user) {
     if (shiftUnsub) shiftUnsub();
     if (payoutUnsub) payoutUnsub();
     if (settingsUnsub) settingsUnsub();
+    if (otherPayoutUnsub) otherPayoutUnsub();
+    combinedPayoutsReady = false;
+    combinedPayoutsError = false;
+    let activeLoaded = false;
+    let otherLoaded = false;
+    const handlePayoutError = () => {
+        combinedPayoutsError = true;
+        renderCombinedPayoutTrend();
+    };
+    renderCombinedPayoutTrend();
 
     shiftUnsub = shiftsCollection(user).onSnapshot(snapshot => {
         shifts = snapshot.docs.map(doc => normalizeShift({ id: doc.id, ...doc.data() }));
@@ -1080,19 +1182,27 @@ function startRemoteSync(user) {
 
     payoutUnsub = payoutsCollection(user).onSnapshot(snapshot => {
         payouts = snapshot.docs.map(doc => normalizePayout({ id: doc.id, ...doc.data() }));
+        activeLoaded = true;
+        combinedPayoutsReady = otherLoaded;
         renderAll();
-    });
+    }, handlePayoutError);
+
+    otherPayoutUnsub = payoutsCollection(user, activeJobId === 'booster' ? 'iron' : 'booster').onSnapshot(snapshot => {
+        otherJobPayouts = snapshot.docs.map(doc => normalizePayout({ id: doc.id, ...doc.data() }));
+        otherLoaded = true;
+        combinedPayoutsReady = activeLoaded;
+        renderCombinedPayoutTrend();
+    }, handlePayoutError);
 
     settingsUnsub = settingsDoc(user).onSnapshot(async doc => {
         if (!doc.exists) {
-            settings = { hourlyRate: 15, holidayMultiplier: 1.5 };
+            settings = normalizeSettings();
             await settingsDoc(user).set(settings);
         } else {
-            settings = {
-                hourlyRate: Number(doc.data()?.hourlyRate || 15),
-                holidayMultiplier: Number(doc.data()?.holidayMultiplier || 1.5)
-            };
+            settings = normalizeSettings(doc.data());
         }
+        if (!editingPayoutId && !payoutHoursInput.value) resetPayoutForm();
+        refreshPayoutTotals();
         renderAll();
     });
 }
@@ -1145,6 +1255,26 @@ if (ledgerBtn) {
     });
 }
 
+document.body.dataset.job = activeJobId;
+document.getElementById('currentJobName').textContent = activeJob.name;
+const switchJobBtn = document.getElementById('switchJobBtn');
+const otherJobId = activeJobId === 'booster' ? 'iron' : 'booster';
+switchJobBtn.textContent = `Switch to ${JOBS[otherJobId].name}`;
+switchJobBtn.addEventListener('click', async () => {
+    switchJobBtn.disabled = true;
+    try {
+        // Finish autosaved shift writes before unloading this job's page.
+        if (isRemoteEnabled()) await dbRef.waitForPendingWrites();
+        const url = new URL(window.location.href);
+        url.searchParams.set('job', otherJobId);
+        window.location.assign(url.href);
+    } catch (error) {
+        switchJobBtn.disabled = false;
+        alert('Could not finish saving. Please try switching jobs again.');
+    }
+});
+payoutTipsInput.disabled = !activeJob.tips;
+payoutTipsInput.closest('.field').hidden = !activeJob.tips;
 loadLocalState();
 initializeDefaults();
 renderAll();
