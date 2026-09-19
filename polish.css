@@ -293,6 +293,10 @@ body.sheet-body, body.ledger-body { line-height: 1.55; overflow-wrap: break-word
     .sheet-range-tag { white-space: normal; }
 }
 
+.combined-month-nav { display: flex; align-items: flex-end; gap: 12px; }
+.combined-month-nav .field { flex: 1; min-width: 0; max-width: 260px; }
+.combined-month-nav input { width: 100%; min-width: 0; box-sizing: border-box; }
+.combined-month-nav button { flex-shrink: 0; min-width: 44px; min-height: 44px; }
 .combined-payout-stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

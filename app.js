@@ -11,10 +11,12 @@ const STORAGE_PAYOUTS = `weeklySheetPayouts${activeJob.suffix}`;
 const STORAGE_SETTINGS = `weeklySheetSettings${activeJob.suffix}`;
 
 function normalizeSettings(raw = {}) {
+    const periodAnchor = activeJobId === 'iron' && (!raw.periodAnchor || raw.periodAnchor === '2026-07-31')
+        ? '2026-09-14' : (raw.periodAnchor || '2026-07-31');
     return {
         hourlyRate: Number(raw.hourlyRate ?? 15),
         holidayMultiplier: Number(raw.holidayMultiplier ?? 1.5),
-        periodAnchor: raw.periodAnchor || '2026-07-31',
+        periodAnchor,
         payoutDelay: Number(raw.payoutDelay ?? 7)
     };
 }
@@ -34,6 +36,7 @@ let otherPayoutUnsub = null;
 let otherJobPayouts = [];
 let combinedPayoutsReady = true;
 let combinedPayoutsError = false;
+let combinedPayoutMonth = isoDate(new Date()).slice(0, 7);
 let weekBlockOffset = 0;
 let currentCalendarMonth = new Date();
 let selectedCalendarDate = null;
@@ -786,7 +789,7 @@ function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues, showT
             x,
             y: paddingTop + ((maxValue - payoutValues[index]) / valueRange) * chartHeight,
             value: payoutValues[index],
-            label: formatCompactDate(parseISODate(item.date))
+            label: item.label || formatCompactDate(parseISODate(item.date))
         };
     });
     const tipPoints = ordered.map((item, index) => {
@@ -797,7 +800,7 @@ function buildCombinedTrendChartMarkup({ ordered, payoutValues, tipValues, showT
             x,
             y: paddingTop + ((maxValue - tipValues[index]) / valueRange) * chartHeight,
             value: tipValues[index],
-            label: formatCompactDate(parseISODate(item.date))
+            label: item.label || formatCompactDate(parseISODate(item.date))
         };
     });
 
@@ -927,53 +930,49 @@ function renderPayoutTrend() {
     });
 }
 
-function getCombinedPayoutDates() {
-    const byDate = new Map();
+function getCombinedPayoutMonths() {
+    const byMonth = new Map();
     const jobEntries = activeJobId === 'booster'
         ? { booster: payouts, iron: otherJobPayouts }
         : { booster: otherJobPayouts, iron: payouts };
     Object.entries(jobEntries).forEach(([jobId, entries]) => {
         entries.forEach(entry => {
             if (!entry.date) return;
-            if (!byDate.has(entry.date)) byDate.set(entry.date, { date: entry.date, booster: 0, iron: 0 });
-            // Sum integer cents so same-day deposits retain exact monetary precision.
-            byDate.get(entry.date)[jobId] += Math.round(Number(entry.amount || 0) * 100);
+            const month = entry.date.slice(0, 7);
+            if (!byMonth.has(month)) byMonth.set(month, { booster: 0, iron: 0 });
+            // Use deposit month and integer cents, independently of each job's pay period.
+            byMonth.get(month)[jobId] += Math.round(Number(entry.amount || 0) * 100);
         });
     });
-    return Array.from(byDate.values())
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(-10)
-        .map(item => ({ date: item.date, booster: item.booster / 100, iron: item.iron / 100,
-            amount: (item.booster + item.iron) / 100 }));
+    const selected = parseISODate(`${combinedPayoutMonth}-01`);
+    return Array.from({ length: 10 }, (_, index) => {
+        const date = new Date(selected.getFullYear(), selected.getMonth() - 9 + index, 1);
+        const key = isoDate(date).slice(0, 7);
+        const item = byMonth.get(key) || { booster: 0, iron: 0 };
+        return { date: `${key}-01`, label: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+            booster: item.booster / 100, iron: item.iron / 100, amount: (item.booster + item.iron) / 100 };
+    });
 }
 
 function renderCombinedPayoutTrend() {
     const stats = document.getElementById('combinedPayoutStats');
     const chart = document.getElementById('combinedPayoutChart');
     if (!stats || !chart) return;
+    document.getElementById('combinedPayoutMonth').value = combinedPayoutMonth;
     stats.innerHTML = '';
     if (combinedPayoutsError || !combinedPayoutsReady) {
         chart.innerHTML = `<div class="work-empty">${combinedPayoutsError
             ? 'Could not load both jobs. Please reload to try again.' : 'Loading both jobs...'}</div>`;
         return;
     }
-    const ordered = getCombinedPayoutDates();
-    if (!ordered.length) {
-        chart.innerHTML = '<div class="work-empty">No payouts from either job yet.</div>';
-        return;
-    }
-    const latest = entries => entries.filter(item => item.date).slice().sort((a, b) =>
-        b.date.localeCompare(a.date) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')))[0];
-    const booster = latest(activeJobId === 'booster' ? payouts : otherJobPayouts);
-    const iron = latest(activeJobId === 'iron' ? payouts : otherJobPayouts);
-    const boosterAmount = Number(booster?.amount || 0);
-    const ironAmount = Number(iron?.amount || 0);
-    const latestDate = entry => entry ? `Latest: ${entry.date}` : 'No payout yet';
+    const ordered = getCombinedPayoutMonths();
+    const selected = ordered[ordered.length - 1];
+    const monthLabel = parseISODate(selected.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     stats.innerHTML = [
-        ['Booster Juice', boosterAmount, latestDate(booster)],
-        ['Iron peak Auto Repair', ironAmount, latestDate(iron)],
-        ['Combined net pay', (Math.round(boosterAmount * 100) + Math.round(ironAmount * 100)) / 100, 'Latest payout from each job']
-    ].map(([label, amount, caption]) => `<div class="payout-trend-stat"><span>${label}</span><strong>${formatCurrency(amount)}</strong><small>${safeText(caption)}</small></div>`).join('');
+        ['Booster Juice', selected.booster],
+        ['Iron peak Auto Repair', selected.iron],
+        ['Combined net pay', selected.amount]
+    ].map(([label, amount]) => `<div class="payout-trend-stat"><span>${label}</span><strong>${formatCurrency(amount)}</strong><small>${safeText(monthLabel)}</small></div>`).join('');
     chart.innerHTML = buildCombinedTrendChartMarkup({ ordered,
         payoutValues: ordered.map(item => item.amount), tipValues: ordered.map(() => 0), showTips: false });
 }
@@ -1206,6 +1205,23 @@ function startRemoteSync(user) {
         renderAll();
     });
 }
+
+document.getElementById('combinedPayoutMonth').addEventListener('change', event => {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) {
+        event.target.value = combinedPayoutMonth;
+        return;
+    }
+    combinedPayoutMonth = event.target.value;
+    renderCombinedPayoutTrend();
+});
+document.querySelectorAll('[data-combined-month-step]').forEach(button => {
+    button.addEventListener('click', () => {
+        const date = parseISODate(`${combinedPayoutMonth}-01`);
+        date.setMonth(date.getMonth() + Number(button.dataset.combinedMonthStep));
+        combinedPayoutMonth = isoDate(date).slice(0, 7);
+        renderCombinedPayoutTrend();
+    });
+});
 
 rateForm.addEventListener('submit', saveHourlyRate);
 editRateBtn.addEventListener('click', openRateEditor);

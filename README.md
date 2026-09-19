@@ -19,7 +19,7 @@ It currently includes two main tools:
 - Separate shifts, hourly rates, payout history, and charts for each job; existing records remain under Booster Juice
 - Iron peak Auto Repair excludes tips from its payout form, totals, history, and chart
 - Two-week work sheet view with a configurable period start and payday delay in Pay Settings
-- New jobs initially use $15/hour, a 1.5x holiday multiplier, the July 31, 2026 period anchor, and payday seven days after period end; adjust these to the actual job schedule
+- Defaults: $15/hour, a 1.5x holiday multiplier, and payday seven days after period end. Booster Juice periods start from July 31, 2026; Iron peak Auto Repair periods start Monday, September 14, 2026 (September 14-27, September 28-October 11, etc.). The old Iron Peak default anchor is automatically replaced; adjust payday delay to the actual job schedule.
 - Editable check-in and check-out times for past and current dates
 - Auto break rule:
   - `0.5h` break when shift duration is `5.5h` or more
@@ -63,7 +63,7 @@ It currently includes two main tools:
 
 ### Payout Trend
 
-- A final Combined Payout Trend section charts both jobs' net deposits over the latest 10 pay dates. Summary cards show only each job's latest payout (with its date) and the sum of those two payouts.
+- Combined Monthly Payouts groups actual net deposits by calendar month, independent of work periods. Select a month to see per-job and combined totals plus a 10-month chart ending in that month; months without deposits show zero.
 
 - Payout and tips displayed as blue and green lines on the same dollar scale
 - Most recent 10 payout records shown in chronological order

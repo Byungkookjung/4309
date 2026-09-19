@@ -212,9 +212,17 @@
             <section class="sheet-card payout-trend-card" aria-labelledby="combinedPayoutTitle">
                 <div class="section-heading">
                     <div>
-                        <h3 id="combinedPayoutTitle">Combined Payout Trend</h3>
-                        <p>Both jobs &middot; Latest 10 pay dates &middot; Net pay</p>
+                        <h3 id="combinedPayoutTitle">Combined Monthly Payouts</h3>
+                        <p>Net deposits by month &middot; 10-month trend</p>
                     </div>
+                </div>
+                <div class="combined-month-nav">
+                    <button class="icon-btn" type="button" data-combined-month-step="-1" aria-label="Previous month">&#8592;</button>
+                    <div class="field">
+                        <label for="combinedPayoutMonth">Month</label>
+                        <input id="combinedPayoutMonth" type="month" />
+                    </div>
+                    <button class="icon-btn" type="button" data-combined-month-step="1" aria-label="Next month">&#8594;</button>
                 </div>
                 <div id="combinedPayoutStats" class="combined-payout-stats"></div>
                 <div id="combinedPayoutChart" class="payout-trend-chart" aria-live="polite"></div>
