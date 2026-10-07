@@ -1,0 +1,84 @@
+name: WorkToday
+options:
+  bundleIdPrefix: com.suyeon.worktoday
+  deploymentTarget:
+    iOS: '17.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    WORK_APP_GROUP: group.com.suyeon.worktoday
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY[sdk=iphonesimulator*]: '-'
+targets:
+  WorkToday:
+    type: application
+    platform: iOS
+    sources: [Shared, WorkToday]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.suyeon.worktoday
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: WorkToday/Info.plist
+      properties:
+        CFBundleDisplayName: Work Today
+        WorkAppGroup: $(WORK_APP_GROUP)
+        WorkConnectURL: https://todo-ledger.web.app/widget-connect.html
+        UILaunchScreen: {}
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [worktoday]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    entitlements:
+      path: WorkToday/WorkToday.entitlements
+      properties:
+        com.apple.security.application-groups: ['$(WORK_APP_GROUP)']
+        keychain-access-groups: ['$(WORK_APP_GROUP)']
+    dependencies:
+      - target: WorkTodayWidget
+  WorkTodayWidget:
+    type: app-extension
+    platform: iOS
+    sources: [Shared, WorkTodayWidget]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.suyeon.worktoday.widget
+        APPLICATION_EXTENSION_API_ONLY: YES
+    info:
+      path: WorkTodayWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Both Jobs Today
+        WorkAppGroup: $(WORK_APP_GROUP)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: WorkTodayWidget/WorkTodayWidget.entitlements
+      properties:
+        com.apple.security.application-groups: ['$(WORK_APP_GROUP)']
+        keychain-access-groups: ['$(WORK_APP_GROUP)']
+  WorkTodayTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [WorkTodayTests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: WorkToday
+  WorkTodayUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [WorkTodayUITests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: WorkToday
+schemes:
+  WorkToday:
+    build:
+      targets:
+        WorkToday: all
+    test:
+      targets:
+        - WorkTodayTests
+        - WorkTodayUITests

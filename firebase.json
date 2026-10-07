@@ -15,7 +15,11 @@
       "*.bat",
       "*.sh",
       "*.py",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "**/.*",
+      "**/*.log",
+      "ios/**",
+      "tests/**"
     ],
     "headers": [
       {

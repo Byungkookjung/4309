@@ -98,6 +98,22 @@ It currently includes two main tools:
 - `index.html`: Weekly Work Sheet
 - `ledger.html`: Expense Ledger
 - `investments.html`: Investment tracker page
+- `widget-preview.html`: both-job widget preview and schedule snapshot export
+
+## iPhone Companion and Widgets
+
+`ios/WorkToday.xcodeproj` contains a native companion app and three widget sizes showing both jobs' daily times and estimated pay, purple for Booster Juice and green for Iron Peak. Google account connection enables authenticated automatic sync; manual JSON import remains available. See [iOS setup and testing](ios/README.md) for Simulator/device instructions and signing requirements.
+
+- **Both Jobs Today:** Iron Peak first, Booster Juice second, with AM/PM times. The large widget also shows tomorrow.
+- **Monthly Money:** monthly ledger spending and income with a happy/angry money mood; shared expenses count at half.
+- **Earn It Back:** `max(0, (monthly ledger spending - monthly ledger income) / 15 - elapsed scheduled work hours)`. Income matches Monthly Money's Earned value; Payout History is not used. Future work does not count. The countdown runs during scheduled work and pauses outside it.
+- The sky-blue cat clock has awake/resting expressions and a paw progress marker. The large size includes one of 24 rotating tips.
+- One **Sync now** button refreshes all widget data. Midnight refresh is requested in Edmonton time, but iOS controls actual background execution timing.
+- Old or failed syncs are not treated as zero income. This is a schedule-based budgeting estimate, not a time-clock or bank balance.
+
+## Cat Theme and Responsive Layout
+
+The work sheet and ledger keep their existing workflows and layouts, with a sky-blue cat mascot, soft accents and decorative paw stamps on button hover, keyboard focus and touch. Original button labels, job colors, and financial status colors remain intact. Reduced-motion preferences disable decorative animation. The budget editor wraps long item names and uses its available width to choose columns. Activity Summary month buttons use 1-12, with month names retained as accessible labels.
 
 ## Key Files
 
@@ -165,6 +181,8 @@ Manual deploy:
 2. `cd /Users/suyeonkim/Desktop/4309`
 3. `firebase deploy --only hosting`
 
+This deploys the website, widget connection page and preview assets only. Native iOS sources and tests are excluded from Hosting. Installing an updated iPhone app or distributing through TestFlight requires a separate signed Xcode build; pushing Git or deploying Hosting does not update the native app.
+
 Hosting URLs:
 
 - `https://todo-ledger.web.app`
@@ -196,6 +214,15 @@ September 2026 visual update checks used isolated browser data, without writing 
 - Recent-10-record payout/tips labels and chart scrolling at 390 and 1440px
 
 These checks used desktop Chrome with resized viewports; native iOS/Android time pickers were not tested on physical devices.
+
+October 2026 companion/theme validation:
+
+- `node --test tests/widget-data.test.cjs` covers both-job snapshots and work calculations.
+- Xcode Simulator suite: 22 passing tests, including ledger-based recovery, ignoring old payout caches, authenticated mock sync/offline retention, live countdown and widget size previews.
+- Widget render checks include long English/Korean names, unbroken URLs and large numeric values.
+- Browser theme checks cover 320, 390, 768 and 1440px, unchanged button dimensions and click handlers, disabled states, keyboard/reduced-motion styling, and no sticky touch-hover effect.
+- Budget editor checks cover 320-1920px with long item names and edit callbacks.
+- Browser checks use isolated fixtures without writes to production Firestore. Physical-device signing, background refresh and live Google connection still need device verification.
 
 ## Notes
 

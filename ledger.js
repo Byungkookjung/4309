@@ -621,7 +621,8 @@ function renderActivityMonthPicker() {
         button.type = 'button';
         button.className = 'activity-month-btn';
         button.dataset.month = String(monthNumber);
-        button.textContent = monthName.slice(0, 3);
+        button.textContent = String(monthNumber);
+        button.setAttribute('aria-label', monthName);
 
         const isDisabled = monthNumber > currentMonth;
         const isSelected = selectedSummaryRange === 'month' && selectedSummaryMonth === monthNumber;
@@ -730,8 +731,8 @@ function updateActivitySummaryRangeLabels() {
 
     if (summaryRangeLabel) {
         const yearText = String(now.getFullYear());
-        const monthText = `${yearText}, ${MONTH_NAMES[selectedSummaryMonth - 1]}`;
-        const currentMonthText = `${yearText}, ${MONTH_NAMES[now.getMonth()]}`;
+        const monthText = `${yearText}-${String(selectedSummaryMonth).padStart(2, '0')}`;
+        const currentMonthText = `${yearText}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         const weekText = `${currentMonthText} - ${formatOrdinal(getWeekOfMonth(now))} week (Mon-Sun)`;
         if (selectedSummaryRange === 'year') {
             summaryRangeLabel.textContent = yearText;
@@ -848,8 +849,8 @@ function enterActivityEditMode(id) {
 function getCurrentSummaryRangeText() {
     const now = new Date();
     const yearText = String(now.getFullYear());
-    const monthText = `${yearText}, ${MONTH_NAMES[selectedSummaryMonth - 1]}`;
-    const currentMonthText = `${yearText}, ${MONTH_NAMES[now.getMonth()]}`;
+    const monthText = `${yearText}-${String(selectedSummaryMonth).padStart(2, '0')}`;
+    const currentMonthText = `${yearText}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const weekText = `${currentMonthText} - ${formatOrdinal(getWeekOfMonth(now))} week`;
     if (selectedSummaryRange === 'year') return yearText;
     if (selectedSummaryRange === 'month') return monthText;
