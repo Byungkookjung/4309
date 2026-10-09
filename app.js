@@ -11,8 +11,9 @@ const STORAGE_PAYOUTS = `weeklySheetPayouts${activeJob.suffix}`;
 const STORAGE_SETTINGS = `weeklySheetSettings${activeJob.suffix}`;
 
 function normalizeSettings(raw = {}) {
-    const periodAnchor = activeJobId === 'iron' && (!raw.periodAnchor || raw.periodAnchor === '2026-07-31')
-        ? '2026-09-14' : (raw.periodAnchor || '2026-07-31');
+    const oldIronAnchors = ['2026-07-31', '2026-09-14', '2026-09-28'];
+    const periodAnchor = activeJobId === 'iron' && (!raw.periodAnchor || oldIronAnchors.includes(raw.periodAnchor))
+        ? '2026-10-05' : (raw.periodAnchor || '2026-07-31');
     return {
         hourlyRate: Number(raw.hourlyRate ?? 15),
         holidayMultiplier: Number(raw.holidayMultiplier ?? 1.5),
