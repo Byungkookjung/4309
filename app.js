@@ -591,10 +591,10 @@ function getShiftHoursByDate(dateString) {
 function renderShiftCalendar() {
     const year = currentCalendarMonth.getFullYear();
     const month = currentCalendarMonth.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
+    const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = isoDate(new Date());
-    const headers = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const headers = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     calendarMonthLabel.textContent = currentCalendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     sheetCalendar.innerHTML = '';
@@ -624,13 +624,14 @@ function renderShiftCalendar() {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'calendar-day work-calendar-day';
-        button.setAttribute('aria-label', `${day}${hours ? ` ${hours.toFixed(2)} hours` : ''}`);
+        button.setAttribute('aria-label', `${dateString}${dateString === today ? ', today' : ''}${hours ? `, ${hours.toFixed(2)} hours ${hoursLabel}` : ', no saved hours'}`);
+        button.setAttribute('aria-pressed', String(dateString === selectedCalendarDate));
         if (dateString === today) button.classList.add('today');
         if (dateString === selectedCalendarDate) button.classList.add('selected');
         if (isWeekend || isHoliday) button.classList.add('accent-day');
         button.innerHTML = `
             <span class="day-number">${day}</span>
-            <span class="work-calendar-hours">${hours ? `${hours.toFixed(2)}h` : ''}</span>
+            <span class="work-calendar-hours">${hours ? `${Number(hours.toFixed(2))}<span class="calendar-hour-unit">h</span>` : ''}</span>
             <span class="work-calendar-count">${hoursLabel}</span>
         `;
         button.addEventListener('click', () => {

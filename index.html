@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#8db8e4">
     <meta name="description" content="Simple weekly work schedule tracker with auto-calculated hours and expected income">
     <title>Weekly Work Sheet</title>
     <link rel="icon" href="favicon-todo.svg?v=20260911" type="image/svg+xml">
     <link rel="stylesheet" href="style.css?v=20260803e">
-    <link rel="stylesheet" href="polish.css?v=20261006-cats">
+    <link rel="stylesheet" href="polish.css?v=20261009-phone">
 </head>
 <body class="work-body sheet-body">
     <div class="container work-container sheet-container">
@@ -17,10 +17,11 @@
                 <button id="ledgerBtn" class="icon-btn" type="button" aria-label="Open Expense Ledger" title="Expense Ledger">
                     &#x1F4B0;
                 </button>
+                <a href="mobile/" class="icon-btn" aria-label="Home widgets" title="Home widgets">🏠</a>
             </div>
             <h1><img class="cat-mascot" src="cat-mascot.svg" alt="" aria-hidden="true" /> Weekly Work Sheet</h1>
             <div class="header-actions header-actions-right auth-actions">
-                <button id="logoutBtn" class="ghost-btn" type="button">Log out</button>
+                <button id="logoutBtn" class="icon-btn" type="button" aria-label="Log out" title="Log out">🐈‍⬛</button>
             </div>
         </header>
 
@@ -242,7 +243,7 @@
             }
         })();
     </script>
-    <script src="app.js?v=20261008-iron-period"></script>
+    <script src="app.js?v=20261009-phone"></script>
     <script src="mobile-time.js?v=20260911a"></script>
 </body>
 </html>

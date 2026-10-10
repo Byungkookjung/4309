@@ -102,6 +102,18 @@ It currently includes two main tools:
 
 ## iPhone Companion and Widgets
 
+### Mobile Web App (Free)
+
+Open `/mobile/` for **Pocket Paws**, a separate mobile-first dashboard. It reads both jobs and the ledger from the existing Google account without modifying records. It includes today/tomorrow shifts, monthly money and a cat recovery clock using the same ledger-income formula as the native app. Sample data is available only through an explicit preview button.
+
+In iPhone Chrome, open the dashboard, tap Share, then **Add to Home Screen**. Its manifest launches `/mobile/` in standalone mode with a cat icon; no paid Apple developer membership or weekly reinstall is needed. This is an app you open, not a live iOS Home Screen widget. Login may be required again in the installed app.
+
+The dashboard syncs on sign-in, return to the foreground, manual Sync and once a minute while visible. It cannot guarantee background/midnight refresh while closed. Its scoped service worker caches only public UI assets, never financial responses or tokens. Records are kept in memory and cleared on account changes; offline reload requires reconnecting to load your account. Existing work-sheet and ledger records are preserved. Run `node --test tests/*.test.cjs` for calculation tests; real iPhone Chrome installation and Google sign-in need a physical-device check.
+
+With the local server running and Playwright/Chrome installed, run `node tests/mobile-ui.cjs` for isolated mobile UI, mocked authentication, offline shell and service-worker checks. `PLAYWRIGHT_MODULE` can point to an existing Playwright installation, and `MOBILE_TEST_URL` defaults to `http://localhost:8000`. Tests never write production financial data.
+
+`node tests/phone-flows.cjs` additionally exercises the mobile dashboard links into the full work sheet and ledger, using both Chrome and Playwright WebKit (install with `playwright install webkit`). It checks 320-1920px calendars, date detail toggling, time-editor save/cancel and long ledger text using isolated local storage. Phone calendars use compact rows, single-line weekdays, numeric hours and a dot for today; full date/status/hours remain in accessible labels. The work sheet allows browser zoom, and wide weekly tables retain horizontal scrolling instead of compressing their inputs. These are browser-engine tests, not a physical iPhone or real Google login test.
+
 `ios/WorkToday.xcodeproj` contains a native companion app and three widget sizes showing both jobs' daily times and estimated pay, purple for Booster Juice and green for Iron Peak. Google account connection enables authenticated automatic sync; manual JSON import remains available. See [iOS setup and testing](ios/README.md) for Simulator/device instructions and signing requirements.
 
 - **Both Jobs Today:** Iron Peak first, Booster Juice second, with AM/PM times. The large widget also shows tomorrow.
@@ -224,7 +236,36 @@ October 2026 companion/theme validation:
 - Budget editor checks cover 320-1920px with long item names and edit callbacks.
 - Browser checks use isolated fixtures without writes to production Firestore. Physical-device signing, background refresh and live Google connection still need device verification.
 
+### October 10 Release Verification
+
+- 13 Node calculation tests passed; JavaScript syntax and Git whitespace checks passed.
+- Chrome and WebKit checks passed at 320, 375, 390, 430, 768, 1024, 1440 and 1920px for calendar layout, long text, checkbox alignment, header icon separation and shared-expense/submit layout.
+- Dashboard offline shell/cache behavior, authenticated fixture sync, Todo menus, categories, repeat schedules, category dragging, write failures and sign-out were exercised without production writes.
+- Xcode Simulator: 20 unit tests and 2 UI tests passed. Native iPhone app installation remains separate from website deployment.
+- Browser-engine/simulator coverage does not replace a physical iPhone check or live Google sign-in.
+
 ## Notes
+
+### Personal Todo Calendar
+
+- Task cards open a bottom action sheet: edit, delete, move to tomorrow (Edmonton), choose a date, or convert to a routine. Conversion is an atomic write; moving a routine occurrence leaves its other dates unchanged. Routine deletion removes the entire routine, as indicated in the menu.
+- Todo and shift calendars start on Monday. Completed tasks show a cat paw, and routines sort by category with category labels.
+- Work sheet and ledger headers include a widget-home shortcut and an accessible icon-only logout. Ledger entry submission sits beside Shared expense; Abbreviations starts collapsed and charts use ten pastel colors.
+
+- Routine frequency supports daily, weekly, every two weeks, monthly and yearly, with an optional inclusive end date. Older weekday-only routines remain weekly.
+- Monthly routines select one or more dates and/or Last day. Missing dates are skipped (for example, February has no 31st); yearly February 29 repeats only in leap years. Two-week cycles are anchored to the start date.
+
+- Categories support names, six color swatches (sky blue, lilac, mint, coral, peach and black), editing and deletion. Each category header has a quick-add task button, and both tasks and routines can select a category.
+- Drag a task's grip onto a category to move it. Touch dragging uses the grip so the rest of the page scrolls normally; tapping or keyboard-activating the grip opens the editor as an alternative. Moving a routine changes its category for all occurrences.
+- Category definitions are saved in the user's `personalCategories` collection. Deleting a category preserves its tasks/routines, displayed under the built-in `일상` (Daily) category. New tasks/routines default to Daily; existing unassigned records need no migration. The default category stays available and its color can be edited.
+
+- Open `/mobile/planner.html` for private tasks, calendar dates, and recurring routines. There are no friends or sharing features.
+- The `/mobile/` dashboard displays cards in this order: shifts, today's tasks, monthly money, and the cat recovery clock. Task editing stays on the separate calendar page.
+- Today's task summary includes only Edmonton's current date and routines scheduled for that date. Routine completion is stored separately for each date.
+- Records live under the signed-in user's `personalTasks`, `personalRoutines`, and `personalRoutineChecks` collections. Existing work and ledger records are not changed.
+- Alberta general and optional holidays are distinguished using the [official provincial calendar](https://www.alberta.ca/alberta-general-holidays). These markers do not change work-sheet holiday pay.
+- `tests/planner-ui.cjs` checks task editing/completion, recurring routines, deletion, failed saves, sign-out and responsive layout with isolated Chrome/WebKit fixtures. `tests/planner-model.test.cjs` checks holiday dates and recurring completion.
+- Dashboard work times use larger, separate lines; emoji navigation retains accessible link names. Physical-device sign-in and live Firestore permissions still require account-owner verification.
 
 - Work sheet payout calculations use the currently saved pay settings
 - Payout history stores the calculated values at save time

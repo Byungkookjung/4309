@@ -6,7 +6,7 @@
     <title>Expense Ledger</title>
     <link rel="icon" href="favicon-ledger.svg?v=20260911" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css?v=20260803c" />
-    <link rel="stylesheet" href="polish.css?v=20261006-cats" />
+    <link rel="stylesheet" href="polish.css?v=20261009-phone" />
 </head>
 <body class="ledger-body">
     <div class="container">
@@ -14,12 +14,13 @@
             <h1><img class="cat-mascot" src="cat-mascot.svg" alt="" aria-hidden="true" /> Expense Ledger</h1>
             <p class="subtitle">&#x1F4B0; Set your balances, then plan spending.</p>
             <div class="header-actions">
-                <a href="index.html" id="backToTodoBtn" class="icon-btn" aria-label="Back to Todo App" title="Back to Todo App">
+                <a href="index.html" id="backToTodoBtn" class="icon-btn" aria-label="Work sheet" title="Work sheet">
                     &#x1F4DD;
                 </a>
+                <a href="mobile/" class="icon-btn" aria-label="Home widgets" title="Home widgets">🏠</a>
             </div>
             <div class="header-actions header-actions-right auth-actions">
-                <button id="logoutBtn" class="ghost-btn" type="button">Log out</button>
+                <button id="logoutBtn" class="icon-btn" type="button" aria-label="Log out" title="Log out">🐈‍⬛</button>
             </div>
         </header>
 
@@ -177,13 +178,10 @@
                             <input id="activityShared" type="checkbox" />
                             <span>Shared expense</span>
                         </label>
-                    </div>
-                    <div class="field action">
-                        <label aria-hidden="true">&nbsp;</label>
                         <div class="activity-form-actions">
-                            <button id="addActivityBtn" class="primary-btn activity-submit-btn" type="submit">
-                                <span id="addActivityBtnIcon" aria-hidden="true">+</span>
-                                <span id="addActivityBtnText">Add entry</span>
+                            <button id="addActivityBtn" class="primary-btn activity-submit-btn" type="submit" aria-label="Add entry" title="Add entry">
+                                <span id="addActivityBtnIcon" aria-hidden="true">🐾</span>
+                                <span id="addActivityBtnText" class="visually-hidden">Add entry</span>
                             </button>
                             <button id="cancelActivityEditBtn" class="ghost-btn hidden" type="button">Cancel</button>
                         </div>
@@ -305,15 +303,14 @@
                         <div class="activity-import-format-title">Budget items you can match</div>
                         <div id="activityImportBudgetHints" class="activity-import-budget-hints"></div>
                     </div>
-                    <div class="activity-import-format">
-                        <div class="activity-import-format-title">Abbreviations</div>
+                    <details class="activity-import-format abbreviations-card"><summary class="activity-import-format-title">Abbreviations</summary>
                         <div class="activity-import-abbrev-grid">
                             <div class="activity-import-abbrev-item"><span>FE</span><strong>Fixed expense</strong></div>
                             <div class="activity-import-abbrev-item"><span>EE</span><strong>Expected expense</strong></div>
                             <div class="activity-import-abbrev-item"><span>EI</span><strong>Expected income</strong></div>
                             <div class="activity-import-abbrev-item"><span>UI</span><strong>Unexpected income</strong></div>
                         </div>
-                    </div>
+                    </details>
                 </section>
             </section>
 

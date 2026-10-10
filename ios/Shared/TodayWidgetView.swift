@@ -59,12 +59,14 @@ struct TodayWidgetView: View {
         HStack(spacing: small ? 5 : 8) {
             RoundedRectangle(cornerRadius: 2).fill(tint).frame(width: 3)
             VStack(alignment: .leading, spacing: small ? 1 : 3) {
-                Text(small && job.id == "iron" ? "Iron Peak" : job.name)
-                    .font(.system(size: small ? 12 : large ? 16 : 12, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
-                Text(job.status == "off" ? "No shift" : job.timeLabel).font(.system(size: small ? 10 : large ? 13 : 12)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.65)
+                HStack(spacing: 6) {
+                    Text(small && job.id == "iron" ? "Iron Peak" : job.name)
+                        .font(.system(size: small ? 12 : 15, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                    if !small { Spacer(minLength: 0); amount(job, color: tint) }
+                }
+                Text(job.status == "off" ? "No shift" : job.timeLabel).font(.system(size: small ? 12 : 15, weight: .medium)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
                 if small { amount(job, color: tint) }
             }
-            if !small { Spacer(minLength: 2); amount(job, color: tint) }
         }
         .frame(maxWidth: .infinity, maxHeight: small || large ? .infinity : nil, alignment: .leading)
         .padding(.vertical, small ? 2 : 5).padding(.horizontal, small ? 4 : 8)

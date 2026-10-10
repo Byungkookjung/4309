@@ -524,3 +524,56 @@ body.ledger-body, body.sheet-body[data-job] {
     30% { transform: rotate(-8deg); }
     65% { transform: rotate(6deg); }
 }
+
+/* Seven readable columns on phones; keep the detail panel below the calendar. */
+@media (max-width: 760px) {
+    #sheetCalendarCard { padding: 12px; }
+    .sheet-calendar { gap: 4px; padding: 6px; }
+    .sheet-calendar .calendar-day-header {
+        min-width: 0;
+        padding: 6px 0;
+        font-size: 11px;
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow-wrap: normal;
+    }
+    .sheet-calendar .calendar-day,
+    .sheet-calendar .calendar-day.empty {
+        min-height: 72px;
+        padding: 6px 1px;
+        gap: 4px;
+        border-radius: 8px;
+        align-items: center;
+    }
+    .sheet-calendar .day-number { font-size: 13px; line-height: 1.4; }
+    .sheet-calendar .work-calendar-hours {
+        font-size: clamp(9px, 2.7vw, 12px);
+        letter-spacing: -0.03em;
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow-wrap: normal;
+        font-variant-numeric: tabular-nums;
+    }
+    .sheet-calendar .calendar-hour-unit { display: none; }
+    .sheet-calendar .calendar-day.today::after {
+        content: '';
+        width: 6px;
+        height: 6px;
+        min-height: 6px;
+        padding: 0;
+        align-self: center;
+        flex-shrink: 0;
+    }
+    .sheet-calendar-grid.detail-open { grid-template-columns: minmax(0, 1fr); }
+    .sheet-calendar-month { min-width: 0; overflow-wrap: normal; }
+    .sheet-calendar-nav { flex-wrap: wrap; gap: 8px; }
+    #selectedDayCard .work-item-head { flex-wrap: wrap; gap: 8px; }
+}
+
+/* Compact cat-themed navigation and inline Activity submission. */
+.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%);white-space:nowrap!important;border:0!important}
+#activityForm .activity-shared-field{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#activityForm .activity-shared-field .checkbox-label{margin:0;min-height:44px;display:flex;align-items:center}
+#addActivityBtn{min-width:48px;min-height:48px;padding:10px;justify-content:center;font-size:22px}
+.abbreviations-card summary{cursor:pointer;min-height:44px;display:list-item;padding:10px 0}
+.app-header .header-actions{gap:8px;flex-wrap:wrap}

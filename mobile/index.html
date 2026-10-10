@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#eaf6fd">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pocket Paws">
+  <title>Pocket Paws - My day</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="../cat-mascot.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+<main>
+  <header class="topbar"><div><p class="eyebrow">A LITTLE ROOM FOR YOUR DAY</p><h1>Pocket Paws<span class="dot">.</span></h1></div><img src="../cat-mascot.svg" alt="" width="56" height="56"></header>
+  <section id="welcome" class="card welcome">
+    <p class="eyebrow">WORK. MONEY. A LITTLE MEOW.</p><h2>Your day, in your pocket.</h2>
+    <p>Both jobs and your ledger, together.</p>
+    <button id="signIn" class="primary">Continue with Google</button>
+    <button id="preview" class="quiet">Take a peek with sample data</button>
+  </section>
+  <div class="syncbar"><span id="syncStatus" role="status">Connecting...</span><button id="refresh" aria-label="Sync now" disabled>↻ <span>Sync</span></button></div>
+  <div id="dashboard" hidden>
+    <p id="sampleBadge" class="sample" hidden>Sample only. Not your records.</p>
+    <section class="card work">
+      <div class="section-head"><h2>Your shifts</h2><span id="dayLabel" class="muted"></span></div>
+      <div class="day-tabs" role="group" aria-label="Shift day"><button id="today" aria-pressed="true">Today</button><button id="tomorrow" aria-pressed="false">Tomorrow</button></div>
+      <div id="jobs" class="jobs"></div><p class="fine">Estimated CAD · Before tips &amp; deductions</p>
+    </section>
+    <section class="card today-tasks">
+      <div class="section-head"><h2>Today's tasks</h2><a href="planner.html" class="planner-link" aria-label="Open todo calendar">📝</a></div>
+      <p id="todayTaskStatus" class="muted"></p><ul id="todayTaskList" class="today-task-list"></ul>
+    </section>
+    <section class="card money">
+      <div class="section-head"><div><p id="monthLabel" class="eyebrow"></p><h2>Monthly money</h2></div><span id="mood" class="mood" role="img"></span></div>
+      <div class="money-row spent"><span>Spent</span><strong id="spent">—</strong></div>
+      <div class="money-row earned"><span>Earned</span><strong id="earned">—</strong></div>
+    </section>
+    <section class="card recovery">
+      <div class="section-head"><h2>Earn it back</h2><img src="../cat-paw.svg" width="20" height="20" alt=""></div>
+      <div class="clock-layout"><div class="cat-clock"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="track" cx="60" cy="64" r="49"/><circle id="progress" cx="60" cy="64" r="49" pathLength="100"/></svg><img src="../cat-mascot.svg" alt="" width="110" height="110"></div><div class="clock-value"><p id="workStatus" class="eyebrow"></p><strong id="timer">—</strong><span class="units">hours : minutes : seconds</span><p id="progressLabel"></p></div></div>
+      <p id="tip" class="tip"></p>
+    </section>
+  </div>
+  <details class="install card"><summary>Keep me on your home screen</summary><p>In iPhone Chrome: tap Share, then Add to Home Screen. Turn on Open as Web App if offered, then tap Add.</p><p>Updates when open or when you return. No guaranteed background or midnight refresh.</p><button id="installButton" hidden>Add to home screen</button></details>
+  <button id="signOut" class="quiet" hidden>Sign out</button>
+  <noscript><p>Enable JavaScript to view your dashboard.</p></noscript>
+</main>
+<nav class="bottom-nav" aria-label="Main"><a href="./" aria-current="page" aria-label="My day" title="My day">🐾</a><a href="planner.html" aria-label="Todo calendar" title="Todo calendar">📝</a><a href="../index.html" aria-label="Work sheet" title="Work sheet">🗓️</a><a href="../ledger.html" aria-label="Ledger" title="Ledger">💰</a></nav>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="auth-loader.js"></script><script src="../widget-data.js"></script><script src="model.js"></script><script src="planner-model.js"></script><script src="mobile.js"></script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+.planner-status{font-size:14px;color:var(--muted);margin:12px 0;min-height:22px}.month-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}.month-nav h2{text-align:center;min-width:0}.month-nav button{flex:none;width:44px;padding:6px}.planner-calendar{padding:16px 12px}.planner-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.planner-grid .weekday{text-align:center;padding:8px 0;font-size:12px;font-weight:800}.planner-grid button{position:relative;min-width:0;min-height:51px;padding:6px 1px 12px;border:1px solid transparent;border-radius:12px;font-size:16px;line-height:1.4;font-variant-numeric:tabular-nums}.planner-grid .weekend,.planner-grid .holiday,.holiday{color:#ad4155}.planner-grid .optional,.optional{color:#89601a}.planner-grid [aria-current=date]{border-color:#76b8e0}.planner-grid [aria-pressed=true]{background:#d8efff;border-color:#6cadd5;font-weight:900}.planner-grid .has-tasks::after{content:'';width:5px;height:5px;border-radius:50%;background:#4386b0;position:absolute;bottom:5px;left:calc(50% - 2.5px)}.calendar-key{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:16px;font-size:11px;color:var(--muted)}.task-list{list-style:none;padding:0;margin:12px 0;display:grid;gap:10px}.task-item{display:grid;grid-template-columns:44px minmax(0,1fr);gap:6px 10px;align-items:start;border:1px solid var(--line);border-radius:16px;padding:10px}.task-title{font-size:17px;font-weight:800;overflow-wrap:anywhere;padding-top:8px}.task-item.done .task-title{text-decoration:line-through;color:var(--muted)}.task-check{width:44px;padding:8px;font-size:20px}.task-item.done .task-check{background:#def2ff}.task-actions{grid-column:2;display:flex;gap:6px;flex-wrap:wrap}.task-actions button{min-width:44px;padding:6px;font-size:18px}.task-kind{font-size:12px;color:var(--muted);font-weight:600;display:block;text-decoration:none}.routine-item{grid-template-columns:minmax(0,1fr) auto}.routine-item .task-actions{grid-column:auto}.empty-plan{padding:18px 8px;color:var(--muted);text-align:center;font-size:15px}.holiday-name{border-radius:12px;background:#fff0f2;padding:8px 12px;margin-bottom:8px;font-size:14px;overflow-wrap:anywhere}.holiday-name.optional{background:#fff5df}.day-plan>#addTask{width:100%}#plannerLogin{display:grid;gap:12px}#taskEditor{margin:auto;width:min(460px,calc(100% - 24px));max-height:calc(100dvh - 32px);overflow-y:auto;border:1px solid var(--line);border-radius:24px;padding:22px;color:var(--ink);background:#fbfdff}#taskEditor::backdrop{background:#25475d77}#taskForm{display:grid;gap:16px}#taskForm label{display:grid;gap:8px;font-size:15px;font-weight:700}#taskForm input{font:inherit;font-size:16px;min-width:0;width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);padding:12px;background:#fff;color:var(--ink)}#taskForm fieldset{border:0;padding:0;min-width:0}#taskForm legend{margin-bottom:8px;font-weight:800}.weekday-choices{display:flex;flex-wrap:wrap;gap:6px}.weekday-choices button{min-width:44px;padding:8px}.weekday-choices [aria-pressed=true]{background:#d8efff;border-color:#6cadd5}#editorError{color:#ad4155;font-size:14px}.routine-item .task-title{padding-top:0}.routine-item .task-actions{flex-direction:column}#taskEditor .section-head{margin:0}#closeEditor{font-size:22px;padding:6px;width:44px}
+
+.category-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:20px;background:#eef5fa;padding:6px 10px 6px 16px;color:var(--category-color)}
+.category-heading h3{font-size:17px;line-height:1.5;min-width:0;overflow-wrap:anywhere;margin:0}
+.category-heading button{flex:none;min-width:44px;min-height:44px;padding:6px;font-size:23px}
+.category-group{min-width:0;margin:8px 0}
+.category-group .task-check{color:var(--category-color);border-color:var(--category-color)}
+.category-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px;border:1px solid var(--line);border-radius:16px}
+.category-row strong{flex:1 1 120px;min-width:0;overflow-wrap:anywhere;font-size:17px;line-height:1.5}
+.category-row button{flex:none;min-width:44px;min-height:44px;padding:6px}
+#categoryEditor{margin:auto;width:min(460px,calc(100% - 24px));max-height:calc(100dvh - 32px);overflow-y:auto;border:1px solid var(--line);border-radius:24px;padding:22px;color:var(--ink);background:#fbfdff}
+#categoryEditor::backdrop{background:#25475d77}
+#categoryForm{display:grid;gap:16px}
+#categoryForm label{display:grid;gap:8px;font-size:15px;font-weight:700}
+#categoryForm input,#categoryForm select,#taskForm select{font:inherit;font-size:16px;min-width:0;width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);padding:12px;background:#fff;color:var(--ink)}
+#categoryError{color:#ad4155;font-size:14px}
+#closeCategory{min-width:44px;min-height:44px;padding:6px;font-size:22px}
+.color-picker{border:0;padding:0;margin:0;min-width:0}
+.color-picker legend{font-size:15px;font-weight:700;margin-bottom:12px}
+.color-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-items:center;gap:16px 12px}
+#categoryForm .color-choice{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;width:64px;cursor:pointer;text-align:center}
+#categoryForm .color-choice input{position:absolute;top:0;left:8px;width:48px;height:48px;min-height:48px;margin:0;padding:0;opacity:0;cursor:pointer}
+.color-swatch{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:var(--swatch);border:3px solid #fff;box-shadow:0 0 0 1px var(--line);pointer-events:none}
+.color-choice input:checked+.color-swatch{box-shadow:0 0 0 3px var(--swatch)}
+.color-choice input:checked+.color-swatch::after{content:'✓';color:#fff;text-shadow:0 1px 3px #172c3b88;font-size:24px;font-weight:900}
+.color-choice input:focus-visible+.color-swatch{outline:3px solid var(--ink);outline-offset:5px}
+.color-name{font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.category-heading{background:color-mix(in srgb,var(--category-color) 12%,white)}
+#repeatFields>label{margin-bottom:14px}
+.month-choices{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:14px 0}
+.month-choices button{min-width:0;min-height:44px;padding:4px;font-size:15px}
+.month-choices [data-month-day=last]{grid-column:span 4}
+.month-choices [aria-pressed=true]{background:#d8efff;border-color:#6cadd5}
+#weekdayChoices[hidden],#monthChoices[hidden]{display:none}
+.task-drag{touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;font-size:24px!important;min-width:44px;min-height:44px}
+.task-drag:active{cursor:grabbing}
+.task-item.dragging{opacity:.5}
+.category-group.drop-target{outline:3px dashed var(--category-color);outline-offset:4px;border-radius:20px;background:#edf8ff}
+.drag-ghost{position:fixed;z-index:1000;pointer-events:none;max-width:min(240px,calc(100vw - 24px));padding:12px 16px;border:2px solid #70b5df;border-radius:16px;background:#fff;color:#24475c;box-shadow:0 8px 28px #25475d33;font-size:16px;line-height:1.5;overflow-wrap:anywhere}
+
+/* A compact task list: aligned content, quiet tools, and consistent touch targets. */
+.day-plan .category-group{margin:4px 0 14px;container-type:inline-size}
+.day-plan .category-heading{padding:4px 4px 4px 14px;border-radius:14px;gap:8px}
+.day-plan .category-heading h3{font-size:15px;font-weight:800;color:color-mix(in srgb,var(--category-color) 65%,#172c3b)}
+.day-plan .category-heading button{background:transparent;border:0;border-radius:11px;box-shadow:none;font-size:22px}
+.day-plan .category-group>.task-list{margin:8px 0 0;gap:6px}
+.day-plan .task-item{grid-template-columns:44px minmax(0,1fr);align-items:center;gap:0 8px;padding:8px 10px;border:1px solid #e1edf4;border-radius:14px;background:linear-gradient(110deg,#fff,#fafdff)}
+.day-plan .task-title{padding:0;font-size:16px;font-weight:700;line-height:1.65;min-width:0;overflow-wrap:anywhere}
+.day-plan .task-kind{font-size:11px;line-height:1.5;margin-top:2px;font-weight:600}
+.day-plan .task-check{position:relative;display:grid;place-items:center;border:0;background:none;box-shadow:none;width:44px;height:44px;min-height:44px;padding:0;font-size:0;border-radius:12px}
+.day-plan .task-check::before{content:'';width:23px;height:23px;border:1.5px solid color-mix(in srgb,var(--category-color) 60%,white);border-radius:8px;background:#fff}
+.day-plan .task-check[aria-pressed=true]::before{content:'✓';display:grid;place-items:center;background:var(--category-color);border-color:var(--category-color);color:#fff;font-size:17px;font-weight:900}
+.day-plan .task-item.done{background:#f5f9fc}
+.day-plan .task-actions{grid-column:2;display:flex;flex-direction:row;justify-content:flex-end;gap:2px;margin:0}
+.day-plan .task-actions button{display:grid;place-items:center;width:44px;min-width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:10px;background:transparent;box-shadow:none;font-size:17px;color:#678498}
+.day-plan .task-actions button:hover,.day-plan .category-heading button:hover{background:#eaf3f9}
+.day-plan .task-actions button:focus-visible,.day-plan .task-check:focus-visible{outline:2px solid #367aa0;outline-offset:2px}
+.day-plan>#addTask{margin-top:4px;min-height:48px;border-radius:14px}
+@container (min-width:360px){
+ .day-plan .task-item{grid-template-columns:44px minmax(0,1fr) 136px}
+ .day-plan .task-actions{grid-column:3;grid-row:1}
+}
+
+/* Shared planner rows and centered controls. */
+.day-plan,.categories,.routines{padding:16px}
+.day-plan>.section-head,.categories>.section-head,.routines>.section-head{margin-bottom:8px;align-items:center}
+#taskProgress{margin:4px 0 10px}
+.day-plan .category-group{margin:0 0 8px}
+.task-list{gap:6px;margin:8px 0}
+#categoryList .category-row,#routineList .routine-item{
+ display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
+ gap:8px;padding:8px 10px;border:1px solid #e1edf4;border-radius:14px;
+ background:linear-gradient(110deg,#fff,#fafdff);min-width:0
+}
+#categoryList .category-row strong,#routineList .task-title{
+ padding:0;margin:0;font-size:16px;font-weight:700;line-height:1.65;overflow-wrap:anywhere;min-width:0
+}
+#categoryList .task-actions,#routineList .task-actions{
+ grid-column:auto;display:flex;flex-direction:row;justify-content:flex-end;align-items:center;gap:2px;margin:0
+}
+#categoryList button,#routineList .task-actions button,.categories>.section-head button,.routines>.section-head button{
+ display:grid;place-items:center;flex:none;width:44px;height:44px;min-width:44px;min-height:44px;
+ padding:0;border:0;border-radius:10px;background:transparent;box-shadow:none;color:#678498
+}
+#categoryList button:hover,#routineList .task-actions button:hover{background:#eaf3f9}
+.task-actions svg{display:block;pointer-events:none}
+.day-plan .task-check{align-self:center;line-height:1}
+.day-plan .task-check::before{box-sizing:border-box;margin:0;line-height:1}
+.day-plan .task-title{align-self:center}
+#routineList .task-kind{font-size:11px;line-height:1.5;margin-top:2px}
+.categories .empty-plan,.routines .empty-plan{padding:8px}
+
+.day-plan .task-item{grid-template-columns:44px minmax(0,1fr) 44px;gap:8px;padding:8px}
+.day-plan .task-actions{grid-column:3;grid-row:1;justify-content:center}
+.day-plan button.task-open{display:block;text-align:left;padding:4px 0;min-height:44px;border:0;background:none;box-shadow:none;border-radius:6px;font:inherit;font-size:16px;font-weight:700;line-height:1.65;white-space:normal;color:var(--ink)}
+.day-plan .task-open:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#taskMenu{position:fixed;inset:auto 0 0;margin:0 auto;width:min(100%,500px);max-height:85dvh;overflow-y:auto;border:1px solid var(--line);border-bottom:0;border-radius:26px 26px 0 0;padding:12px 20px calc(20px + env(safe-area-inset-bottom));background:#fbfdff;color:var(--ink)}
+#taskMenu::backdrop{background:#17374b70}
+.sheet-grip{width:36px;height:4px;border-radius:4px;background:#c3d8e5;margin:0 auto 16px}
+#taskMenu .section-head{margin:0 0 8px;align-items:center}
+#taskMenuTitle{font-size:19px;min-width:0;overflow-wrap:anywhere;line-height:1.5}
+#closeTaskMenu{flex:none;width:44px;min-height:44px;padding:0;font-size:24px;border:0;background:none}
+.task-menu-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:16px}
+.task-menu-actions button{min-height:52px;padding:12px;white-space:normal;line-height:1.5;background:#edf6fc;border:0;border-radius:14px}
+.task-menu-actions .danger{color:#ae485b;background:#fff0f2}
+#menuRoutine{grid-column:1/-1}
+#moveDateForm{margin-top:16px}
+#moveDateForm label{display:grid;gap:8px}
+#moveDate{width:100%;min-width:0;min-height:48px;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px}
+#taskMenuError{color:#ae485b;font-size:14px;margin-top:8px}
+
+.day-plan .task-check[aria-pressed=true]::before{content:'';background:var(--category-color);border:0;border-radius:0;mask:url('../cat-paw.svg') center/contain no-repeat;-webkit-mask:url('../cat-paw.svg') center/contain no-repeat}

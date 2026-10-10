@@ -637,35 +637,9 @@ function renderActivityMonthPicker() {
 }
 
 function buildColorPalette(count) {
-    const vividBaseColors = [
-        '#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5', '#3949ab', '#8e24aa', '#00acc1', '#f4511e', '#7cb342',
-        '#7cb342', '#d81b60', '#00897b', '#5e35b1', '#c0ca33', '#6d4c41', '#039be5', '#ef6c00',
-        '#546e7a', '#fdd835', '#8d6e63', '#00c853', '#ff4081', '#00b8d4', '#ff6d00', '#aa00ff',
-        '#304ffe', '#00bfa5', '#aeea00', '#ff1744', '#00e5ff', '#ff9100', '#651fff', '#64dd17',
-        '#c51162', '#0091ea', '#ffd600', '#6200ea', '#00e676', '#ff3d00', '#2962ff', '#ffab00',
-        '#d500f9', '#00c853', '#ff5252', '#18ffff', '#76ff03', '#ff6e40', '#3d5afe', '#ffea00',
-        '#ec407a', '#26c6da', '#9ccc65', '#ffa726', '#ab47bc', '#5c6bc0', '#26a69a', '#ef5350',
-        '#42a5f5', '#66bb6a', '#ffee58', '#8d6e63', '#78909c', '#ec407a', '#29b6f6', '#9ccc65'
-    ];
-    const colors = [...vividBaseColors];
-    if (count <= colors.length) {
-        return colors.slice(0, count);
-    }
-
-    const hueSteps = [0, 180, 90, 270, 45, 225, 135, 315, 20, 200, 110, 290, 65, 245, 155, 335];
-    const lightnessSteps = [46, 60, 38, 68];
-    const saturationSteps = [92, 84, 76];
-
-    let index = 0;
-    while (colors.length < count) {
-        const hue = hueSteps[index % hueSteps.length] + Math.floor(index / hueSteps.length) * 11;
-        const lightness = lightnessSteps[Math.floor(index / hueSteps.length) % lightnessSteps.length];
-        const saturation = saturationSteps[Math.floor(index / (hueSteps.length * lightnessSteps.length)) % saturationSteps.length];
-        colors.push(`hsl(${hue % 360}, ${saturation}%, ${lightness}%)`);
-        index += 1;
-    }
-
-    return colors.slice(0, count);
+    const colors = ['#9DD8F5', '#C7B5ED', '#A9DDCB', '#F4AFBB', '#F6C49D',
+        '#F2DF9D', '#ACBDEB', '#D3DCA3', '#E6BADE', '#A8DDE0'];
+    return Array.from({length: count}, (_, index) => colors[index % colors.length]);
 }
 
 function ensureColorPalette() {
@@ -817,7 +791,9 @@ function resetActivityForm() {
     if (activitySourceTypeSelect) activitySourceTypeSelect.value = PLAN_TYPES.expected;
     if (activityLinkedItemSelect) activityLinkedItemSelect.innerHTML = '';
     if (addActivityBtnText) addActivityBtnText.textContent = 'Add entry';
-    if (addActivityBtnIcon) addActivityBtnIcon.textContent = '+';
+    document.getElementById('addActivityBtn')?.setAttribute('aria-label','Add entry');
+    document.getElementById('addActivityBtn')?.setAttribute('title','Add entry');
+    if (addActivityBtnIcon) addActivityBtnIcon.textContent = '🐾';
     if (cancelActivityEditBtn) cancelActivityEditBtn.classList.add('hidden');
     updateActivitySourceControls();
     syncActivitySharedControls();
@@ -838,6 +814,8 @@ function enterActivityEditMode(id) {
     if (activityDetailInput) activityDetailInput.value = entry.detail || '';
     if (activitySharedInput) activitySharedInput.checked = Boolean(entry.isShared);
     if (addActivityBtnText) addActivityBtnText.textContent = 'Update entry';
+    document.getElementById('addActivityBtn')?.setAttribute('aria-label','Update entry');
+    document.getElementById('addActivityBtn')?.setAttribute('title','Update entry');
     if (addActivityBtnIcon) addActivityBtnIcon.textContent = '\u270E';
     if (cancelActivityEditBtn) cancelActivityEditBtn.classList.remove('hidden');
     syncActivitySharedControls();
