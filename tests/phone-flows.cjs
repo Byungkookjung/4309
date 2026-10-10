@@ -18,6 +18,14 @@ const base=process.env.MOBILE_TEST_URL || 'http://localhost:8000';
    localStorage.setItem('ledgerBalances',JSON.stringify({checking:1234,saving:5678,etc:99}));
    localStorage.setItem('ledgerActivity',JSON.stringify([{id:'long',date:key(1),type:'expense',amount:999999.99,reason:'Long title 한국어 '+ 'verylongword'.repeat(15),detail:'https://example.com/'+ 'longurl'.repeat(30)}]));
  });
+ async function checkHeader(page,width){
+ const layout=await page.locator('.page-header').evaluate(header=>{
+  const links=[...header.querySelectorAll('.header-actions:not(.header-actions-right) .icon-btn')].map(e=>e.getBoundingClientRect());
+  const logout=header.querySelector('#logoutBtn').getBoundingClientRect(),title=header.querySelector('h1').getBoundingClientRect();
+  return {sameRow:links.every(r=>Math.abs(r.y-logout.y)<1),adjacent:Math.abs(links[1].x-links[0].right-8)<1,below:title.top>=logout.bottom,right:logout.left>links[1].right};
+ });
+ assert.deepEqual(layout,{sameRow:true,adjacent:true,below:true,right:true},'header alignment '+width);
+}
  const page=await context.newPage(); const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(base+'/mobile/');await page.locator('#preview').tap();
  await page.getByRole('link',{name:'Work sheet'}).tap();await page.waitForURL('**/index.html');
@@ -26,6 +34,7 @@ assert.equal(await page.getByRole('link',{name:'Home widgets'}).getAttribute('hr
 assert.equal(await page.locator('#logoutBtn').getAttribute('aria-label'),'Log out');
 for(const width of [320,375,390,430,768,1024,1440,1920]){
    await page.setViewportSize({width,height:844});await page.waitForTimeout(350);
+   await checkHeader(page,width);
    await page.locator('#sheetCalendar').scrollIntoViewIfNeeded();
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,engine+' page overflow '+width);
    const bad=await page.locator('#sheetCalendar').evaluate(cal=>[...cal.querySelectorAll('.calendar-day-header,.work-calendar-hours')].filter(el=>{
@@ -59,6 +68,7 @@ for(const width of [320,375,390,430,768,1024,1440,1920]){
  await page.goto(base+'/index.html?job=iron');await page.locator('#sheetCalendar').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
  await page.goto(base+'/mobile/');await page.getByRole('link',{name:'Ledger'}).tap();await page.waitForURL('**/ledger.html');
  for(const width of [320,390,430,768,1024,1440,1920]){await page.setViewportSize({width,height:844});await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,engine+' ledger width '+width);
+ await checkHeader(page,width);
  const alignment=await page.evaluate(()=>{
   const a=document.querySelector('.activity-shared-field .checkbox-label').getBoundingClientRect(),b=document.querySelector('#addActivityBtn').getBoundingClientRect();
   const icons=[...document.querySelectorAll('.app-header .icon-btn')].map(e=>e.getBoundingClientRect()).filter(r=>r.width&&r.height);
