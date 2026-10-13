@@ -246,7 +246,21 @@ October 2026 companion/theme validation:
 
 ## Notes
 
+### Scriptable Widgets
+
+- `scriptable/Pocket Paws.js` is a standalone iPhone Scriptable script. Add it to two widgets with parameters `work` and `todo`.
+- Work shows today's Iron Peak and Booster Juice shifts and estimated CAD pay using each job's saved settings. Todo includes today's tasks and routine occurrences, with incomplete items first. Dates use Edmonton time.
+- Open `/scriptable/` for installation instructions. Deploy the new connection page before connecting from an iPhone; the script opens the production site.
+- Pairing uses encrypted credentials saved in Scriptable Keychain, not a public data feed. The script reads data only, but its Firebase credential retains account permissions. Disconnect clears local credentials and caches, not remote sessions.
+- iOS controls refresh timing. Same-day cached data is labeled Offline; old-day records are not displayed as today's data. Tapping a widget opens the corresponding website.
+- Rebuild after source changes: `node scriptable/build.cjs`. Details: [Scriptable setup](scriptable/README.md).
+- Validation: 17 Node tests passed, including encrypted pairing, calculations, recurrence, token rotation, mocked widget rendering and offline behavior. The setup page passed 320/390/768/1440px overflow checks in Chrome and WebKit; both engines passed encryption round-trips. Actual Scriptable layout, local WebView cryptography, Google login and background refresh still require a physical iPhone check.
+
 ### Personal Todo Calendar
+
+- Within each category, unfinished tasks appear before completed tasks; completion never creates a separate category. New-task creation uses the selected calendar date, with Add pinned to the editor header. Date changes remain available in task actions and editing; routine start/end dates remain editable.
+- The ledger and work-sheet Home buttons open `/mobile/planner.html`.
+- Latest local validation: 20 Node tests and the Chrome/WebKit planner UI suite passed, including category-local completion ordering and the simplified creation form. Scriptable code updates still require replacing the installed iPhone script; deploying the website updates only hosted assets.
 
 - Task cards open a bottom action sheet: edit, delete, move to tomorrow (Edmonton), choose a date, or convert to a routine. Conversion is an atomic write; moving a routine occurrence leaves its other dates unchanged. Routine deletion removes the entire routine, as indicated in the menu.
 - Todo and shift calendars start on Monday. Completed tasks show a cat paw, and routines sort by category with category labels.

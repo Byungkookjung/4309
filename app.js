@@ -41,6 +41,18 @@ let combinedPayoutMonth = isoDate(new Date()).slice(0, 7);
 let weekBlockOffset = 0;
 let currentCalendarMonth = new Date();
 let selectedCalendarDate = null;
+const openToday = new URLSearchParams(window.location.search).get('date') === 'today';
+function selectWidgetToday() {
+    const parts = new Intl.DateTimeFormat('en-CA', {timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+    const part = type => parts.find(p => p.type === type).value;
+    selectedCalendarDate = `${part('year')}-${part('month')}-${part('day')}`;
+    currentCalendarMonth = new Date(selectedCalendarDate + 'T12:00:00');
+    weekBlockOffset = 0;
+}
+if (openToday) selectWidgetToday();
+window.addEventListener('pageshow', event => {
+    if (openToday && event.persisted) { selectWidgetToday(); renderAll(); }
+});
 let isEditingRate = false;
 let editingPayoutId = null;
 

@@ -13,7 +13,7 @@ await page.goto(base+'/mobile/planner.html');await page.waitForFunction(()=>!doc
 await page.locator('#addCategory').tap();await page.locator('#categoryName').fill('Home & cats');await page.getByRole('radio',{name:'Lilac',exact:true}).check();await page.locator('#saveCategory').tap();await page.waitForFunction(()=>!document.querySelector('#categoryEditor').open);
 await page.getByRole('button',{name:'Add task to Home & cats',exact:true}).tap();
 assert.notEqual(await page.locator('#taskCategory').inputValue(),'');
-await page.locator('#taskTitle').fill('A long task 한국어 https://example.com/'+ 'longword'.repeat(18));await page.locator('#taskDate').fill('2026-10-12');await page.locator('#saveTask').tap();await page.waitForFunction(()=>!document.querySelector('#taskEditor').open);
+await page.locator('#taskTitle').fill('A long task 한국어 https://example.com/'+ 'longword'.repeat(18));assert.equal(await page.locator('#taskDate').isVisible(),false);assert.equal(await page.locator('#taskDate').inputValue(),'2026-10-12');assert.equal(await page.locator('#saveTask').textContent(),'Add');await page.locator('#saveTask').tap();await page.waitForFunction(()=>!document.querySelector('#taskEditor').open);
 assert.match(await page.locator('#holidayNames').textContent(),/Thanksgiving/);assert.equal(await page.locator('#taskList .task-item').count(),1);
 await page.locator('#taskList .task-check').tap();assert.match(await page.locator('#taskProgress').textContent(),/1 of 1/);
 await page.locator('#taskList .task-open').tap();await page.locator('#menuEdit').tap();await page.locator('#taskTitle').fill('Updated task');await page.locator('#saveTask').tap();await page.waitForFunction(()=>!document.querySelector('#taskEditor').open);assert.match(await page.locator('#taskList').textContent(),/Updated task/);
@@ -104,6 +104,9 @@ assert.equal(await page.evaluate(()=>Object.values(store.personalTasks)[0].date)
 await page.locator('#taskList .task-open').tap();await page.locator('#menuDate').tap();await page.locator('#moveDate').fill('2026-10-15');await page.locator('#saveMoveDate').tap();
 await page.waitForFunction(()=>!document.querySelector('#taskMenu').open);
 assert.equal(await page.evaluate(()=>Object.values(store.personalTasks)[0].date),'2026-10-15');
+if(await page.locator('#taskList .task-check').getAttribute('aria-pressed')==='false'){await page.locator('#taskList .task-check').tap();await page.waitForFunction(()=>document.querySelector('#taskList .task-check').getAttribute('aria-pressed')==='true');}
+assert.equal(await page.locator('#taskList .category-group .task-item.done').count(),1);
+assert.equal(await page.locator('#taskList .completed-group').count(),0);
 await page.locator('#taskList .task-open').tap();await page.locator('#menuRoutine').tap();
 await page.locator('#closeEditor').tap();
 assert.equal(await page.evaluate(()=>Object.keys(store.personalTasks).length),1);
@@ -126,6 +129,17 @@ await page.locator('[data-date="2026-10-17"]').tap();assert.equal(await page.loc
 await page.locator('#taskList .task-open').tap();await page.locator('#menuDelete').tap();
 await page.waitForFunction(()=>!document.querySelector('#taskMenu').open);
 assert.equal(await page.locator('#taskList .task-item').count(),0);
+
+await page.evaluate(()=>{
+ store.personalTasks={done:{title:'A completed',date:'2026-10-17',completed:true},pending:{title:'Z unfinished',date:'2026-10-17',completed:false}};
+ emit('personalTasks');
+});
+await page.waitForFunction(()=>document.querySelectorAll('#taskList .task-item').length===2);
+assert.deepEqual(await page.locator('#taskList .category-group .task-check').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('aria-pressed'))),['false','true']);
+assert.equal(await page.locator('#taskList .completed-group').count(),0);
+await page.getByRole('button',{name:'Mark incomplete: A completed',exact:true}).tap();
+await page.waitForFunction(()=>document.querySelectorAll('#taskList .task-item.done').length===0);
+assert.equal(await page.locator('#taskList .category-group .task-item').count(),2);
 await page.locator('#plannerSignOut').tap();assert.equal(await page.locator('#plannerLogin').isVisible(),true);assert.equal(await page.locator('#taskList .task-item').count(),0);assert.equal(await page.locator('#addTask').isDisabled(),true);
 assert.deepEqual(errors,[]);console.log(name,'CRUD, date-specific routines, holidays, overflow, failure, account isolation PASS');await browser.close();
 }})().catch(e=>{console.error(e);process.exit(1)});

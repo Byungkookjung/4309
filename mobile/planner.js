@@ -2,6 +2,11 @@
     const $ = id => document.getElementById(id), model = PlannerModel;
     const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     let selected = MobileModel.dayKey(new Date()), month = selected.slice(0,7);
+    window.addEventListener('pageshow', event => {
+        if (event.persisted && new URLSearchParams(location.search).get('date') === 'today') {
+            selected = MobileModel.dayKey(new Date()); month = selected.slice(0,7); render();
+        }
+    });
     let user = null, owner = null, tasks = [], routines = [], checks = [], unsub = [];
     let ready = false, busy = false, epoch = 0, editing = null;
     const dialog = $('taskEditor');
@@ -181,8 +186,9 @@
             const list=document.createElement('ul');list.className='task-list';group.append(head,list);groups.set(category.id,list);
             $('taskList').append(group);
         }
-        for(const item of entries){
+        for(const item of [...entries].sort((a,b)=>Number(!!a.completed)-Number(!!b.completed))){
             const li=document.createElement('li');li.className='task-item'+(item.completed?' done':'');
+            li.style.setProperty('--category-color',categoryColor(categoryOptions().find(c=>c.id===resolvedCategory(item.categoryId))));
             const check=mutateButton(item.completed?'🐾':'○',(item.completed?'Mark incomplete: ':'Complete: ')+item.title,()=>toggle(item));check.textContent='';check.className='task-check';check.setAttribute('aria-pressed',String(!!item.completed));
             const title=mutateButton(item.title,'Task options: '+item.title,()=>openTaskMenu(item));title.className='task-title task-open';
             if(item.kind==='routine'){const tag=document.createElement('span');tag.className='task-kind';tag.textContent='Repeating routine';title.append(tag);}
@@ -221,6 +227,8 @@
     function openEditor(kind,item=null,categoryId=''){
         if(!ready||busy)return;editing={kind,id:item?.id||null};$('editorTitle').textContent=(item?'Edit ':'New ')+(kind==='routine'?'routine':'task');
         $('taskTitle').value=item?.title||'';$('taskDate').value=(kind==='routine'?item?.startDate:item?.date)||selected;
+        $('taskDate').closest('label').hidden=kind==='task'&&!item;
+        $('saveTask').textContent=item?.id?'Save':'Add';
         $('taskCategory').replaceChildren();
         for(const category of categoryOptions()){const option=document.createElement('option');option.value=category.id;option.textContent=category.name;$('taskCategory').append(option);}
         const chosen=item?.categoryId||categoryId;$('taskCategory').value=resolvedCategory(chosen);

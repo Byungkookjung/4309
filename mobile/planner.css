@@ -110,3 +110,9 @@
 #taskMenuError{color:#ae485b;font-size:14px;margin-top:8px}
 
 .day-plan .task-check[aria-pressed=true]::before{content:'';background:var(--category-color);border:0;border-radius:0;mask:url('../cat-paw.svg') center/contain no-repeat;-webkit-mask:url('../cat-paw.svg') center/contain no-repeat}
+
+/* Keep submission reachable above the keyboard and while scrolling routines. */
+#taskEditor .section-head{position:sticky;top:0;z-index:2;background:var(--card,#fff);padding:8px 0;display:flex;gap:8px;align-items:center}
+#taskEditor .section-head h2{flex:1;min-width:0;font-size:22px;overflow-wrap:anywhere}
+#taskEditor #saveTask{width:auto;min-height:44px;padding:8px 16px;flex:none}
+#taskEditor input,#taskEditor select{box-sizing:border-box;min-width:0;max-width:100%}
