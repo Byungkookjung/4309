@@ -43,6 +43,6 @@ const baseURL=process.env.MOBILE_TEST_URL || 'http://localhost:8000';
  assert.equal(await p.evaluate(()=>navigator.serviceWorker.controller?.scriptURL.endsWith('/mobile/sw.js')),true);
  const manifest=await (await p.request.get(baseURL + '/mobile/manifest.webmanifest')).json();assert.equal(manifest.display,'standalone');assert.equal(manifest.start_url,'/mobile/');
  await shell.setOffline(true);await p.reload();await p.locator('#preview').click();assert.equal(await p.locator('#sampleBadge').isVisible(),true);
- const cache=await p.evaluate(async()=>{const c=await caches.open('pocket-paws-shell-v2');return(await c.keys()).map(r=>r.url)});assert.ok(cache.every(u=>!u.endsWith('/auth.js')&&!u.includes('firestore')));console.log('Manifest, scoped worker, offline shell, no private cache PASS');
+ const cache=await p.evaluate(async()=>{const c=await caches.open('pocket-paws-shell-v3-frog');return(await c.keys()).map(r=>r.url)});assert.ok(cache.every(u=>!u.endsWith('/auth.js')&&!u.includes('firestore')));console.log('Manifest, scoped worker, offline shell, no private cache PASS');
  await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

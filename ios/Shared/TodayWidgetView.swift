@@ -11,7 +11,7 @@ struct TodayWidgetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: small ? 4 : 8) {
             HStack {
-                Label("TODAY", systemImage: "sun.max.fill").font(.system(size: 11, weight: .bold, design: .rounded))
+                HStack(spacing: 5) { MoneyMood(angry: false).frame(width: 18, height: 18); Text("TODAY").font(.system(size: 11, weight: .bold, design: .rounded)) }
                 Spacer()
                 if !small {
                     Text(snapshot.map { WorkSnapshot.key(date, zone: $0.calendar.timeZone) } ?? WorkSnapshot.key(date))

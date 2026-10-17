@@ -189,7 +189,7 @@
         for(const item of [...entries].sort((a,b)=>Number(!!a.completed)-Number(!!b.completed))){
             const li=document.createElement('li');li.className='task-item'+(item.completed?' done':'');
             li.style.setProperty('--category-color',categoryColor(categoryOptions().find(c=>c.id===resolvedCategory(item.categoryId))));
-            const check=mutateButton(item.completed?'🐾':'○',(item.completed?'Mark incomplete: ':'Complete: ')+item.title,()=>toggle(item));check.textContent='';check.className='task-check';check.setAttribute('aria-pressed',String(!!item.completed));
+            const check=mutateButton(item.completed?'🐸':'○',(item.completed?'Mark incomplete: ':'Complete: ')+item.title,()=>toggle(item));check.textContent='';check.className='task-check';check.setAttribute('aria-pressed',String(!!item.completed));
             const title=mutateButton(item.title,'Task options: '+item.title,()=>openTaskMenu(item));title.className='task-title task-open';
             if(item.kind==='routine'){const tag=document.createElement('span');tag.className='task-kind';tag.textContent='Repeating routine';title.append(tag);}
             const actions=document.createElement('div');actions.className='task-actions';

@@ -8,7 +8,7 @@
     const scriptName = params.get('script');
     if(scriptable){
         if(!scriptName||scriptName.length>100){status.textContent='Start the connection from Scriptable.';return;}
-        document.querySelector('h1').textContent='Connect Pocket Paws';
+        document.querySelector('h1').textContent='Connect Pocket Pond';
         document.querySelector('main > p').textContent='Connect today’s shifts and tasks to Scriptable. The script only reads data, but the saved login credential has your account permissions. Only connect a script you trust. Disconnect in Scriptable to remove its saved login.';
     }
     const fromBase64 = value => Uint8Array.from(atob(value), char => char.charCodeAt(0));

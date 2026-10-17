@@ -30,7 +30,7 @@ const base=process.env.MOBILE_TEST_URL || 'http://localhost:8000';
  await page.goto(base+'/mobile/');await page.locator('#preview').tap();
  await page.getByRole('link',{name:'Work sheet'}).tap();await page.waitForURL('**/index.html');
  assert.equal(await page.locator('#sheetCalendar .calendar-day-header').first().textContent(),'Mon');
-assert.equal(await page.getByRole('link',{name:'Home widgets'}).getAttribute('href'),'mobile/');
+assert.equal(await page.getByRole('link',{name:'Todo calendar'}).getAttribute('href'),'mobile/planner.html');
 assert.equal(await page.locator('#logoutBtn').getAttribute('aria-label'),'Log out');
 for(const width of [320,375,390,430,768,1024,1440,1920]){
    await page.setViewportSize({width,height:844});await page.waitForTimeout(350);
@@ -85,7 +85,7 @@ await page.locator('#activityAmount').fill('12.34');await page.locator('#activit
 await page.locator('#addActivityBtn').tap();
 await page.waitForFunction(()=>JSON.parse(localStorage.getItem('ledgerActivity')).some(e=>e.reason==='UI fixture income'&&e.amount===12.34));
 
-assert.equal(await page.getByRole('link',{name:'Home widgets'}).getAttribute('href'),'mobile/');
+assert.equal(await page.getByRole('link',{name:'Todo calendar'}).getAttribute('href'),'mobile/planner.html');
 assert.deepEqual(errors,[]);console.log(engine,'mobile time save/cancel, Iron Peak, ledger navigation PASS');await browser.close();
  }
 })().catch(error=>{console.error(error);process.exit(1)});

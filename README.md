@@ -2,10 +2,13 @@
 
 HTML, CSS, and vanilla JavaScript project with Google sign-in, Firestore sync, and local fallback storage.
 
-It currently includes two main tools:
+Main tools and companion views:
 
 - `index.html`: weekly work hour tracker and payout logger
 - `ledger.html`: personal expense ledger and planning dashboard
+- `mobile/planner.html`: private Todo calendar, categories and routines
+- `mobile/`: mobile dashboard
+- `scriptable/`: iPhone widget installation guide
 
 ## Live Site
 
@@ -248,13 +251,10 @@ October 2026 companion/theme validation:
 
 ### Scriptable Widgets
 
-- `scriptable/Pocket Paws.js` is a standalone iPhone Scriptable script. Add it to two widgets with parameters `work` and `todo`.
-- Work shows today's Iron Peak and Booster Juice shifts and estimated CAD pay using each job's saved settings. Todo includes today's tasks and routine occurrences, with incomplete items first. Dates use Edmonton time.
-- Open `/scriptable/` for installation instructions. Deploy the new connection page before connecting from an iPhone; the script opens the production site.
-- Pairing uses encrypted credentials saved in Scriptable Keychain, not a public data feed. The script reads data only, but its Firebase credential retains account permissions. Disconnect clears local credentials and caches, not remote sessions.
-- iOS controls refresh timing. Same-day cached data is labeled Offline; old-day records are not displayed as today's data. Tapping a widget opens the corresponding website.
-- Rebuild after source changes: `node scriptable/build.cjs`. Details: [Scriptable setup](scriptable/README.md).
-- Validation: 17 Node tests passed, including encrypted pairing, calculations, recurrence, token rotation, mocked widget rendering and offline behavior. The setup page passed 320/390/768/1440px overflow checks in Chrome and WebKit; both engines passed encryption round-trips. Actual Scriptable layout, local WebView cryptography, Google login and background refresh still require a physical iPhone check.
+- Standalone script: `scriptable/Pocket Paws.js`. Installation, security, refresh behavior and supported parameters: [Scriptable README](scriptable/README.md).
+- `todo-month` uses a Large widget; `work-week` uses a Medium widget. See the current-widget table below.
+- Rebuild with `node scriptable/build.cjs`; test with `node --test tests/scriptable.test.cjs`.
+- Website deployment updates hosted assets only. Replace the installed Scriptable code manually; native iOS changes require rebuilding/installing the app.
 
 ### Personal Todo Calendar
 
@@ -263,7 +263,7 @@ October 2026 companion/theme validation:
 - Latest local validation: 20 Node tests and the Chrome/WebKit planner UI suite passed, including category-local completion ordering and the simplified creation form. Scriptable code updates still require replacing the installed iPhone script; deploying the website updates only hosted assets.
 
 - Task cards open a bottom action sheet: edit, delete, move to tomorrow (Edmonton), choose a date, or convert to a routine. Conversion is an atomic write; moving a routine occurrence leaves its other dates unchanged. Routine deletion removes the entire routine, as indicated in the menu.
-- Todo and shift calendars start on Monday. Completed tasks show a cat paw, and routines sort by category with category labels.
+- Todo and shift calendars start on Monday. Completed tasks show a frog mark, and routines sort by category with category labels.
 - Work sheet and ledger headers include a widget-home shortcut and an accessible icon-only logout. Ledger entry submission sits beside Shared expense; Abbreviations starts collapsed and charts use ten pastel colors.
 
 - Routine frequency supports daily, weekly, every two weeks, monthly and yearly, with an optional inclusive end date. Older weekday-only routines remain weekly.
@@ -274,7 +274,7 @@ October 2026 companion/theme validation:
 - Category definitions are saved in the user's `personalCategories` collection. Deleting a category preserves its tasks/routines, displayed under the built-in `일상` (Daily) category. New tasks/routines default to Daily; existing unassigned records need no migration. The default category stays available and its color can be edited.
 
 - Open `/mobile/planner.html` for private tasks, calendar dates, and recurring routines. There are no friends or sharing features.
-- The `/mobile/` dashboard displays cards in this order: shifts, today's tasks, monthly money, and the cat recovery clock. Task editing stays on the separate calendar page.
+- The `/mobile/` dashboard displays cards in this order: shifts, today's tasks, monthly money, and the frog recovery clock. Task editing stays on the separate calendar page.
 - Today's task summary includes only Edmonton's current date and routines scheduled for that date. Routine completion is stored separately for each date.
 - Records live under the signed-in user's `personalTasks`, `personalRoutines`, and `personalRoutineChecks` collections. Existing work and ledger records are not changed.
 - Alberta general and optional holidays are distinguished using the [official provincial calendar](https://www.alberta.ca/alberta-general-holidays). These markers do not change work-sheet holiday pay.
@@ -284,3 +284,35 @@ October 2026 companion/theme validation:
 - Work sheet payout calculations use the currently saved pay settings
 - Payout history stores the calculated values at save time
 - Expense ledger TXT import supports shorthand types such as `FE`, `EE`, `EI`, and `UI`
+
+### Pocket Pond Theme
+
+- The web dashboard, planner, work sheet, ledger, investments, login and connection/preview pages share a cream-and-moss frog theme inspired by a wide-smiling green plush frog.
+- New SVG mascot/stamp, favicons, PWA icons and native app icon replace cat artwork. Legacy asset URLs remain aliases for older cached clients. Category colors, workplace colors, financial states, data and layout behavior remain unchanged.
+- Scriptable monthly Todo and rolling work-week widgets use the same cream/olive palette and frog stamp. The installed script remains named `Pocket Paws` to preserve widget configuration and account credentials; replace its contents to receive the theme. The website display name is Pocket Pond.
+- Native iOS widget artwork and clock decoration are updated in source; applying native changes requires rebuilding/installing the app, not just deploying Firebase hosting.
+
+
+### Current Scriptable Widgets
+
+Only two parameters are supported:
+
+| Parameter | Size | Content |
+| --- | --- | --- |
+| `todo-month` | Large | Monthly tasks and routines in category colors |
+| `work-week` | Medium | Today centered between the previous and next three days; green/purple work times |
+
+`work`, `todo`, `work-month`, and `todo-week` are removed. Old widgets show a migration hint and do not fetch data. Legacy `month` aliases `todo-month`. Work week uses cream/pond-green styling; weekend colors follow the actual date.
+
+Run Pocket Paws and choose **Refresh monthly to do** to fetch current data and preview it. Both widgets request a refresh after 5 minutes, or one second after the next Edmonton midnight if sooner; iOS controls actual Home Screen refresh timing, so neither an exact interval nor immediate Home Screen update is guaranteed. Todo collections are fetched concurrently. Only matching layout-version, account and day caches can be used offline.
+
+Deployment is performed only on explicit request. Installed Scriptable code must still be replaced manually.
+
+### October 17 Release Verification
+
+- All 26 Node tests passed, including 13 Scriptable tests for pairing, rolling work dates, layout bounds, removed modes, Edmonton midnight and daylight-saving behavior.
+- Mobile dashboard checks passed at 320, 375, 390, 430, 768 and 1440px, including long text/amounts, authenticated mock sync, offline retention, sign-out and private-cache isolation.
+- Chrome and WebKit planner tests passed for CRUD, routines, category behavior, failure handling and account isolation. Phone-flow checks passed at 320-1920px for calendars, header alignment, time editing and ledger navigation.
+- Native WorkToday iOS Simulator build succeeded with code signing disabled. This release check did not install or test on a physical iPhone.
+- Syntax checks and `git diff --check` passed. Browser tests use isolated fixtures and do not write production records.
+- Deploying Firebase Hosting publishes web assets and the downloadable Scriptable bundle, not an installed iPhone script or native iOS binary.

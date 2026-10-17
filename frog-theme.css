@@ -1,0 +1,33 @@
+/* Presentation only. Keep category and job colors and all layout contracts. */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+:root{--pond-cream:#f5f4e8;--pond-paper:#fffef6;--pond-ink:#30422a;--pond-muted:#69765c;--pond-line:#d7dfc4;--pond-leaf:#587b38;--pond-lime:#e7edcb;--ink:var(--pond-ink);--muted:var(--pond-muted);--sky:var(--pond-lime);--blue:var(--pond-leaf);--line:var(--pond-line);--ui-ink:var(--pond-ink);--ui-muted:var(--pond-muted);--ui-line:var(--pond-line);--ui-soft:#f0f2df;--ui-blue:var(--pond-leaf);--cat-sky:#e7edcb;--cat-line:#d7dfc4;--cat-ink:#587b38}
+body,body.ledger-body,body.sheet-body[data-job]{color:var(--pond-ink);font-family:'Nunito','Trebuchet MS',sans-serif;background:radial-gradient(ellipse at 0 0,#e3ecc9,transparent 55%),radial-gradient(ellipse at 100% 75%,#f1e6c9,transparent 60%),var(--pond-cream)}
+:is(.container,.ledger-container,.sheet-container,.card,.ledger-card,.sheet-card,.sheet-rate-card,.today-widget,dialog){background-color:var(--pond-paper);border-color:var(--pond-line);box-shadow:0 8px 25px #30422a09}
+:is(.ledger-body,.sheet-body) :is(.ledger-card,.sheet-card,.sheet-rate-card){border-color:var(--pond-line);box-shadow:0 8px 25px #30422a09}
+:is(h1,h2,h3,.subtitle,.sheet-summary-label,.section-title){color:var(--pond-ink)}
+:is(.primary,.primary-btn,.save-balances-btn,button[type=submit]){background:var(--pond-leaf);color:#fffef6;border-color:var(--pond-leaf);box-shadow:0 3px 0 #30422a18}
+:is(.ghost-btn,.icon-btn,button:not(.primary):not(.primary-btn):not([type=submit])){border-color:var(--pond-line)}
+:is(input,select,textarea){accent-color:var(--pond-leaf)}
+:is(button,a,input,select,textarea):focus-visible{outline-color:#7f9c48}
+:is(.welcome,.recovery,.tip,.mobile-time-summary,.today-task-list li){background:linear-gradient(135deg,#fffef6,#eef2d9)}
+.bottom-nav{background:#fffef6ed;border-color:var(--pond-line)}
+.bottom-nav [aria-current],.day-tabs [aria-pressed=true]{background:var(--pond-lime);color:var(--pond-ink)}
+.planner-grid [aria-pressed=true]{background:#e0eabe;border-color:#8ba653;color:var(--pond-ink)}
+.planner-grid [aria-current=date]{border-color:#8ba653}
+.planner-grid .has-tasks::after{background:var(--pond-leaf)}
+.track{stroke:#e1e8cc}#progress{stroke:#89a953}.tip{color:var(--pond-ink)}
+#taskEditor,#categoryEditor,#taskEditor .section-head{background:var(--pond-paper);color:var(--pond-ink)}
+.day-plan .task-check[aria-pressed=true]::before{mask-image:url('frog-mark.svg');-webkit-mask-image:url('frog-mark.svg')}
+:is(.ledger-body,.sheet-body) :is(.primary-btn,.ghost-btn,.icon-btn,.save-balances-btn)::after{background:#edf1d9 url('frog-mark.svg') center/11px 11px no-repeat}
+.topbar>img{transform:rotate(-4deg)}
+@media(hover:hover) and (pointer:fine){.cat-mascot:hover,.topbar>img:hover{animation:frog-hop .4s ease}button:not(:disabled):hover{filter:brightness(.97)}}
+@keyframes frog-hop{0%,100%{transform:translateY(0) rotate(0)}45%{transform:translateY(-4px) rotate(-6deg)}}
+@media(prefers-reduced-motion:reduce){.cat-mascot,.topbar>img{animation:none!important}}
+.mood{display:block;width:40px;height:40px;background:url('frog-mark.svg') center/contain no-repeat}
+.mood[data-over=true]{background-image:url('frog-mood-over.svg')}
+.dot{color:var(--pond-leaf)}.day-tabs{background:#f0f2df}
+.sheet-calendar .calendar-day-header,.sheet-calendar .work-calendar-hours{color:var(--pond-leaf)}
+.sheet-calendar .calendar-day{color:var(--pond-ink);background:var(--pond-paper);border-color:var(--pond-line)}
+.sheet-calendar .calendar-day.today{background:var(--pond-lime);border-color:#8ba653}
+.sheet-calendar .calendar-day.today .work-calendar-hours{color:var(--pond-ink)}
+.sheet-calendar .calendar-day.weekend,.sheet-calendar .calendar-day.holiday{color:#b54f48}

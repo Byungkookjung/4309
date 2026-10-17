@@ -6,10 +6,10 @@
     max-height: calc(100dvh - 24px);
     overflow-y: auto;
     padding: 24px;
-    border: 1px solid #dce5ed;
+    border: 1px solid #d7dfc4;
     border-radius: 20px;
-    color: #24364c;
-    box-shadow: 0 20px 80px #24364c30;
+    color: #30422a;
+    box-shadow: 0 20px 80px #30422a30;
 }
 .mobile-time-dialog::backdrop { background: #182c4666; }
 .mobile-time-dialog form { display: grid; gap: 18px; }
@@ -19,7 +19,7 @@
 .time-shortcuts .ghost-btn { padding: 0 10px; }
 .mobile-time-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .mobile-time-actions button { flex: 1 0 auto; }
-.mobile-time-summary { background: #edf4fb; padding: 12px; border-radius: 10px; }
+.mobile-time-summary { background: #f0f2df; padding: 12px; border-radius: 10px; }
 .mobile-time-error { color: #b33131; }
 .mobile-time-error:empty { display: none; }
 @media (max-width: 760px) {
@@ -28,19 +28,19 @@
         display: block;
         width: 100%;
         min-height: 48px;
-        background: #edf4fb;
-        border: 1px solid #d3dfe9;
+        background: #f0f2df;
+        border: 1px solid #d7dfc4;
         border-radius: 8px;
-        color: #3567a6;
+        color: #587b38;
         font-size: 16px;
     }
 }
 :root {
-    --ui-ink: #24364c;
-    --ui-muted: #64768b;
-    --ui-line: #dce5ed;
-    --ui-soft: #f3f7fb;
-    --ui-blue: #3567a6;
+    --ui-ink: #30422a;
+    --ui-muted: #69765c;
+    --ui-line: #d7dfc4;
+    --ui-soft: #f0f2df;
+    --ui-blue: #587b38;
     --ui-shadow: 0 4px 18px rgba(32, 54, 81, 0.045);
 }
 
@@ -86,7 +86,7 @@ body.sheet-body > .container.work-container {
 
 .balance-card, .sheet-summary-item,
 .investment-hub-summary-card {
-    background: linear-gradient(145deg, #edf4fb, #f8fafc);
+    background: linear-gradient(145deg, #f0f2df, #f8fafc);
     border-color: #dce7f1;
     border-radius: 14px;
     box-shadow: inset 0 1px 0 #fff;
@@ -102,9 +102,9 @@ body.sheet-body > .container.work-container {
 .sheet-rate-subvalue { color: #526e8c; }
 
 .primary-btn, .save-balances-btn {
-    background: linear-gradient(180deg, #4277b7, #3567a6);
+    background: linear-gradient(180deg, #4277b7, #587b38);
     color: #fff;
-    border: 1px solid #3567a6;
+    border: 1px solid #587b38;
     border-radius: 12px;
     box-shadow: 0 3px 8px rgba(53, 103, 166, 0.14);
     font-weight: 650;
@@ -143,7 +143,7 @@ body.sheet-body > .container.work-container {
 
 .field input:not([type="checkbox"]):not([type="radio"]),
 .field select, .field textarea, .sheet-rate-form input {
-    border: 1px solid #d3dfe9;
+    border: 1px solid #d7dfc4;
     border-radius: 12px;
     background-color: #fcfdff;
     color: var(--ui-ink);
@@ -315,7 +315,7 @@ body.sheet-body, body.ledger-body { line-height: 1.55; overflow-wrap: break-word
     gap: 16px;
     padding: 18px 22px;
     margin-bottom: 18px;
-    border: 1px solid #d3dfe9;
+    border: 1px solid #d7dfc4;
     border-radius: 20px;
     background: linear-gradient(110deg, #edf5fc, #fff);
 }
@@ -463,9 +463,9 @@ body.sheet-body[data-job] {
 
 /* Cat accents are decorative only; job colors, financial states and layouts stay intact. */
 :is(.ledger-body, .sheet-body) {
-    --cat-sky: #dff3ff;
-    --cat-line: #b8def3;
-    --cat-ink: #36739a;
+    --cat-sky: #e7edcb;
+    --cat-line: #d7dfc4;
+    --cat-ink: #587b38;
 }
 body.ledger-body, body.sheet-body[data-job] {
     background-image: radial-gradient(ellipse at 0 0, #dfF3ff, transparent 60%),
@@ -482,7 +482,7 @@ body.ledger-body, body.sheet-body[data-job] {
 }
 :is(.ledger-body, .sheet-body) :is(.ledger-card, .sheet-card, .sheet-rate-card) {
     border-color: var(--cat-line);
-    box-shadow: 0 7px 24px #36739a09, inset 0 1px 0 #fff;
+    box-shadow: 0 7px 24px #587b3809, inset 0 1px 0 #fff;
 }
 :is(.ledger-body, .sheet-body) :is(.primary-btn, .ghost-btn, .icon-btn, .save-balances-btn) {
     position: relative;

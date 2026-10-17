@@ -69,18 +69,18 @@
         const state = model.summarize(data, now);
         $('monthLabel').textContent = state.month + ' / CAD';
         $('spent').textContent = money(state.spent); $('earned').textContent = money(state.earned);
-        $('mood').textContent = state.spent > state.earned ? '😾' : '😸';
+        $('mood').textContent = ''; $('mood').dataset.over = String(state.spent > state.earned);
         $('mood').setAttribute('aria-label', state.spent > state.earned ? 'Spending exceeds income' : 'Income covers spending');
         tick(state);
         const ordinal = Math.floor(Date.parse(today + 'T12:00:00Z') / 86400000);
-        $('tip').textContent = '🐾 ' + tips[ordinal % tips.length];
+        $('tip').textContent = '🐸 ' + tips[ordinal % tips.length];
     }
     function tick(state) {
         if (!data) return;
         if (data.month !== model.dayKey(new Date()).slice(0, 7)) { $('dashboard').hidden = true; return; }
         state ||= model.summarize(data);
         $('timer').textContent = model.duration(state.remaining);
-        $('workStatus').textContent = state.remaining <= 0 ? 'Covered. Nice work!' : state.active ? 'Working now' : 'Resting paws';
+        $('workStatus').textContent = state.remaining <= 0 ? 'Covered. Nice work!' : state.active ? 'Working now' : 'Resting by the pond';
         $('progressLabel').textContent = `${Math.round(state.fraction * 100)}% earned back`;
         $('progress').style.strokeDasharray = `${state.fraction * 100} 100`;
     }

@@ -76,7 +76,7 @@ struct RecoveryClock: View {
                     .rotationEffect(.degrees(-90))
                     .frame(width: side * 0.82, height: side * 0.82)
                     .position(x: side * 0.5, y: side * 0.56)
-                Image(systemName: "pawprint.fill")
+                Image(systemName: "leaf.fill")
                     .font(.system(size: side * 0.08, weight: .bold))
                     .foregroundStyle(WidgetStyle.skyInk)
                     .frame(width: side * 0.14, height: side * 0.14)
@@ -114,55 +114,19 @@ private struct CatClockDecoration: View {
     var body: some View {
         Canvas { context, size in
             let s = min(size.width, size.height)
-            func point(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: x * s, y: y * s) }
-            for left in [true, false] {
-                func x(_ value: Double) -> Double { left ? value : 1 - value }
-                var ear = Path()
-                ear.move(to: point(x(0.16), 0.35))
-                ear.addQuadCurve(to: point(x(0.18), 0.07), control: point(x(0.12), 0.02))
-                ear.addQuadCurve(to: point(x(0.40), 0.20), control: point(x(0.31), 0.09))
-                ear.closeSubpath()
-                context.fill(ear, with: .color(WidgetStyle.sky))
-                var inner = Path()
-                inner.move(to: point(x(0.20), 0.25))
-                inner.addLine(to: point(x(0.21), 0.12))
-                inner.addLine(to: point(x(0.32), 0.21))
-                inner.closeSubpath()
-                context.fill(inner, with: .color(Color(red: 1, green: 0.80, blue: 0.83)))
+            let green = WidgetStyle.sky
+            context.fill(Path(ellipseIn: CGRect(x: s * 0.1, y: s * 0.12, width: s * 0.8, height: s * 0.45)), with: .color(green.opacity(0.28)))
+            for x in [0.2, 0.65] {
+                context.fill(Path(ellipseIn: CGRect(x: s * x, y: s * 0.04, width: s * 0.16, height: s * 0.2)), with: .color(green))
+                context.fill(Path(ellipseIn: CGRect(x: s * (x + 0.06), y: s * 0.10, width: s * 0.04, height: s * (resting ? 0.015 : 0.05))), with: .color(WidgetStyle.skyInk))
             }
-            context.fill(Path(ellipseIn: CGRect(x: s * 0.09, y: s * 0.15, width: s * 0.82, height: s * 0.82)),
-                         with: .color(WidgetStyle.sky.opacity(0.12)))
-            for x in [0.38, 0.62] {
-                if resting {
-                    var eye = Path()
-                    eye.move(to: point(x - 0.03, 0.35))
-                    eye.addQuadCurve(to: point(x + 0.03, 0.35), control: point(x, 0.38))
-                    context.stroke(eye, with: .color(WidgetStyle.skyInk), style: StrokeStyle(lineWidth: max(1, s * 0.014), lineCap: .round))
-                } else {
-                    context.fill(Path(ellipseIn: CGRect(x: s * (x - 0.021), y: s * 0.32, width: s * 0.042, height: s * 0.06)), with: .color(WidgetStyle.skyInk))
-                    context.fill(Path(ellipseIn: CGRect(x: s * (x - 0.014), y: s * 0.325, width: s * 0.012, height: s * 0.017)), with: .color(.white))
-                }
+            for x in [0.46, 0.53] {
+                context.fill(Path(ellipseIn: CGRect(x: s * x, y: s * 0.25, width: s * 0.025, height: s * 0.025)), with: .color(WidgetStyle.skyInk))
             }
-            var nose = Path()
-            nose.move(to: point(0.478, 0.382))
-            nose.addLine(to: point(0.522, 0.382))
-            nose.addLine(to: point(0.5, 0.407))
-            nose.closeSubpath()
-            context.fill(nose, with: .color(Color(red: 0.85, green: 0.53, blue: 0.65)))
-            for x in [0.25, 0.69] {
-                context.fill(Path(ellipseIn: CGRect(x: s * x, y: s * 0.39, width: s * 0.06, height: s * 0.027)), with: .color(.pink.opacity(0.3)))
-            }
-            var mouth = Path()
-            mouth.move(to: point(0.45, 0.40))
-            mouth.addQuadCurve(to: point(0.5, 0.40), control: point(0.475, 0.45))
-            mouth.addQuadCurve(to: point(0.55, 0.40), control: point(0.525, 0.45))
-            for left in [true, false] {
-                let start = left ? 0.20 : 0.80
-                let end = left ? 0.30 : 0.70
-                mouth.move(to: point(start, 0.33)); mouth.addLine(to: point(end, 0.36))
-                mouth.move(to: point(start, 0.44)); mouth.addLine(to: point(end, 0.43))
-            }
-            context.stroke(mouth, with: .color(WidgetStyle.skyInk), style: StrokeStyle(lineWidth: max(1, s * 0.012), lineCap: .round))
+            var smile = Path()
+            smile.move(to: CGPoint(x: s * 0.23, y: s * 0.28))
+            smile.addQuadCurve(to: CGPoint(x: s * 0.77, y: s * 0.28), control: CGPoint(x: s * 0.5, y: s * 0.55))
+            context.stroke(smile, with: .color(WidgetStyle.skyInk), style: StrokeStyle(lineWidth: max(1.5, s * 0.018), lineCap: .round))
         }
     }
 }
@@ -189,7 +153,7 @@ struct RecoveryWidgetView: View {
             RecoveryClock(state: state)
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                Label("EARN IT BACK", systemImage: "pawprint.fill")
+                Label("EARN IT BACK", systemImage: "leaf.fill")
                     .font(.system(size: 11, weight: .bold, design: .rounded)).foregroundStyle(WidgetStyle.skyInk)
                 HStack(spacing: 12) {
                     RecoveryClock(state: state, showTimer: false)

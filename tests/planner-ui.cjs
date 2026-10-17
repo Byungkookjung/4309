@@ -9,6 +9,7 @@ window.__ledgerAuth={auth:{onAuthStateChanged(cb){window.authCallback=cb;cb({uid
 (async()=>{for(const [name,type] of [['Chrome',chromium],['WebKit',webkit]]){
 const browser=await type.launch(name==='Chrome'?{channel:'chrome',headless:true}:{headless:true});const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,serviceWorkers:'block'});const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
 await page.route('https://www.gstatic.com/**',r=>r.fulfill({body:'window.firebase={auth(){},firestore(){}};'}));await page.route('**/auth.js',r=>r.fulfill({body:mock}));
+await page.clock.setFixedTime(new Date('2026-10-12T18:00:00Z'));
 await page.goto(base+'/mobile/planner.html');await page.waitForFunction(()=>!document.querySelector('#addTask').disabled);
 await page.locator('#addCategory').tap();await page.locator('#categoryName').fill('Home & cats');await page.getByRole('radio',{name:'Lilac',exact:true}).check();await page.locator('#saveCategory').tap();await page.waitForFunction(()=>!document.querySelector('#categoryEditor').open);
 await page.getByRole('button',{name:'Add task to Home & cats',exact:true}).tap();

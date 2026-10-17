@@ -1,19 +1,58 @@
-# Scriptable Widgets
+# Pocket Pond Scriptable Widgets
 
-Build the self-contained `Pocket Paws.js` with `node scriptable/build.cjs` after changing shared calculation/recurrence modules. Install only this generated file in Scriptable; no additional modules are needed. See `/scriptable/` for installation instructions (requires deployment of this version).
+Install the generated `Pocket Paws.js` in Scriptable. Keep its script name **Pocket Paws** when updating so existing widget configuration and Keychain credentials remain usable.
 
-- One script, two widget parameters: `work` and `todo`. Medium is the recommended size; small and large adapt their text/list limits.
-- Work uses Edmonton's date, Iron Peak first, per-job rates, holiday multipliers and the same break formula as the website.
-- To do includes today's ordinary tasks, recurring rules and moved occurrences, unfinished first. Tap to open the private planner. Widget checkmarks are display-only.
-- Todo uses saved category colors (including the default category) for icons and backgrounds. Small displays up to 4 items; medium and large use two columns for up to 8 and 18 items. Additional items have a remaining-count label.
-- App previews offer Small, Medium and Large. Tap links use `date=today`; work opens today's details and todo opens today's list.
-- Website deployment does not replace the script saved on an iPhone. Replace that script to receive code/layout changes; task and shift data refresh through the existing connection without reinstalling.
-- Pairing creates an ephemeral P-256 private key inside a local WebView, stores it in Keychain for at most ten minutes (enforced on return), and opens the existing trusted login page with only a public key and random state in its fragment.
-- The confirmed Firebase UID/refresh token is transferred as ECDH/SHA-256/AES-GCM ciphertext. Scriptable checks state and expiry, decrypts locally and stores credentials in Keychain. The script never logs tokens or uses a public Firestore rule.
-- This is a Firebase user credential, NOT a restricted read-only token; the supplied script only issues authenticated reads. Do not distribute connected credentials. Disconnect clears local credentials/cache; remote revocation requires Firebase account administration.
-- Refresh tokens rotate; UID and connection generation are checked before caching. Cached summaries are separated by account and widget type, stored in Keychain, and shown only for the same Edmonton date with a stale label. Permission failures never display cached private data.
-- Firestore REST requests are bounded, paginated, and subject to existing rules. App Check enforcement or restrictive new-collection rules may require server configuration; no rules are relaxed here.
-- iOS decides refresh scheduling. `refreshAfterDate` requests an earliest refresh, not a guarantee. Closed-widget updates can be delayed.
-- Google OAuth runs in the browser, not an embedded Google login WebView. Local WebCrypto, the Scriptable URL callback, installation and actual widget sizing must be verified on an iPhone. Browser/Node tests cannot certify native Scriptable behavior.
+## Widgets
 
-Official APIs: https://docs.scriptable.app/listwidget/ , https://docs.scriptable.app/keychain/ , https://docs.scriptable.app/webview/ , https://firebase.google.com/docs/firestore/use-rest-api
+| Parameter | Required size | Content |
+| --- | --- | --- |
+| `todo-month` | Large | Current month's tasks and routines, colored by category |
+| `work-week` | Medium | Today centered between three previous and three following days; work times only |
+
+`work`, `todo`, `work-month`, and `todo-week` have been removed. Old parameters show a migration hint without fetching data. Legacy `month` aliases `todo-month`. Unsupported sizes show a size-selection hint.
+
+- All reference dates use `America/Edmonton`, including daylight-saving changes.
+- Work week advances one date per day when refreshed. Saturday shows Wed/Thu/Fri/**Sat**/Sun/Mon/Tue. Green is Iron Peak; purple is Booster Juice. `a` and `p` mean AM and PM.
+- Work week uses cream and pond-green styling, a frog mark and a highlighted center date. Its heading shows the reference date so stale views are identifiable.
+- Monthly Todo is Monday-first and includes recurring and moved occurrences. Unfinished items sort first; completed items are muted and struck through. Long titles shorten, and excess entries show `+N`.
+- Tapping work opens today's work sheet; tapping Todo opens today's planner. Individual calendar cells and checkmarks are display-only.
+
+## Install and Update
+
+1. Install Scriptable on the iPhone.
+2. Import `Pocket Paws.js`, or replace the entire contents of the existing Pocket Paws script.
+3. Run it and choose **Connect / switch account** if not already connected.
+4. Sign in on the trusted website, confirm the account and allow the return to Scriptable.
+5. Add a Large or Medium Scriptable widget, select Pocket Paws, and enter the corresponding parameter above.
+
+The hosted installer is `/scriptable/`. Website deployment does **not** replace code already saved in Scriptable. Update the installed script manually to receive layout/code changes. Normal task and shift updates use the existing account connection.
+
+## Refresh
+
+Run the script and choose **Refresh monthly to do** or **Refresh work week** to fetch fresh data and open a preview.
+
+Both widgets request their next refresh after five minutes, or one second after the next Edmonton midnight if sooner. **iOS decides the actual Home Screen refresh time.** Neither exact midnight redraws nor instant task updates are guaranteed; an already displayed widget may remain stale until iOS runs it again.
+
+Todo collections are fetched concurrently. A matching account, Edmonton day and layout-version cache may be used after network failures, with an Offline label. Previous-day data and permission-failure caches are never rendered as current data on a new execution.
+
+## Security
+
+- Pairing creates an ephemeral P-256 key in a local WebView. Pending private keys are stored in Keychain with a ten-minute callback validity limit.
+- Only the public key and random state go to the login page. Confirmed UID/refresh-token credentials return encrypted using ECDH/SHA-256/AES-GCM; state and expiry are checked before local decryption.
+- Credentials stay in Scriptable Keychain. There is no public data feed and no relaxed Firestore rule.
+- The Firebase credential has normal account permissions, **not a restricted read-only scope**. This script only reads data. Never share connected credentials.
+- Disconnect clears local credentials and caches; it does not remotely revoke copied tokens.
+- UID and connection generation are checked before caching. Firestore reads are paginated and bounded, using existing access rules.
+
+## Build and Verify
+
+```sh
+node scriptable/build.cjs
+node --test tests/scriptable.test.cjs
+```
+
+Edit `runtime.js`, `calendar.js`, `core.js`, `frog.js`, or shared source modules, then rebuild the standalone script. Do not hand-edit the generated bundle.
+
+Tests cover encrypted pairing, paging, recurrence, category colors, isolated caches, removed parameters, supported sizes, rendering bounds, rolling date ranges, Edmonton midnight and daylight-saving transitions. Browser canvas previews approximate appearance, but do not certify native Scriptable rendering. Real iPhone layout, live Google sign-in and background scheduling require device verification.
+
+Official references: [ListWidget](https://docs.scriptable.app/listwidget/), [Keychain](https://docs.scriptable.app/keychain/), [WebView](https://docs.scriptable.app/webview/), [Firestore REST](https://firebase.google.com/docs/firestore/use-rest-api).

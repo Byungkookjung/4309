@@ -38,5 +38,32 @@
         })
             .sort((a,b)=>Number(!!a.completed)-Number(!!b.completed)||a.title.localeCompare(b.title));
     }
-    const api={decode,fields,list,today};if(typeof module!=='undefined')module.exports=api;else root.ScriptableCore=api;
+    function compactTime(time){
+        const [hour,minute]=time.split(':').map(Number);
+        return String(hour%12||12)+(minute?':'+String(minute).padStart(2,'0'):'')+(hour<12?'a':'p');
+    }
+    function month(work,planner,date,data,kind="both",period="month"){
+        const key=date.slice(0,7),[year,m]=key.split('-').map(Number);
+        const offset=(new Date(Date.UTC(year,m-1,1)).getUTCDay()+6)%7;
+        const count=new Date(Date.UTC(year,m,0)).getUTCDate();
+        const anchor=new Date(date+'T12:00:00Z');
+        anchor.setUTCDate(anchor.getUTCDate()-3);
+        const days=Array.from({length:period==='week'?7:count},(_,i)=>{
+            const cursor=new Date(anchor);cursor.setUTCDate(cursor.getUTCDate()+i);
+            const day=period==='week'?cursor.toISOString().slice(0,10):key+'-'+String(i+1).padStart(2,'0');
+            const shifts=kind==='todo'?[]:today(work,planner,day,data,'work').filter(job=>job.status!=='off').map(job=>({
+                title:job.status==='incomplete'?'Time missing':(compactTime(job.checkIn).slice(-1)===compactTime(job.checkOut).slice(-1)?compactTime(job.checkIn).slice(0,-1):compactTime(job.checkIn))+'–'+compactTime(job.checkOut),
+                color:job.id==='iron'?'#27744f':'#8052ae',kind:'work',completed:false
+            }));
+            const tasks=kind==='work'?[]:today(work,planner,day,data,'todo').map(item=>({title:item.title,color:item.categoryColor,kind:'todo',completed:!!item.completed}));
+            const entries=[...shifts,...tasks];
+            return {date:day,entries:entries.slice(0,8),total:entries.length};
+        });
+        return {month:key,period,kind,offset:period==='week'?0:offset,weeks:period==='week'?1:Math.ceil((offset+count)/7),days};
+    }
+    function nextRefresh(model,now=new Date()){
+        const midnight=model.instant(model.nextDay(model.dayKey(now)));
+        return new Date(Math.min(+now+5*60000,midnight+1000));
+    }
+    const api={decode,fields,list,today,month,nextRefresh};if(typeof module!=='undefined')module.exports=api;else root.ScriptableCore=api;
 })(globalThis);

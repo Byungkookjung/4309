@@ -793,7 +793,7 @@ function resetActivityForm() {
     if (addActivityBtnText) addActivityBtnText.textContent = 'Add entry';
     document.getElementById('addActivityBtn')?.setAttribute('aria-label','Add entry');
     document.getElementById('addActivityBtn')?.setAttribute('title','Add entry');
-    if (addActivityBtnIcon) addActivityBtnIcon.textContent = '🐾';
+    if (addActivityBtnIcon) addActivityBtnIcon.textContent = '🐸';
     if (cancelActivityEditBtn) cancelActivityEditBtn.classList.add('hidden');
     updateActivitySourceControls();
     syncActivitySharedControls();

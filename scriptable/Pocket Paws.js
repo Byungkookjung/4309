@@ -1,5 +1,5 @@
 // Pocket Paws: install this ONE file in Scriptable.
-// Widget parameter: work or todo. Run inside the app to connect.
+// Widget parameter: todo-month (Large) or work-week (Medium). Run inside the app to connect.
 const WorkWidgetData=(()=>{const module={exports:{}};
 (function (root) {
     const definitions = [
@@ -223,7 +223,34 @@ const Core=(()=>{const module={exports:{}};
         })
             .sort((a,b)=>Number(!!a.completed)-Number(!!b.completed)||a.title.localeCompare(b.title));
     }
-    const api={decode,fields,list,today};if(typeof module!=='undefined')module.exports=api;else root.ScriptableCore=api;
+    function compactTime(time){
+        const [hour,minute]=time.split(':').map(Number);
+        return String(hour%12||12)+(minute?':'+String(minute).padStart(2,'0'):'')+(hour<12?'a':'p');
+    }
+    function month(work,planner,date,data,kind="both",period="month"){
+        const key=date.slice(0,7),[year,m]=key.split('-').map(Number);
+        const offset=(new Date(Date.UTC(year,m-1,1)).getUTCDay()+6)%7;
+        const count=new Date(Date.UTC(year,m,0)).getUTCDate();
+        const anchor=new Date(date+'T12:00:00Z');
+        anchor.setUTCDate(anchor.getUTCDate()-3);
+        const days=Array.from({length:period==='week'?7:count},(_,i)=>{
+            const cursor=new Date(anchor);cursor.setUTCDate(cursor.getUTCDate()+i);
+            const day=period==='week'?cursor.toISOString().slice(0,10):key+'-'+String(i+1).padStart(2,'0');
+            const shifts=kind==='todo'?[]:today(work,planner,day,data,'work').filter(job=>job.status!=='off').map(job=>({
+                title:job.status==='incomplete'?'Time missing':(compactTime(job.checkIn).slice(-1)===compactTime(job.checkOut).slice(-1)?compactTime(job.checkIn).slice(0,-1):compactTime(job.checkIn))+'–'+compactTime(job.checkOut),
+                color:job.id==='iron'?'#27744f':'#8052ae',kind:'work',completed:false
+            }));
+            const tasks=kind==='work'?[]:today(work,planner,day,data,'todo').map(item=>({title:item.title,color:item.categoryColor,kind:'todo',completed:!!item.completed}));
+            const entries=[...shifts,...tasks];
+            return {date:day,entries:entries.slice(0,8),total:entries.length};
+        });
+        return {month:key,period,kind,offset:period==='week'?0:offset,weeks:period==='week'?1:Math.ceil((offset+count)/7),days};
+    }
+    function nextRefresh(model,now=new Date()){
+        const midnight=model.instant(model.nextDay(model.dayKey(now)));
+        return new Date(Math.min(+now+5*60000,midnight+1000));
+    }
+    const api={decode,fields,list,today,month,nextRefresh};if(typeof module!=='undefined')module.exports=api;else root.ScriptableCore=api;
 })(globalThis);
 
 return module.exports;})();
@@ -249,9 +276,121 @@ async function pocketPairing(action,input){
 if(typeof module!=='undefined')module.exports=pocketPairing;
 
 return module.exports;})();
+const drawMonthCalendar=(()=>{const module={exports:{}};
+// Draw fixed calendar cells so long titles never resize adjacent dates.
+function drawMonthCalendar(snapshot,width=330,canvasHeight=320){
+    const ctx=new DrawContext();ctx.size=new Size(width,canvasHeight);ctx.opaque=false;ctx.respectScreenScale=true;
+    const {days,offset,weeks}=snapshot.calendar;
+    const cell=width/7,top=20,height=(canvasHeight-top)/weeks;
+    function ink(value,x,y,width,size,color,bold=false){
+        ctx.setTextColor(new Color(color));ctx.setFont(bold?Font.boldSystemFont(size):Font.systemFont(size));
+        ctx.drawTextInRect(value,new Rect(x,y,width,size+4));
+    }
+    function shorten(value,width,size){
+        let used=0,out='';const chars=Array.from(String(value));
+        if(chars.reduce((sum,c)=>sum+(c.codePointAt(0)>255?1:.58)*size,0)<=width)return String(value);
+        const max=width-size;
+        for(const c of chars){const step=(c.codePointAt(0)>255?1:.58)*size;if(used+step>max)return out+'…';used+=step;out+=c;}
+        return out;
+    }
+    const reference=snapshot.calendar.period==='week';
+    if(reference){
+        const weekly=snapshot.calendar.period==='week';
+        const heading=30,weekdaysY=heading+2,gridTop=heading+21;
+        const rowHeight=(canvasHeight-gridTop)/(weekly?1:weeks);
+        function pill(x,y,w,h,color){
+            const r=Math.min(4,h/2);ctx.setFillColor(new Color(color));
+            ctx.fillRect(new Rect(x+r,y,w-2*r,h));ctx.fillRect(new Rect(x,y+r,w,h-2*r));
+            for(const [cx,cy] of [[x,y],[x+w-2*r,y],[x,y+h-2*r],[x+w-2*r,y+h-2*r]])ctx.fillEllipse(new Rect(cx,cy,2*r,2*r));
+        }
+        function centered(value,x,y,w,size,color,bold=true){
+            ctx.setTextAlignedCenter();ink(value,x,y,w,size,color,bold);ctx.setTextAlignedLeft();
+        }
+        const monthLabel=Number(snapshot.day.slice(5,7))+'월 '+Number(snapshot.day.slice(-2))+'일';
+        centered(monthLabel,0,0,width,19,'#304b32');
+        // A small pond-green mark keeps the calendar tied to the frog theme.
+        pill(3,5,14,12,'#b5ce82');ctx.setFillColor(new Color('#b5ce82'));
+        ctx.fillEllipse(new Rect(3,2,6,6));ctx.fillEllipse(new Rect(11,2,6,6));
+        ctx.setFillColor(new Color('#172019'));ctx.fillEllipse(new Rect(5,4,2,2));ctx.fillEllipse(new Rect(13,4,2,2));
+        const weekday=day=>new Date(day.date+'T12:00:00Z').getUTCDay();
+        const dayColor=day=>weekday(day)===6?'#368ac5':weekday(day)===0?'#c5596b':'#526a49';
+        days.forEach((day,col)=>centered(['일','월','화','수','목','금','토'][weekday(day)],col*cell,weekdaysY,cell,10,dayColor(day)));
+        days.forEach((day,index)=>{
+            const position=weekly?index:index+offset,col=position%7,row=weekly?0:Math.floor(position/7),x=col*cell,y=gridTop+row*rowHeight;
+            const active=day.date===snapshot.day;
+            if(active)pill(x+1,y-2,cell-2,rowHeight+1,'#dae8bc');
+            if(active)pill(x+2,y,cell-4,15,'#5d7d3e');
+            centered(String(Number(day.date.slice(-2))),x,y,cell,12,active?'#ffffff':dayColor(day));
+            const entryHeight=snapshot.calendar.kind==='work'?27:12,entryGap=2,start=y+18;
+            const slots=Math.max(1,Math.floor((rowHeight-18+entryGap)/(entryHeight+entryGap)));
+            const shown=day.entries.slice(0,day.total>slots?Math.max(0,slots-1):slots);
+            shown.forEach((entry,n)=>{
+                const ey=start+n*(entryHeight+entryGap),color=entry.completed?'#55575b':entry.color;
+                pill(x+1,ey,cell-2,entryHeight,color);
+                const hex=color.replace('#',''),rgb=[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16));
+                const foreground=entry.completed?'#c8c8cc':(.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2]>155?'#18221b':'#ffffff');
+                if(entry.kind==='work'){
+                    const times=entry.title.split('–');
+                    // Repeat the suffix so each time is readable on its own line.
+                    if(times.length===2&&!/[ap]$/.test(times[0]))times[0]+=times[1].slice(-1);
+                    times.slice(0,2).forEach((time,i)=>centered(shorten(time,cell-5,10),x+2,ey+i*12,cell-4,10,foreground));
+                }else ink(shorten(entry.title,cell-6,9),x+3,ey,cell-6,9,foreground,true);
+            });
+            if(day.total>shown.length)ink('+'+(day.total-shown.length),x+3,start+shown.length*(entryHeight+entryGap),cell-5,9,'#69765c');
+        });
+        return ctx.getImage();
+    }
+    ['M','T','W','T','F','S','S'].forEach((day,col)=>ink(day,col*cell+4,0,cell-6,11,col===5?'#368ac5':col===6?'#c5596b':'#69765c',true));
+    for(let index=0;index<days.length;index++){
+        const day=days[index],position=index+offset,col=position%7,row=Math.floor(position/7),x=col*cell,y=top+row*height;
+        const isToday=day.date===snapshot.day;
+        if(isToday){ctx.setFillColor(new Color('#e7edcb'));ctx.fillRect(new Rect(x,y,cell-2,height-2));}
+        ink(String(Number(day.date.slice(-2))),x+3,y,cell-6,11,col===5?'#368ac5':col===6?'#c5596b':'#30422a',true);
+        const slots=Math.max(1,Math.floor((height-17)/11));
+        const shown=day.entries.slice(0,day.total>slots?slots-1:slots);
+        shown.forEach((entry,n)=>{
+            const ey=y+15+n*11;
+            ctx.setFillColor(new Color(entry.color,entry.completed?.06:.15));ctx.fillRect(new Rect(x+1,ey,cell-3,10));
+            ctx.setFillColor(new Color(entry.color));ctx.fillRect(new Rect(x+1,ey,2,10));
+            const size=entry.kind==='work'?7.5:9;
+            ink(entry.kind==='work'?entry.title:shorten(entry.title,cell-8,size),x+4,ey-1,cell-6,size,entry.completed?'#7b8790':entry.color);
+            if(entry.completed){ctx.setFillColor(new Color('#7b8790',.5));ctx.fillRect(new Rect(x+5,ey+5,cell-11,.5));}
+        });
+        if(day.total>shown.length)ink('+'+(day.total-shown.length),x+4,y+15+shown.length*11,cell-8,9,'#69765c');
+    }
+    return ctx.getImage();
+}
+if(typeof module!=='undefined')module.exports=drawMonthCalendar;
+
+return module.exports;})();
+const frogStamp=(()=>{const module={exports:{}};
+// Small vector stamp based on the wide-smiling green frog mascot.
+function frogStamp(tint='#a8c66a'){
+    const c=new DrawContext();c.size=new Size(40,36);c.opaque=false;c.respectScreenScale=true;
+    c.setFillColor(new Color(tint));
+    c.fillEllipse(new Rect(2,9,36,26));c.fillEllipse(new Rect(3,1,12,17));c.fillEllipse(new Rect(25,1,12,17));
+    c.setFillColor(new Color('#293721'));
+    c.fillEllipse(new Rect(7,6,4,5));c.fillEllipse(new Rect(29,6,4,5));
+    c.fillEllipse(new Rect(16,16,2.5,2.5));c.fillEllipse(new Rect(22,16,2.5,2.5));
+    for(let i=0;i<=24;i++){const x=7+i,y=20+7*Math.sin(i/24*Math.PI);c.fillEllipse(new Rect(x,y,2,2));}
+    return c.getImage();
+}
+if(typeof module!=='undefined')module.exports=frogStamp;
+
+return module.exports;})();
 const BASE='https://todo-ledger.web.app';
 const API_KEY='AIzaSyC4i32hyIRXhib_keTTr9zSj3AOolasYLc';
 const CREDENTIALS='pocket-paws-v1-account',PENDING='pocket-paws-v1-pairing';
+const MODES=['todo-month','work-week'];
+const isCalendar=kind=>kind.includes('-');
+const allowedSizes=kind=>kind.endsWith('-month')?['large']:kind.endsWith('-week')?['medium']:['small','medium'];
+const contentKind=kind=>kind.split('-')[0];
+function clearCaches(){for(const kind of [...MODES,'month','work','todo','work-month','todo-week'])forget('pocket-paws-cache-'+kind);}
+function widgetDimensions(family){
+    const width=typeof Device!=='undefined'?Device.screenSize().width:390;
+    const sizes=width>=430?[364,382,170]:width>=414?[360,379,169]:width>=390?[338,354,158]:width>=375?[329,345,155]:[292,311,141];
+    return {width:family==='small'?sizes[2]:sizes[0],height:family==='large'?sizes[1]:sizes[2]};
+}
 let stage='startup';
 const read=key=>Keychain.contains(key)?JSON.parse(Keychain.get(key)):null;
 const save=(key,value)=>Keychain.set(key,JSON.stringify(value));
@@ -287,7 +426,7 @@ async function acceptConnection(){
     const pending=read(PENDING),q=args.queryParameters||{};
     if(!pending||q.state!==pending.state||Date.now()-pending.created>600000)throw Error('pairing');
     const account=await cryptoCall('decrypt',{privateKey:pending.privateKey,key:q.key,nonce:q.nonce,data:q.data});
-    forget(PENDING);forget('pocket-paws-cache-work');forget('pocket-paws-cache-todo');
+    forget(PENDING);clearCaches();
     save(CREDENTIALS,{...account,connectionID:UUID.string()});
 }
 async function requestJSON(url,token,body){
@@ -306,7 +445,7 @@ async function sync(kind){
     const base='https://firestore.googleapis.com/v1/projects/todo-ledger/databases/(default)/documents/users/'+encodeURIComponent(account.uid);
     const get=url=>requestJSON(url,token.id_token);
     let data={};
-    if(kind==='work'){
+    if(contentKind(kind)==='work'){
         for(const def of WorkWidgetData.definitions){
             const shifts=await Core.list(get,base,'weeklyWorkShifts'+def.suffix);
             // A missing settings document is a valid new-account default; other errors must surface.
@@ -316,89 +455,81 @@ async function sync(kind){
             else if(request.response.statusCode!==404)throw Error([401,403].includes(request.response.statusCode)?'auth':'network');
             data[def.id]={shifts,settings};
         }
-    }else{
-        data.tasks=await Core.list(get,base,'personalTasks');
-        data.routines=await Core.list(get,base,'personalRoutines');
-        data.checks=await Core.list(get,base,'personalRoutineChecks');
-        data.categories=await Core.list(get,base,'personalCategories');
+    }
+    if(contentKind(kind)==='todo'){
+        [data.tasks,data.routines,data.checks,data.categories]=await Promise.all(
+            ['personalTasks','personalRoutines','personalRoutineChecks','personalCategories'].map(name=>Core.list(get,base,name))
+        );
     }
     if(read(CREDENTIALS)?.connectionID!==account.connectionID)throw Error('auth');
-    const day=MobileModel.dayKey(new Date()),rows=Core.today(WorkWidgetData,PlannerModel,day,data,kind);
-    const snapshot={uid:account.uid,day,rows:rows.slice(0,50),total:rows.length,updated:Date.now()};
+    const day=MobileModel.dayKey(new Date()),rows=isCalendar(kind)?[]:Core.today(WorkWidgetData,PlannerModel,day,data,kind);
+    const snapshot={layoutVersion:2,uid:account.uid,day,rows:rows.slice(0,50),total:rows.length,updated:Date.now(),...(isCalendar(kind)?{calendar:Core.month(WorkWidgetData,PlannerModel,day,data,contentKind(kind),kind.split('-')[1])}:{})};
     save('pocket-paws-cache-'+kind,snapshot);return snapshot;
 }
-function text(parent,value,size=14,color='#25475d',bold=false){
+function text(parent,value,size=14,color='#30422a',bold=false){
     const label=parent.addText(String(value));label.font=bold?Font.boldSystemFont(size):Font.systemFont(size);label.textColor=new Color(color);label.lineLimit=1;label.minimumScaleFactor=.85;return label;
 }
 function widget(kind,snapshot,error,family=config.widgetFamily||'medium'){
     const small=family==='small',large=family==='large';
+    const dimensions=widgetDimensions(family),contentWidth=dimensions.width-(small?20:28);
     const w=new ListWidget();w.setPadding(small?10:14,small?10:14,small?8:12,small?10:14);
-    const gradient=new LinearGradient();gradient.colors=[new Color('#f3fbff'),new Color('#e4f2fc')];gradient.locations=[0,1];w.backgroundGradient=gradient;
-    w.url=BASE+(kind==='todo'?'/mobile/planner.html':'/index.html')+'?date=today';
-    w.refreshAfterDate=new Date(Date.now()+15*60000);
-    const title=w.addStack();title.centerAlignContent();text(title,kind==='work'?'TODAY · WORK':'TODAY · TO DO',12,'#527c97',true);title.addSpacer();
-    const paw=title.addImage(SFSymbol.named('pawprint.fill').image);paw.imageSize=new Size(17,17);paw.tintColor=new Color('#559fcb');
+    const gradient=new LinearGradient();gradient.colors=[new Color('#fffef6'),new Color('#edf1d9')];gradient.locations=[0,1];w.backgroundGradient=gradient;
+    w.url=BASE+(contentKind(kind)==='work'?'/index.html':'/mobile/planner.html')+'?date=today';
+    // Request a refresh just after Edmonton midnight even if the normal interval crosses it.
+    w.refreshAfterDate=Core.nextRefresh(MobileModel);
+    if(!MODES.includes(kind)){text(w,'Widget removed',16,'#30422a',true);w.addSpacer(8);text(w,'Use todo-month (Large) or work-week (Medium).',13,'#69765c').lineLimit=3;return w;}
+    if(!allowedSizes(kind).includes(family)){
+        text(w,'Widget size',16,'#30422a',true);w.addSpacer(8);
+        text(w,'Choose '+allowedSizes(kind).join(' or ')+'.',14,'#69765c').lineLimit=3;
+        return w;
+    }
+    if(isCalendar(kind)&&snapshot){
+        const weekly=kind.endsWith('-week');
+        if(weekly){gradient.colors=[new Color('#fffef2'),new Color('#eaf2da')];}
+        w.setPadding(8,6,6,6);
+        const width=dimensions.width-12;
+        let headerHeight=0;
+        if(!weekly){
+            const header=w.addStack();header.centerAlignContent();
+            text(header,snapshot.calendar.month+' · '+(contentKind(kind)==='work'?'WORK':'TO DO'),13,'#587b38',true);
+            header.addSpacer();const mark=header.addImage(frogStamp());mark.imageSize=new Size(16,16);
+            w.addSpacer(4);headerHeight=20;
+        }
+        const height=dimensions.height-14-headerHeight-(error?14:0);
+        const image=w.addImage(drawMonthCalendar(snapshot,width,height));
+        image.imageSize=new Size(width,height);image.resizable=true;image.applyFittingContentMode();
+        if(error)text(w,'Offline · Open to sync',10,'#69765c');
+        return w;
+    }
+    const title=w.addStack();title.centerAlignContent();text(title,isCalendar(kind)?((kind.endsWith('week')?'WEEK':snapshot?.calendar?.month||'MONTH')+' · '+(contentKind(kind)==='work'?'WORK':'TO DO')):kind==='work'?'TODAY · WORK':'TODAY · TO DO',12,'#69765c',true);title.addSpacer();
+    const paw=title.addImage(frogStamp());paw.imageSize=new Size(17,17);paw.tintColor=new Color('#789847');
     w.addSpacer(8);
     if(!snapshot){
-        text(w,error==='auth'?'Connect your account':'Unable to sync',16,'#25475d',true).lineLimit=2;
-        w.addSpacer(6);text(w,'Run Pocket Paws in Scriptable.',12,'#61798a').lineLimit=2;
+        text(w,error==='auth'?'Connect your account':'Unable to sync',16,'#30422a',true).lineLimit=2;
+        w.addSpacer(6);text(w,'Run Pocket Paws in Scriptable.',12,'#69765c').lineLimit=2;
         w.url=URLScheme.forRunningScript();return w;
     }
-    if(kind==='work'){
-        for(const job of snapshot.rows){
-            const row=w.addStack();row.layoutVertically();row.setPadding(large?16:small?5:7,9,large?16:small?5:7,9);row.cornerRadius=12;
-            row.backgroundColor=new Color(job.id==='iron'?'#e7f5ed':'#f0e8fb');
-            const heading=row.addStack();heading.centerAlignContent();
-            text(heading,small?(job.id==='iron'?'Iron Peak':'Booster'):job.name,small?11:13,job.id==='iron'?'#27744f':'#8052ae',true);
-            heading.addSpacer();text(heading,job.status==='incomplete'?'—':'$'+job.amount.toFixed(2),small?11:large?20:14,'#25475d',true);
-            text(row,job.status==='off'?'Day off':job.status==='incomplete'?'Check shift times':WorkWidgetData.displayTime(job.checkIn)+' – '+WorkWidgetData.displayTime(job.checkOut),small?12:large?22:16,'#25475d',true);
-            w.addSpacer(6);
-        }
-    }else{
-        const columns=small?1:2,limit=small?4:large?18:8,visible=snapshot.rows.slice(0,limit);
-        if(!visible.length){text(w,'A clear little day',17,'#25475d',true);text(w,'No tasks for today.',13,'#61798a');}
-        for(let index=0;index<visible.length;index+=columns){
-            const line=w.addStack();line.centerAlignContent();
-            for(const item of visible.slice(index,index+columns)){
-                if(item!==visible[index])line.addSpacer(8);
-                const color=item.categoryColor||'#479ee8';
-                const row=line.addStack();row.centerAlignContent();row.setPadding(2,4,2,4);row.cornerRadius=5;row.backgroundColor=new Color(color,.10);
-                const icon=row.addImage(SFSymbol.named(item.completed?'pawprint.fill':'circle').image);icon.imageSize=new Size(14,14);icon.tintColor=new Color(color);row.addSpacer(5);
-                const label=text(row,item.title,14,item.completed?'#61798a':'#25475d',!item.completed);
-                label.minimumScaleFactor=1;
-                row.addSpacer();
-            }
-            w.addSpacer(3);
-        }
-        if(snapshot.total>limit)text(w,'+'+(snapshot.total-limit)+' more · Open planner',11,'#61798a');
-    }
-    w.addSpacer();
-    const updated=new Date(snapshot.updated);const formatter=new DateFormatter();formatter.dateFormat='h:mm a';formatter.timeZone='America/Edmonton';
-    text(w,(error?'Offline · ':'')+formatter.string(updated)+(kind==='work'&&!small?' · Estimated CAD':''),10,'#61798a');
     return w;
 }
 async function run(){
     let family=config.widgetFamily||'medium';
-    let kind=String(args.widgetParameter||'work').trim().toLowerCase();if(!['work','todo'].includes(kind))kind='work';
+    let kind=String(args.widgetParameter||'todo-month').trim().toLowerCase();if(kind==='month')kind='todo-month';
     if(!config.runsInWidget){
         if(args.queryParameters?.state){await acceptConnection();}
         stage='menu';
-        const menu=new Alert();menu.title='Pocket Paws';menu.message='Work & today’s tasks';
-        menu.addAction('Preview work');menu.addAction('Preview to do');menu.addAction('Connect / switch account');menu.addDestructiveAction('Disconnect');menu.addCancelAction('Cancel');
+        const menu=new Alert();menu.title='Pocket Pond';menu.message='Refresh data and preview';
+        menu.addAction('Refresh monthly to do');menu.addAction('Refresh work week');menu.addAction('Connect / switch account');menu.addDestructiveAction('Disconnect');menu.addCancelAction('Cancel');
         const choice=await menu.presentSheet();
         if(choice<0)return;
         if(choice===2){await connect();return;}
-        if(choice===3){forget(CREDENTIALS);forget(PENDING);forget('pocket-paws-cache-work');forget('pocket-paws-cache-todo');return;}
-        kind=choice===1?'todo':'work';
-        const sizeMenu=new Alert();sizeMenu.title='Preview size';
-        sizeMenu.addAction('Small');sizeMenu.addAction('Medium');sizeMenu.addAction('Large');sizeMenu.addCancelAction('Cancel');
-        const sizeChoice=await sizeMenu.presentSheet();if(sizeChoice<0)return;
-        family=['small','medium','large'][sizeChoice];
+        if(choice===3){forget(CREDENTIALS);forget(PENDING);clearCaches();return;}
+        kind=MODES[choice];family=allowedSizes(kind)[0];
     }
+    if(!MODES.includes(kind)){Script.setWidget(widget(kind,null,null,family));return;}
     let snapshot,error;
     try{snapshot=await sync(kind);}catch(e){
         error=e.message==='auth'?'auth':'network';const cached=read('pocket-paws-cache-'+kind),account=read(CREDENTIALS);
-        if(error!=='auth'&&cached?.uid===account?.uid&&cached?.day===MobileModel.dayKey(new Date()))snapshot=cached;
+        if(error!=='auth'&&cached?.layoutVersion===2&&cached?.uid===account?.uid&&cached?.day===MobileModel.dayKey(new Date()))snapshot=cached;
     }
     stage='render-'+kind;
     const w=widget(kind,snapshot,error,family);Script.setWidget(w);
@@ -412,7 +543,7 @@ try{await run();}catch(e){
     // Never show raw exception messages: they can contain URLs or account credentials.
     const type=['TypeError','ReferenceError','SyntaxError','Error'].includes(e?.name)?e.name:'Error';
     const hint=e?.message==='WebCrypto unavailable'?'Local WebCrypto is unavailable.':'Please share this error code, not your account credentials.';
-    if(!config.runsInWidget){const alert=new Alert();alert.title='Pocket Paws could not finish';alert.message='Build 3 · '+stage+' · '+type+'\n'+hint;alert.addAction('OK');await alert.presentAlert();}
-    else Script.setWidget(widget('work',null,'auth'));
+    if(!config.runsInWidget){const alert=new Alert();alert.title='Pocket Pond could not finish';alert.message='Build 3 · '+stage+' · '+type+'\n'+hint;alert.addAction('OK');await alert.presentAlert();}
+    else Script.setWidget(widget('todo-month',null,'auth'));
 }
 Script.complete();
