@@ -52,6 +52,7 @@ function attachLogoutButton() {
     const btn = document.getElementById('logoutBtn');
     if (!btn) return;
     btn.addEventListener('click', () => {
+        if (!window.confirm('로그아웃할까요?')) return;
         auth.signOut().then(redirectToLogin);
     });
 }

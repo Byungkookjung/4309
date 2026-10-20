@@ -141,6 +141,34 @@ assert.equal(await page.locator('#taskList .completed-group').count(),0);
 await page.getByRole('button',{name:'Mark incomplete: A completed',exact:true}).tap();
 await page.waitForFunction(()=>document.querySelectorAll('#taskList .task-item.done').length===0);
 assert.equal(await page.locator('#taskList .category-group .task-item').count(),2);
+await page.clock.setFixedTime(new Date('2026-10-19T18:00:00Z'));
+await page.evaluate(()=>{
+ store.personalTasks={};store.personalRoutines={history:{title:'History test',startDate:'2026-10-01',frequency:'weekly',weekdays:[1]}};
+ store.personalRoutineChecks={done:{routineId:'history',date:'2026-10-05',completed:true}};
+ emit('personalTasks');emit('personalRoutines');emit('personalRoutineChecks');
+});
+await page.locator('#routineList button[aria-label^="Edit"]').tap();
+await page.locator('#weekdayChoices').getByRole('button',{name:'Mon',exact:true}).tap();
+await page.locator('#weekdayChoices').getByRole('button',{name:'Thu',exact:true}).tap();
+await page.locator('#saveTask').tap();await page.waitForFunction(()=>!document.querySelector('#taskEditor').open);
+assert.equal(await page.evaluate(()=>store.personalRoutines.history.scheduleFrom),'2026-10-19');
+assert.equal(await page.evaluate(()=>store.personalRoutines.history.scheduleVersion),1);
+await page.locator('[data-date="2026-10-05"]').tap();
+assert.equal(await page.locator('#taskList .task-check').getAttribute('aria-pressed'),'true');
+for(const date of ['2026-10-12','2026-10-15','2026-10-19']){
+ await page.locator('[data-date="'+date+'"]').tap();assert.equal(await page.locator('#taskList .task-item').count(),0);
+}
+await page.locator('[data-date="2026-10-22"]').tap();assert.equal(await page.locator('#taskList .task-check').getAttribute('aria-pressed'),'false');
+await page.locator('#routineList button[aria-label^="Edit"]').tap();await page.locator('#repeatFrequency').selectOption('monthly');
+await page.locator('#monthChoices [aria-pressed=true]').tap();await page.locator('[data-month-day="last"]').tap();
+await page.locator('#saveTask').tap();await page.waitForFunction(()=>!document.querySelector('#taskEditor').open);
+await page.locator('[data-date="2026-10-05"]').tap();assert.equal(await page.locator('#taskList .task-check').getAttribute('aria-pressed'),'true');
+await page.locator('[data-date="2026-10-22"]').tap();assert.equal(await page.locator('#taskList .task-item').count(),0);
+await page.locator('[data-date="2026-10-31"]').tap();assert.equal(await page.locator('#taskList .task-check').getAttribute('aria-pressed'),'false');
+console.log(name,'routine edits preserve completed history and remove past pending occurrences PASS');
+page.removeAllListeners('dialog');page.once('dialog',d=>{assert.equal(d.message(),'로그아웃할까요?');d.dismiss();});
+await page.locator('#plannerSignOut').tap();assert.equal(await page.locator('#plannerLogin').isVisible(),false);assert.equal(await page.locator('#taskList .task-item').count(),1);
+page.once('dialog',d=>d.accept());
 await page.locator('#plannerSignOut').tap();assert.equal(await page.locator('#plannerLogin').isVisible(),true);assert.equal(await page.locator('#taskList .task-item').count(),0);assert.equal(await page.locator('#addTask').isDisabled(),true);
 assert.deepEqual(errors,[]);console.log(name,'CRUD, date-specific routines, holidays, overflow, failure, account isolation PASS');await browser.close();
 }})().catch(e=>{console.error(e);process.exit(1)});

@@ -316,3 +316,16 @@ Deployment is performed only on explicit request. Installed Scriptable code must
 - Native WorkToday iOS Simulator build succeeded with code signing disabled. This release check did not install or test on a physical iPhone.
 - Syntax checks and `git diff --check` passed. Browser tests use isolated fixtures and do not write production records.
 - Deploying Firebase Hosting publishes web assets and the downloadable Scriptable bundle, not an installed iPhone script or native iOS binary.
+
+### Routine Schedule Edits
+
+Changing a repeat rule or its start/end dates preserves completed occurrences on their original (or explicitly moved) dates. Pending occurrences before the Edmonton edit date disappear; the new rule generates occurrences from that date onward. Pending moves from older rule versions are ignored. Title/category-only edits keep the existing schedule boundary. Completion records are retained rather than bulk-deleted; ordinary one-off tasks are unaffected. The shared planner model is also bundled into Scriptable, so installed scripts need replacing to receive this behavior.
+
+### October 20 Planner Update
+
+- Routine schedule edits preserve completed dates and replace pending occurrences from the Edmonton edit date onward.
+- Calendar badges show only unfinished task/routine counts; empty dates have no badge and fully completed dates show a green check.
+- Today remains highlighted independently of the selected date. The separate Today navigation button is removed.
+- Daily (`일상`) appears first in task groups, category management and category selectors; other categories retain their order.
+- All logout buttons require confirmation; cancel keeps the current session.
+- Verification: 30 Node tests, Chrome/WebKit planner and calendar checks, plus mobile dashboard responsive/auth/offline tests passed using isolated fixtures.

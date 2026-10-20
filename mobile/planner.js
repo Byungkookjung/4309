@@ -16,7 +16,7 @@
     function openTaskMenu(item){
         if(!ready||busy)return;
         menuItem={...item};$('taskMenuTitle').textContent=item.title;
-        $('taskMenuHint').textContent=item.kind==='routine'?'Date moves affect this occurrence only. Edit and delete affect the whole routine.':'';
+        $('taskMenuHint').textContent=item.kind==='routine'?'Date moves affect this occurrence only. Repeat edits keep completed dates and replace pending dates from today. Delete removes the whole routine.':'';
         $('menuRoutine').hidden=item.kind==='routine';$('moveDateForm').hidden=true;$('taskMenuError').textContent='';taskMenu.showModal();
     }
     $('closeTaskMenu').onclick=()=>{if(!busy)taskMenu.close();};
@@ -29,7 +29,7 @@
         const saved=await write(ref=>{
             if(item.kind==='task')return ref.collection('personalTasks').doc(item.id).update({date});
             const original=item.occurrenceDate||item.date;
-            return ref.collection('personalRoutineChecks').doc(item.id+'_'+original).set({routineId:item.id,date:original,movedDate:date,completed:!!item.completed});
+            return ref.collection('personalRoutineChecks').doc(item.id+'_'+original).set({routineId:item.id,date:original,movedDate:date,scheduleVersion:Number(item.scheduleVersion||0),completed:!!item.completed});
         });
         if(saved&&request===epoch){taskMenu.close();selected=date;month=date.slice(0,7);render();}
     }
@@ -45,7 +45,10 @@
     const legacyColors = {'#367aa0':colors[0],'#8050ad':colors[1],'#28745c':colors[2],'#ae485b':colors[3],'#946319':colors[4],'#b46842':colors[4],'#637649':colors[2],'#5867a6':colors[1]};
     const categoryColor = category => colors.includes(category?.color) ? category.color : legacyColors[category?.color]||colors[0];
     const defaultCategory = () => ({id:'__daily__',name:'일상',color:colors[0],...categories.find(c=>c.id==='__daily__'||c.name==='일상'),name:'일상'});
-    const categoryOptions = () => [...categories.filter(c=>c.id!==defaultCategory().id),defaultCategory()];
+    const categoryOptions = () => {
+        const daily=defaultCategory();
+        return [daily,...categories.filter(c=>c.id!==daily.id)];
+    };
     const resolvedCategory = id => categoryOptions().some(c=>c.id===id)?id:defaultCategory().id;
     let drag = null;
     function stopDrag() {
@@ -162,10 +165,18 @@
         const count=new Date(Date.UTC(year,m,0)).getUTCDate();
         for(let n=1;n<=count;n++){
             const date=`${month}-${String(n).padStart(2,'0')}`, holiday=holidays.find(h=>h.date===date), day=new Date(date+'T12:00:00Z').getUTCDay();
-            const entries=items(date), b=button(String(n),`${date}${holiday?', '+holiday.name+(holiday.optional?', optional holiday':''):''}, ${entries.length} tasks`,()=>{selected=date;render();});
+            const entries=items(date), remaining=entries.filter(item=>!item.completed).length;
+            const status=!entries.length?'No tasks':remaining?remaining+' tasks remaining':'All tasks completed';
+            const b=button('',`${date}${holiday?', '+holiday.name+(holiday.optional?', optional holiday':''):''}, ${status}`,()=>{selected=date;render();});
+            const number=document.createElement('span');number.className='calendar-date-number';number.textContent=String(n);b.append(number);
+            if(entries.length){
+                const badge=document.createElement('span');badge.className='calendar-task-status'+(remaining?'':' is-complete');
+                badge.textContent=remaining?String(remaining):'✓';badge.setAttribute('aria-hidden','true');b.append(badge);
+            }
+            b.title=status;
             b.dataset.date=date;b.setAttribute('aria-pressed',String(date===selected));
             if(date===today)b.setAttribute('aria-current','date');
-            if(day===0||day===6)b.classList.add('weekend');if(holiday)b.classList.add(holiday.optional?'optional':'holiday');if(entries.length)b.classList.add('has-tasks');
+            if(day===0||day===6)b.classList.add('weekend');if(holiday)b.classList.add(holiday.optional?'optional':'holiday');
             $('plannerGrid').append(b);
         }
         $('selectedWeekday').textContent=new Date(selected+'T12:00:00Z').toLocaleDateString('en-CA',{weekday:'long',timeZone:'UTC'});
@@ -218,7 +229,7 @@
     }
     function toggle(item){
         const date=item.occurrenceDate||selected;
-        write(ref=>item.kind==='routine'?ref.collection('personalRoutineChecks').doc(item.id+'_'+date).set({routineId:item.id,date,...(item.date!==date?{movedDate:item.date}:{}),completed:!item.completed}):ref.collection('personalTasks').doc(item.id).update({completed:!item.completed}));
+        write(ref=>item.kind==='routine'?ref.collection('personalRoutineChecks').doc(item.id+'_'+date).set({routineId:item.id,date,scheduleVersion:Number(item.scheduleVersion||0),...(item.date!==date?{movedDate:item.date}:{}),completed:!item.completed}):ref.collection('personalTasks').doc(item.id).update({completed:!item.completed}));
     }
     function remove(kind,item){
         if(!confirm(kind==='routine'?'Delete this repeating routine?':'Delete this task?'))return;
@@ -262,6 +273,11 @@
         const payload=kind==='routine'?{title,startDate:date,weekdays}:{title,date,completed:tasks.find(t=>t.id===id)?.completed===true};
         if(kind==='routine')Object.assign(payload,{frequency,endDate,monthDays:monthly.filter(day=>day!=='last').map(Number),lastDay:monthly.includes('last')});
         payload.categoryId=$('taskCategory').value;
+        if(kind==='routine'&&id){
+            const previous=routines.find(r=>r.id===id);
+            if(!previous){$('editorError').textContent='This routine no longer exists.';return;}
+            Object.assign(payload,model.editRoutine(previous,payload,MobileModel.dayKey(new Date())));
+        }
         const saved=await write(ref=>{
             const collection=ref.collection(kind==='routine'?'personalRoutines':'personalTasks');
             if(sourceTask){
@@ -277,11 +293,11 @@
     $('closeEditor').onclick=()=>{if(!busy)dialog.close();};dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
     $('addTask').onclick=()=>openEditor('task');$('addRoutine').onclick=()=>openEditor('routine');
     function move(offset){const d=new Date(month+'-01T12:00:00Z');d.setUTCMonth(d.getUTCMonth()+offset);if(d.getUTCFullYear()<1900||d.getUTCFullYear()>2199)return;month=d.toISOString().slice(0,7);selected=month+'-01';render();}
-    $('previousMonth').onclick=()=>move(-1);$('nextMonth').onclick=()=>move(1);$('jumpToday').onclick=()=>{selected=MobileModel.dayKey(new Date());month=selected.slice(0,7);render();};render();
+    $('previousMonth').onclick=()=>move(-1);$('nextMonth').onclick=()=>move(1);render();
     await window.mobileAuthReady;const auth=window.__ledgerAuth;
     if(!auth?.auth){$('plannerSignIn').disabled=true;$('plannerStatus').textContent='Connect to the internet to sign in.';return;}
     $('plannerSignIn').onclick=async()=>{try{await auth.signInWithGoogle();}catch(_){$('plannerStatus').textContent='Sign-in did not finish. Please retry.';}};
-    $('plannerSignOut').onclick=async()=>{try{await auth.auth.signOut();}catch(_){$('plannerStatus').textContent='Sign-out failed. Please retry.';}};
+    $('plannerSignOut').onclick=async()=>{if(!window.confirm('로그아웃할까요?'))return;try{await auth.auth.signOut();}catch(_){$('plannerStatus').textContent='Sign-out failed. Please retry.';}};
     auth.auth.onAuthStateChanged(account=>{
         taskMenu.close();menuItem=null;taskMenu.querySelectorAll('button').forEach(b=>b.disabled=false);
         ++epoch;const request=epoch;unsub.forEach(stop=>stop());unsub=[];user=account;owner=null;tasks=[];routines=[];checks=[];categories=[];ready=false;busy=false;editing=null;dialog.close();categoryDialog.close();$('saveTask').disabled=$('saveCategory').disabled=false;

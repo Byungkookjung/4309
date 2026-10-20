@@ -146,6 +146,7 @@
             finally { $('signIn').disabled = false; }
         };
         $('signOut').onclick = async () => {
+            if (!window.confirm('로그아웃할까요?')) return;
             try { await auth.auth.signOut(); } catch (_) { $('syncStatus').textContent = 'Sign-out failed. Please retry.'; }
         };
     } else { $('signIn').disabled = true; $('syncStatus').textContent = 'Connection unavailable. Reopen online to sign in.'; }

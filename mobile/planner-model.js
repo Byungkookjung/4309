@@ -44,15 +44,38 @@
         if(frequency==='monthly')return 'Every month · '+[...(routine.monthDays||[]),...(routine.lastDay?['Last day']:[])].join(', ');
         return (frequency==='biweekly'?'Every 2 weeks':'Every week')+' · '+(routine.weekdays||[]).map(day=>names[day]).join(', ');
     }
+    function scheduleKey(routine){
+        const frequency=routine.frequency||'weekly';
+        const values=items=>[...new Set(items||[])].sort((a,b)=>a-b);
+        return JSON.stringify([routine.startDate,routine.endDate||'',frequency,
+            ['weekly','biweekly'].includes(frequency)?values(routine.weekdays):[],
+            frequency==='monthly'?values(routine.monthDays):[],frequency==='monthly'&&routine.lastDay===true]);
+    }
+    function editRoutine(previous,next,today){
+        if(!validDate(today))throw Error('Invalid edit date');
+        const changed=scheduleKey(previous)!==scheduleKey(next);
+        return {...next,...(previous.scheduleFrom?{scheduleFrom:previous.scheduleFrom}:{}),
+            scheduleVersion:Number(previous.scheduleVersion||0)+(changed?1:0),
+            ...(changed?{scheduleFrom:today}:{})};
+    }
     function dayItems(tasks,routines,checks,date){
         const result=tasks.filter(t=>t.date===date).map(t=>({...t,kind:'task'}));
         for(const routine of routines){
             const overrides=checks.filter(c=>c.routineId===routine.id);
-            const current=overrides.find(c=>c.date===date);
-            if(occurs(routine,date)&&(!current?.movedDate||current.movedDate===date))result.push({...routine,kind:'routine',date,occurrenceDate:date,completed:current?.completed===true});
-            for(const override of overrides.filter(c=>c.movedDate===date&&c.date!==date))result.push({...routine,kind:'routine',date,occurrenceDate:override.date,completed:override.completed===true});
+            const active=check=>Number(check.scheduleVersion||0)===Number(routine.scheduleVersion||0);
+            const allowed=!routine.scheduleFrom||date>=routine.scheduleFrom;
+            const add=(occurrenceDate,completed)=>result.push({...routine,kind:'routine',date,occurrenceDate,completed});
+            // Completed occurrences are history, independent of the current repeat rule.
+            for(const check of overrides){
+                if(check.completed===true&&(check.movedDate||check.date)===date)add(check.date,true);
+            }
+            const current=overrides.find(c=>c.date===date&&(c.completed===true||active(c)));
+            if(allowed&&occurs(routine,date)&&!current?.completed&&(!current?.movedDate||current.movedDate===date))add(date,false);
+            for(const check of overrides){
+                if(allowed&&active(check)&&!check.completed&&check.movedDate===date&&check.date!==date)add(check.date,false);
+            }
         }
         return result;
     }
-    const api={holidays,validDate,occurs,dayItems,repeatLabel};if(typeof module!=='undefined')module.exports=api;else root.PlannerModel=api;
+    const api={holidays,validDate,occurs,dayItems,repeatLabel,editRoutine};if(typeof module!=='undefined')module.exports=api;else root.PlannerModel=api;
 })(globalThis);

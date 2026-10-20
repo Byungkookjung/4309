@@ -13,8 +13,11 @@ body,body.ledger-body,body.sheet-body[data-job]{color:var(--pond-ink);font-famil
 .bottom-nav{background:#fffef6ed;border-color:var(--pond-line)}
 .bottom-nav [aria-current],.day-tabs [aria-pressed=true]{background:var(--pond-lime);color:var(--pond-ink)}
 .planner-grid [aria-pressed=true]{background:#e0eabe;border-color:#8ba653;color:var(--pond-ink)}
-.planner-grid [aria-current=date]{border-color:#8ba653}
-.planner-grid .has-tasks::after{background:var(--pond-leaf)}
+.planner-grid [aria-current=date]{border-color:#587b38;box-shadow:inset 0 0 0 1px #587b38}
+.planner-grid [aria-current=date] .calendar-date-number{display:inline-flex;align-items:center;justify-content:center;min-width:26px;padding:0 3px;box-sizing:border-box;border-radius:8px;background:#587b38;color:#fff;font-weight:900}
+.calendar-key .key-today{display:inline-flex;align-items:center;gap:4px}
+.calendar-key .key-today::before{content:'';width:12px;height:12px;box-sizing:border-box;border:2px solid #587b38;border-radius:4px;background:#e7edcb}
+
 .track{stroke:#e1e8cc}#progress{stroke:#89a953}.tip{color:var(--pond-ink)}
 #taskEditor,#categoryEditor,#taskEditor .section-head{background:var(--pond-paper);color:var(--pond-ink)}
 .day-plan .task-check[aria-pressed=true]::before{mask-image:url('frog-mark.svg');-webkit-mask-image:url('frog-mark.svg')}

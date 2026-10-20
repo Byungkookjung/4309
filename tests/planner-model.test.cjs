@@ -41,3 +41,38 @@ test('moving a routine occurrence preserves its identity and other dates',()=>{
  assert.equal(next.find(t=>t.occurrenceDate==='2026-10-09').completed,true);
  assert.equal(model.dayItems([], [routine],checks,'2026-10-11').length,1);
 });
+
+test('repeat edits preserve completed history and replace pending schedules from the edit day',()=>{
+ const original={id:'r',title:'Laundry',startDate:'2026-10-01',frequency:'weekly',weekdays:[1]};
+ const checks=[{routineId:'r',date:'2026-10-05',completed:true},{routineId:'r',date:'2026-10-12',completed:false},
+ {routineId:'r',date:'2026-10-26',completed:true}];
+ const edited=model.editRoutine(original,{...original,weekdays:[4]},'2026-10-19');
+ assert.equal(edited.scheduleFrom,'2026-10-19');
+ for(const date of ['2026-10-05','2026-10-26'])assert.equal(model.dayItems([], [edited],checks,date)[0].completed,true);
+ for(const date of ['2026-10-08','2026-10-12','2026-10-15','2026-10-19'])assert.equal(model.dayItems([], [edited],checks,date).length,0,date);
+ assert.equal(model.dayItems([], [edited],checks,'2026-10-22')[0].completed,false);
+ const monthly=model.editRoutine(edited,{...edited,frequency:'monthly',monthDays:[31]},'2026-10-23');
+ assert.equal(model.dayItems([], [monthly],checks,'2026-10-05')[0].completed,true);
+ assert.equal(model.dayItems([], [monthly],checks,'2026-10-22').length,0);
+ assert.equal(model.dayItems([], [monthly],checks,'2026-10-29').length,0);
+ assert.equal(model.dayItems([], [monthly],checks,'2026-10-31').length,1);
+});
+test('moved completed history survives edits but obsolete pending moves do not',()=>{
+ const old={id:'r',title:'Read',startDate:'2026-10-01',frequency:'daily'};
+ const edited=model.editRoutine(old,{...old,frequency:'weekly',weekdays:[4]},'2026-10-19');
+ const checks=[{routineId:'r',date:'2026-10-05',movedDate:'2026-10-06',completed:true},
+ {routineId:'r',date:'2026-10-12',movedDate:'2026-10-20',completed:false}];
+ assert.equal(model.dayItems([], [edited],checks,'2026-10-05').length,0);
+ assert.equal(model.dayItems([], [edited],checks,'2026-10-06')[0].occurrenceDate,'2026-10-05');
+ assert.equal(model.dayItems([], [edited],checks,'2026-10-20').length,0);
+ checks.push({routineId:'r',date:'2026-10-22',movedDate:'2026-10-23',scheduleVersion:1,completed:false});
+ assert.equal(model.dayItems([], [edited],checks,'2026-10-22').length,0);
+ assert.equal(model.dayItems([], [edited],checks,'2026-10-23').length,1);
+});
+test('title-only edits retain schedule metadata; completion is not duplicated on matching dates',()=>{
+ const old={id:'r',title:'Read',startDate:'2026-10-01',frequency:'weekly',weekdays:[1,4],scheduleFrom:'2026-10-12',scheduleVersion:2};
+ const next=model.editRoutine(old,{...old,title:'Read more',weekdays:[4,1],monthDays:[31]},'2026-10-19');
+ assert.equal(next.scheduleFrom,'2026-10-12');assert.equal(next.scheduleVersion,2);
+ const checks=[{routineId:'r',date:'2026-10-19',completed:true}];
+ assert.equal(model.dayItems([], [next],checks,'2026-10-19').length,1);
+});

@@ -1,4 +1,4 @@
-const CACHE = 'pocket-paws-shell-v3-frog';
+const CACHE = 'pocket-paws-shell-v4-routine-history';
 const SHELL = ['./', './index.html', './planner.html', './planner.css', './planner.js', './planner-model.js', './mobile.css', './mobile.js', './model.js', './auth-loader.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', '../cat-mascot.svg', '../cat-paw.svg', '../frog-mascot.svg', '../frog-mark.svg', '../frog-mood-over.svg', '../frog-theme.css', '../widget-data.js'];
 const paths = new Set(SHELL.map(path => new URL(path, self.location.href).pathname));
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))); });
