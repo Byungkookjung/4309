@@ -22,7 +22,7 @@ Main tools and companion views:
 - Separate shifts, hourly rates, payout history, and charts for each job; existing records remain under Booster Juice
 - Iron peak Auto Repair excludes tips from its payout form, totals, history, and chart
 - Two-week work sheet view with a configurable period start and payday delay in Pay Settings
-- Defaults: $15/hour, a 1.5x holiday multiplier, and payday seven days after period end. Booster Juice periods start from July 31, 2026; Iron peak Auto Repair periods start Monday, October 5, 2026 (October 5-18, October 19-November 1, etc.). Previous Iron Peak default anchors (July 31, September 14 and September 28) are automatically replaced, without deleting shifts or payouts. Other custom anchors are preserved; adjust payday delay to the actual job schedule.
+- Defaults: $15/hour and a 1.5x holiday multiplier. Booster Juice periods start July 31, 2026, with payday seven days after period end. Iron Peak periods start Monday, October 5, 2026, with payday five days after the Sunday period end: October 5-18 pays October 23; October 19-November 1 pays November 6. This follows the supplied biweekly payroll sheet; its shared Sunday boundaries are represented as nonoverlapping Monday-Sunday work periods. The listed January 1, 2027 payday is retained without an automatic holiday adjustment. Previous Iron Peak default anchors (July 31, September 14 and September 28) and the old seven-day delay are migrated without changing shifts or actual payout records. Custom anchors and nondefault delays are preserved; subsequent manual settings remain editable.
 - Editable check-in and check-out times for past and current dates
 - Auto break rule:
   - `0.5h` break when shift duration is `5.5h` or more

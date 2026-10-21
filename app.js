@@ -18,7 +18,10 @@ function normalizeSettings(raw = {}) {
         hourlyRate: Number(raw.hourlyRate ?? 15),
         holidayMultiplier: Number(raw.holidayMultiplier ?? 1.5),
         periodAnchor,
-        payoutDelay: Number(raw.payoutDelay ?? 7)
+        // Migrate the previous default once; later manual settings remain editable.
+        payoutDelay: activeJobId === 'iron' && !raw.payrollScheduleVersion && (raw.payoutDelay == null || Number(raw.payoutDelay) === 7)
+            ? 5 : Number(raw.payoutDelay ?? (activeJobId === 'iron' ? 5 : 7)),
+        payrollScheduleVersion: 1
     };
 }
 
