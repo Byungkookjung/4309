@@ -366,7 +366,7 @@ function drawMonthCalendar(snapshot,width=330,canvasHeight=320){
     function monthText(value,x,y,w,size,color,bold=false){
         ctx.setTextAlignedCenter();
         ctx.setTextColor(new Color(color));ctx.setFont(bold?Font.boldSystemFont(size):Font.systemFont(size));
-        ctx.drawTextInRect(value,new Rect(x,y,w,Math.ceil(size*1.2)));
+        ctx.drawTextInRect(value,new Rect(x,y,w,size+4));
         ctx.setTextAlignedLeft();
     }
     function titleChars(value){
@@ -385,20 +385,11 @@ function drawMonthCalendar(snapshot,width=330,canvasHeight=320){
         return '#'+[1,3,5].map((start,i)=>Math.round(parseInt(color.slice(start,start+2),16)*.38+olive[i]*.62).toString(16).padStart(2,'0')).join('');
     }
     function titleLines(value,w,size){
-        const chars=titleChars(value),lines=[];
-        let index=0;
-        while(index<chars.length&&lines.length<2){
-            let used=0,line='';
-            while(index<chars.length){
-                const char=chars[index],advance=(char.codePointAt(0)>255?1:.58)*size;
-                if(used+advance>w)break;
-                line+=char;used+=advance;index++;
-            }
-            lines.push(line);
-            // Avoid sacrificing a fifth character to an ellipsis. Narrow phones use a second line.
-            if(index>=Math.min(5,chars.length))break;
-        }
-        return lines;
+        const chars=titleChars(value).slice(0,6);
+        // Reserve enough width for full bold glyphs instead of relying on narrow Latin estimates.
+        if(chars.length*size*1.12<=w)return [chars.join('')];
+        const split=Math.ceil(chars.length/2);
+        return [chars.slice(0,split).join(''),chars.slice(split).join('')];
     }
     const monthTop=18,monthHeight=(canvasHeight-monthTop)/weeks;
     ['M','T','W','T','F','S','S'].forEach((day,col)=>monthText(day,col*cell,0,cell,11,col===5?'#368ac5':col===6?'#c5596b':'#526344',true));
@@ -410,16 +401,16 @@ function drawMonthCalendar(snapshot,width=330,canvasHeight=320){
         let used=0,shown=0;
         for(const entry of day.entries){
             const size=entry.kind==='work'?7.5:9;
-            const lines=titleLines(entry.title,cell-1,size),entryHeight=lines.length*11;
+            const lines=titleLines(entry.title,cell-4,size),lineHeight=14,entryHeight=lines.length*lineHeight;
             if(15+used+entryHeight+2>monthHeight)break;
             const ey=y+15+used;
             ctx.setFillColor(new Color(entry.color,entry.completed?.10:.18));ctx.fillRect(new Rect(x+.25,ey+.25,cell-.5,entryHeight-.5));
             lines.forEach((line,lineIndex)=>{
-                const ly=ey+lineIndex*11;
-                monthText(line,x+.5,ly-.5,cell-1,size,entry.completed?'#4e5944':eventInk(entry.color),true);
+                const ly=ey+lineIndex*lineHeight;
+                monthText(line,x+2,ly+.5,cell-4,size,entry.completed?'#4e5944':eventInk(entry.color),true);
                 if(entry.completed){
                     const lineWidth=titleChars(line).reduce((sum,c)=>sum+(c.codePointAt(0)>255?1:.58)*size,0);
-                    ctx.setFillColor(new Color('#4e5944',.45));ctx.fillRect(new Rect(x+(cell-lineWidth)/2,ly+5,lineWidth,.5));
+                    ctx.setFillColor(new Color('#4e5944',.45));ctx.fillRect(new Rect(x+(cell-lineWidth)/2,ly+6.5,lineWidth,.5));
                 }
             });
             used+=entryHeight;shown++;
@@ -554,8 +545,8 @@ function widget(kind,snapshot,error,family=config.widgetFamily||'medium'){
     if(isCalendar(kind)&&snapshot){
         const weekly=kind.endsWith('-week');
         if(weekly){gradient.colors=[new Color('#fffef2'),new Color('#eaf2da')];}
-        w.setPadding(weekly?8:6,weekly?6:2,weekly?6:5,weekly?6:2);
-        const width=dimensions.width-(weekly?12:4);
+        w.setPadding(weekly?8:6,weekly?6:10,weekly?6:5,weekly?6:10);
+        const width=dimensions.width-(weekly?12:20);
         let headerHeight=0;
         if(!weekly){
             const header=w.addStack();header.centerAlignContent();

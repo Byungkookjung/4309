@@ -106,8 +106,8 @@ function widget(kind,snapshot,error,family=config.widgetFamily||'medium'){
     if(isCalendar(kind)&&snapshot){
         const weekly=kind.endsWith('-week');
         if(weekly){gradient.colors=[new Color('#fffef2'),new Color('#eaf2da')];}
-        w.setPadding(weekly?8:6,weekly?6:2,weekly?6:5,weekly?6:2);
-        const width=dimensions.width-(weekly?12:4);
+        w.setPadding(weekly?8:6,weekly?6:10,weekly?6:5,weekly?6:10);
+        const width=dimensions.width-(weekly?12:20);
         let headerHeight=0;
         if(!weekly){
             const header=w.addStack();header.centerAlignContent();
