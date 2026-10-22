@@ -32,6 +32,7 @@ const dbRef = authApi.db;
 let currentUser = null;
 let shifts = [];
 let payouts = [];
+let paystubBusy = false;
 let settings = normalizeSettings();
 let shiftUnsub = null;
 let payoutUnsub = null;
@@ -299,6 +300,7 @@ function normalizePayout(raw) {
         deductions,
         amount,
         note: String(raw.note || ''),
+        paystubs: Array.isArray(raw.paystubs) ? raw.paystubs : [],
         createdAt: raw.createdAt || new Date().toISOString()
     };
 }
@@ -741,13 +743,21 @@ function buildPayoutMarkup(item) {
         ? `${formatCompactDate(parseISODate(item.payPeriodStart))} - ${formatCompactDate(parseISODate(item.payPeriodEnd))}`
         : '';
     return `
-        <article class="work-item-card" data-payout-id="${safeText(item.id)}">
+        <article class="work-item-card payout-record" data-payout-id="${safeText(item.id)}">
             <div class="work-item-main">
-                <div class="work-item-title-row">
-                    <strong>${safeText(formatCompactDate(parseISODate(item.date)))}</strong>
-                    <span class="sheet-payout-amount">${formatCurrency(item.amount)}</span>
+                <div class="payout-record-header">
+                    <div class="payout-record-heading">
+                        <strong>${safeText(formatCompactDate(parseISODate(item.date)))}</strong>
+                        ${periodText ? `<div class="work-item-subline">Pay period: ${safeText(periodText)}</div>` : ''}
+                    </div>
+                    <div class="payout-record-tools">
+                        <span class="sheet-payout-amount">${formatCurrency(item.amount)}</span>
+                        <div class="work-item-actions">
+                            <button type="button" class="icon-btn activity-icon-btn" data-action="edit-payout" title="Edit payout" aria-label="Edit payout">&#9998;</button>
+                            <button type="button" class="icon-btn activity-icon-btn activity-delete-btn" data-action="delete-payout" title="Delete payout" aria-label="Delete payout">&#128465;</button>
+                        </div>
+                    </div>
                 </div>
-                ${periodText ? `<div class="work-item-subline">Pay period: ${safeText(periodText)}</div>` : ''}
                 <div class="work-item-stats payouts">
                     <span>${item.hours ? `${item.hours.toFixed(2)}h` : '0.00h'}</span>
                     <span>Gross ${formatCurrency(item.grossPay || item.amount)}</span>
@@ -762,14 +772,124 @@ function buildPayoutMarkup(item) {
                     ${activeJob.tips ? `<span>Tips ${formatCurrency(item.tips || 0)}</span>` : ''}
                     <span>Vacation ${formatCurrency(item.vacationPayout || 0)}</span>
                 </div>
-            </div>
-            <div class="work-item-actions">
-                <button type="button" class="icon-btn activity-icon-btn" data-action="edit-payout" title="Edit payout" aria-label="Edit payout">&#9998;</button>
-                <button type="button" class="icon-btn activity-icon-btn activity-delete-btn" data-action="delete-payout" title="Delete payout" aria-label="Delete payout">&#128465;</button>
+                ${buildPaystubsMarkup(item)}
             </div>
         </article>
     `;
 }
+
+function paystubUploadDate(value) {
+    const date = new Date(value);
+    return Number.isNaN(+date) ? '' : date.toLocaleDateString('en-CA', { timeZone: 'America/Edmonton', year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function buildPaystubsMarkup(item) {
+    const files = item.paystubs || [];
+    return `<details class="paystub-section">
+        <summary>Paystubs (${files.length})</summary>
+        <div class="paystub-files">${files.map((file, index) => `<div class="paystub-file">
+            <div class="paystub-info"><strong class="paystub-name">${safeText(file.name)}</strong>
+            <span class="paystub-meta">${Math.max(1, Math.ceil(file.size / 1024))} KB · ${safeText(paystubUploadDate(file.uploadedAt))} · Original file</span></div>
+            <div class="paystub-controls">
+                <button type="button" data-paystub-action="open" data-file-index="${index}" title="Open paystub" aria-label="Open paystub">Open</button>
+                <button type="button" data-paystub-action="download" data-file-index="${index}" title="Download original" aria-label="Download original">Download</button>
+                <button type="button" class="paystub-delete" data-paystub-action="remove" data-file-index="${index}" title="Delete paystub" aria-label="Delete paystub">Delete</button>
+            </div></div>`).join('')}</div>
+        ${files.length < Paystubs.MAX_FILES ? `<label class="paystub-add">＋ Attach PDF / photo<input class="paystub-picker" type="file" multiple accept="${Paystubs.ACCEPT}" aria-label="Attach paystub"></label>` : ''}
+        <p class="paystub-help">${isRemoteEnabled() ? 'Private to your account.' : 'Saved only in this browser. Download a copy to keep it safe.'} Up to 5 files, 4 MB each.</p>
+        <div class="paystub-status" role="status" aria-live="polite"></div>
+    </details>`;
+}
+
+function paystubStore(id) {
+    const uid = currentUser?.uid;
+    const remote = isRemoteEnabled();
+    return new Paystubs.Store({ db: dbRef, ref: remote ? payoutsCollection(currentUser).doc(String(id)) : null,
+        localKey: activeJobId + ':' + id,
+        assertActive() {
+            if (uid !== currentUser?.uid || (remote && authApi.auth && authApi.auth.currentUser?.uid !== uid)) throw Error('Your account changed. Please reload the page.');
+        },
+        readLocal: () => payouts.find(item => item.id === id),
+        writeLocal(entry) {
+            const next = payouts.map(item => item.id === id ? entry : item);
+            localStorage.setItem(STORAGE_PAYOUTS, JSON.stringify(next));
+            payouts = next;
+            renderAll();
+        }
+    });
+}
+
+function setPaystubBusy(busy) {
+    paystubBusy = busy;
+    savePayoutBtn.disabled = busy;
+    document.getElementById('switchJobBtn').disabled = busy;
+    document.getElementById('payoutFiles').disabled = busy;
+    payoutList.querySelectorAll('button, input').forEach(control => { control.disabled = busy; });
+}
+
+function paystubStatus(id, message) {
+    const card = Array.from(payoutList.querySelectorAll('[data-payout-id]')).find(card => card.dataset.payoutId === id);
+    if (!card) return;
+    card.querySelector('.paystub-section').open = true;
+    card.querySelector('.paystub-status').textContent = message;
+}
+
+async function attachPaystubs(id, files) {
+    if (!files.length) return;
+    const existing = payouts.find(item => item.id === id)?.paystubs.length || 0;
+    if (existing + files.length > Paystubs.MAX_FILES) throw Error('You can attach up to 5 paystubs per payout.');
+    const store = paystubStore(id);
+    for (let i = 0; i < files.length; i++) {
+        paystubStatus(id, `Saving file ${i + 1} of ${files.length}…`);
+        await store.add(files[i]);
+    }
+    paystubStatus(id, 'Original files saved.');
+}
+
+payoutList.addEventListener('change', async event => {
+    if (!event.target.matches('.paystub-picker') || paystubBusy) return;
+    const id = event.target.closest('[data-payout-id]').dataset.payoutId;
+    const files = Array.from(event.target.files);
+    event.target.value = '';
+    if (!files.length) return;
+    setPaystubBusy(true);
+    try { await attachPaystubs(id, files); }
+    catch (error) { paystubStatus(id, error.code ? 'Could not save the file. Check your connection and try again.' : error.message); }
+    finally { setPaystubBusy(false); }
+});
+
+payoutList.addEventListener('click', async event => {
+    const button = event.target.closest('[data-paystub-action]');
+    if (!button || paystubBusy) return;
+    const id = button.closest('[data-payout-id]').dataset.payoutId;
+    const file = payouts.find(item => item.id === id)?.paystubs[Number(button.dataset.fileIndex)];
+    if (!file) return;
+    const action = button.dataset.paystubAction;
+    if (action === 'remove' && !confirm('Delete this original paystub file?')) return;
+    // Reserve the tab during the tap so iPhone popup blocking does not stop the preview.
+    const preview = action === 'open' ? window.open('about:blank', '_blank') : null;
+    if (preview) preview.opener = null;
+    setPaystubBusy(true);
+    try {
+        const store = paystubStore(id);
+        if (action === 'remove') { await store.remove(file); paystubStatus(id, 'Paystub deleted.'); }
+        else {
+            paystubStatus(id, 'Loading and verifying original…');
+            const blob = await store.get(file);
+            const url = URL.createObjectURL(blob);
+            if (preview) preview.location.replace(url);
+            else {
+                const link = document.createElement('a'); link.href = url; link.download = file.name;
+                document.body.append(link); link.click(); link.remove();
+            }
+            setTimeout(() => URL.revokeObjectURL(url), 300000);
+            paystubStatus(id, 'Original file verified.');
+        }
+    } catch (error) {
+        if (preview) preview.close();
+        paystubStatus(id, error.code ? 'Could not load the file. Check your connection and try again.' : error.message);
+    } finally { setPaystubBusy(false); }
+});
 
 function getChronologicalPayouts() {
     return payouts.slice().sort((a, b) => {
@@ -995,12 +1115,17 @@ function renderCombinedPayoutTrend() {
 }
 
 function renderPayouts() {
+    const openPaystubs = new Set(Array.from(payoutList.querySelectorAll('[data-payout-id]'))
+        .filter(card => card.querySelector('.paystub-section')?.open).map(card => card.dataset.payoutId));
     const ordered = sortPayouts(payouts);
     if (!ordered.length) {
         payoutList.innerHTML = '<div class="work-empty">No payout entries yet.</div>';
         return;
     }
     payoutList.innerHTML = ordered.map(buildPayoutMarkup).join('');
+    payoutList.querySelectorAll('[data-payout-id]').forEach(card => {
+        if (openPaystubs.has(card.dataset.payoutId)) card.querySelector('.paystub-section').open = true;
+    });
     payoutList.querySelectorAll('[data-action="edit-payout"]').forEach(button => {
         button.addEventListener('click', event => {
             const card = event.currentTarget.closest('[data-payout-id]');
@@ -1013,27 +1138,42 @@ function renderPayouts() {
             if (card) deletePayout(card.dataset.payoutId);
         });
     });
+    if (paystubBusy) setPaystubBusy(true);
 }
 
 async function persistPayout(entry) {
     if (isRemoteEnabled()) {
-        await payoutsCollection(currentUser).doc(String(entry.id)).set(entry);
+        // Attachment metadata is managed independently, including from other devices.
+        const { paystubs, ...fields } = entry;
+        await payoutsCollection(currentUser).doc(String(entry.id)).set(fields, { merge: true });
         return;
     }
-    payouts.unshift(entry);
+    const existing = payouts.find(item => item.id === entry.id);
+    const next = [{ ...entry, paystubs: existing?.paystubs || entry.paystubs }, ...payouts.filter(item => item.id !== entry.id)];
+    localStorage.setItem(STORAGE_PAYOUTS, JSON.stringify(next));
+    payouts = next;
     saveLocalState();
     renderAll();
 }
 
 async function deletePayout(id) {
-    if (!confirm('Delete this payout entry?')) return;
-    if (isRemoteEnabled()) {
-        await payoutsCollection(currentUser).doc(String(id)).delete();
-        return;
-    }
-    payouts = payouts.filter(item => item.id !== String(id));
-    saveLocalState();
-    renderAll();
+    if (paystubBusy || !confirm('Delete this payout entry and its attached paystubs?')) return;
+    setPaystubBusy(true);
+    try {
+        const store = paystubStore(String(id));
+        // Read the latest file list so attachments added on another device are also removed.
+        const item = isRemoteEnabled() ? (await payoutsCollection(currentUser).doc(String(id)).get()).data()
+            : payouts.find(item => item.id === String(id));
+        for (const file of item?.paystubs || []) await store.remove(file);
+        if (isRemoteEnabled()) await store.deleteEmptyPayout();
+        else {
+            const next = payouts.filter(item => item.id !== String(id));
+            localStorage.setItem(STORAGE_PAYOUTS, JSON.stringify(next));
+            payouts = next;
+            renderAll();
+        }
+    } catch (error) { alert('Could not delete the payout. Please try again.'); }
+    finally { setPaystubBusy(false); }
 }
 
 function resetPayoutForm() {
@@ -1048,9 +1188,11 @@ function resetPayoutForm() {
 }
 
 function startEditPayout(id) {
+    if (paystubBusy) return;
     const item = payouts.find(entry => entry.id === String(id));
     if (!item) return;
     editingPayoutId = item.id;
+    document.getElementById('payoutFiles').value = '';
     payoutDateInput.value = item.date || isoDate(new Date());
     payoutPeriodStartInput.value = item.payPeriodStart || '';
     payoutPeriodEndInput.value = item.payPeriodEnd || '';
@@ -1121,6 +1263,7 @@ function isTypingTarget(element) {
 }
 
 async function handleSavePayout() {
+    if (paystubBusy) return;
     const date = payoutDateInput.value;
     const payPeriodStart = payoutPeriodStartInput.value;
     const payPeriodEnd = payoutPeriodEndInput.value;
@@ -1141,23 +1284,42 @@ async function handleSavePayout() {
         alert('Pay period start must be on or before pay period end.');
         return;
     }
-    await persistPayout(normalizePayout({
-        id: editingPayoutId || `${date}-${Date.now()}`,
-        date,
-        payPeriodStart,
-        payPeriodEnd,
-        hours,
-        regularPay,
-        holidayWorkPay,
-        statHolidayPay,
-        tips,
-        vacationPayout,
-        grossPay,
-        deductions,
-        amount,
-        createdAt: new Date().toISOString()
-    }));
-    resetPayoutForm();
+    const files = Array.from(document.getElementById('payoutFiles').files);
+    const previous = payouts.find(item => item.id === editingPayoutId);
+    if (files.length + (previous?.paystubs.length || 0) > Paystubs.MAX_FILES) {
+        alert('You can attach up to 5 paystubs per payout.');
+        return;
+    }
+    setPaystubBusy(true);
+    const id = editingPayoutId || `${date}-${Date.now()}`;
+    let payoutSaved = false;
+    try {
+        // Validate before saving the payout so unsupported files do not create partial entries.
+        for (const file of files) await Paystubs.prepare(file);
+        await persistPayout(normalizePayout({
+            id,
+            date,
+            payPeriodStart,
+            payPeriodEnd,
+            hours,
+            regularPay,
+            holidayWorkPay,
+            statHolidayPay,
+            tips,
+            vacationPayout,
+            grossPay,
+            deductions,
+            amount,
+            createdAt: previous?.createdAt || new Date().toISOString()
+        }));
+        payoutSaved = true;
+        await attachPaystubs(id, files);
+        resetPayoutForm();
+    } catch (error) {
+        if (payoutSaved) resetPayoutForm();
+        alert(payoutSaved ? 'Payout saved, but some files could not be attached. Check Paystubs in Payout History and retry the missing files.'
+            : (error.code ? 'Could not save the payout. Check your connection and try again.' : error.message));
+    } finally { setPaystubBusy(false); }
 }
 
 function renderAll() {

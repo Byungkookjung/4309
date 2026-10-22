@@ -1,0 +1,38 @@
+.paystub-upload-field small,
+.paystub-help,
+.paystub-meta { color: #61734f; line-height: 1.5; font-size: .8rem; }
+.sheet-payout-form input[type="file"] { min-width: 0; max-width: 100%; padding: 10px; font-size: .85rem; }
+.payout-history-card { align-self: start; min-width: 0; }
+.payout-history-card .payout-record { display: block; }
+.payout-record-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.payout-record-heading { min-width: 0; }
+.payout-record-heading strong { display: block; color: #34452d; }
+.payout-record-heading .work-item-subline { margin-top: 4px; overflow-wrap: anywhere; }
+.payout-record-tools { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-shrink: 0; }
+.payout-record-tools .work-item-actions { flex-wrap: nowrap; gap: 8px; }
+.payout-record-tools .sheet-payout-amount { white-space: nowrap; }
+.paystub-section { margin-top: 12px; padding-top: 8px; border-top: 1px solid #d9e3c7; }
+.paystub-section summary { cursor: pointer; color: #486233; font-weight: 800; padding: 6px 0; }
+.paystub-files { display: grid; gap: 8px; padding: 10px 0; }
+.paystub-file { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; padding: 10px; border: 1px solid #d9e3c7; border-radius: 14px; background: #fafcf3; }
+.paystub-info { flex: 1 1 160px; min-width: 0; }
+.paystub-name { display: block; font-size: .9rem; overflow-wrap: anywhere; }
+.paystub-controls { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+.paystub-controls button { min-height: 40px; padding: 8px 10px; border: 1px solid #d4dfc3; border-radius: 10px; background: #fffef6; color: #486233; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.paystub-controls .paystub-delete { color: #ab4955; border-color: #ead0d4; background: #fff9f8; }
+.paystub-add { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 12px; border: 1px dashed #a5bc85; border-radius: 12px; color: #486233; font-weight: 800; cursor: pointer; background: #f4f7e9; }
+.paystub-add:focus-within { outline: 2px solid #486233; outline-offset: 3px; }
+.paystub-picker { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.paystub-status { margin-top: 8px; font-size: .85rem; color: #486233; overflow-wrap: anywhere; }
+.paystub-status:empty { display: none; }
+.paystub-section button:disabled,
+.paystub-add:has(input:disabled) { opacity: .55; cursor: wait; }
+@media (max-width: 640px) {
+    .payout-record-header { flex-wrap: wrap; gap: 8px; }
+    .payout-record-heading,
+    .payout-record-tools { width: 100%; }
+    .payout-record-tools { justify-content: space-between; }
+    .paystub-file { flex-direction: column; align-items: stretch; }
+    .paystub-info { flex-basis: auto; }
+    .paystub-controls { justify-content: flex-start; }
+}

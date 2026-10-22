@@ -60,6 +60,9 @@ Main tools and companion views:
   - `Gross pay`
   - `Net pay`
 - Editable payout history entries
+- Attach original PDF or photo paystubs while saving a payout or from its Payout History card (up to 5 files per payout, 4 MB each; PDF, JPG, PNG, WebP, GIF and HEIC/HEIF).
+- Open, download or remove individual paystubs. Files keep their original bytes, filename, upload time and SHA-256 checksum; downloads are verified before opening. Keep your own backup of important originals.
+- Signed-in attachments sync privately under the user's existing Firestore payout path (`paystubFiles/{fileId}/chunks/{index}`), using atomic file writes and the existing owner-only security rules. No public file links or Firebase Storage bucket are needed. Files count toward Firestore storage/read/write quotas; only metadata is loaded with payout history. Local preview mode stores files in IndexedDB on that browser only, and does not migrate them on sign-in.
 - Delete payout history entries
 - Scrollable payout history
 - Pay period start/end fields and schedule-block payout totals based on each job's configured payday

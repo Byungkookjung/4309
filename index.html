@@ -9,7 +9,9 @@
     <link rel="icon" href="favicon-todo.svg?v=20260911" type="image/svg+xml">
     <link rel="stylesheet" href="style.css?v=20260803e">
     <link rel="stylesheet" href="polish.css?v=20261010-header">
-<link rel="stylesheet" href="frog-theme.css?v=20261016"></head>
+    <link rel="stylesheet" href="frog-theme.css?v=20261016">
+    <link rel="stylesheet" href="paystubs.css?v=20261021">
+</head>
 <body class="work-body sheet-body">
     <div class="container work-container sheet-container">
         <header class="page-header app-header work-header sheet-header">
@@ -185,6 +187,11 @@
                             <label for="payoutAmount">Net pay</label>
                             <input id="payoutAmount" type="text" readonly />
                         </div>
+                        <div class="field wide paystub-upload-field">
+                            <label for="payoutFiles">Paystub PDF or photos (optional)</label>
+                            <input id="payoutFiles" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,application/pdf,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" aria-describedby="paystubHelp">
+                            <small id="paystubHelp">Up to 5 files per payout, 4 MB each. Original files are kept for your records.</small>
+                        </div>
                         <div class="field action wide">
                             <button id="savePayoutBtn" class="primary-btn" type="submit">Save payout</button>
                         </div>
@@ -243,7 +250,8 @@
             }
         })();
     </script>
-    <script src="app.js?v=20261009-phone"></script>
+    <script src="paystubs.js?v=20261021"></script>
+    <script src="app.js?v=20261021-paystubs"></script>
     <script src="mobile-time.js?v=20260911a"></script>
 </body>
 </html>
