@@ -15,8 +15,9 @@ Install the generated `Pocket Paws.js` in Scriptable. Keep its script name **Poc
 - Work week advances one date per day when refreshed. Saturday shows Wed/Thu/Fri/**Sat**/Sun/Mon/Tue. Green is Iron Peak; purple is Booster Juice. `a` and `p` mean AM and PM.
 - Work week uses cream and pond-green styling, a frog mark and a highlighted center date. Its heading shows the reference date so stale views are identifiable.
 - Monthly Todo is Monday-first and includes recurring and moved occurrences. Unfinished items sort first; completed items are muted and struck through. Long titles shorten, and excess entries show `+N`.
-- Monthly Todo centers weekdays, dates and task labels, with 10 pt side insets to keep Monday and Sunday clear of the widget edges. Task text remains 9 pt; titles show their first six grapheme characters at most, using two balanced lines when needed. Text rows reserve enough height for full glyphs. A small `+N` beside the date reports additional tasks without consuming a task row.
+- Monthly Todo centers weekdays, dates and task labels, with balanced 3 pt side insets. Task text remains 9 pt on one line; titles show as many complete grapheme characters as the available width permits, with no fixed character-count cap. Text rows reserve enough height for full glyphs. A small `+N` beside the date reports additional tasks without consuming a task row.
 - Monthly labels use consistent bold text, darker category-tinted ink and readable completed-task colors. Thin gaps separate label backgrounds without shifting their positions; emoji sequences stay intact when text is clipped.
+- Label padding is only 0.1 pt per side, independently of the balanced 3 pt widget margins. A 13 pt row fits the full 9 pt font frame. The visible character count depends on glyph widths and widget size, not a fixed Korean or Latin limit.
 - Tapping work opens today's work sheet; tapping Todo opens today's planner. Individual calendar cells and checkmarks are display-only.
 
 ## Install and Update

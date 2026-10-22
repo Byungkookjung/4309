@@ -106,8 +106,8 @@ function widget(kind,snapshot,error,family=config.widgetFamily||'medium'){
     if(isCalendar(kind)&&snapshot){
         const weekly=kind.endsWith('-week');
         if(weekly){gradient.colors=[new Color('#fffef2'),new Color('#eaf2da')];}
-        w.setPadding(weekly?8:6,weekly?6:10,weekly?6:5,weekly?6:10);
-        const width=dimensions.width-(weekly?12:20);
+        w.setPadding(weekly?8:6,weekly?6:3,weekly?6:5,weekly?6:3);
+        const width=dimensions.width-(weekly?12:6);
         let headerHeight=0;
         if(!weekly){
             const header=w.addStack();header.centerAlignContent();
@@ -119,6 +119,8 @@ function widget(kind,snapshot,error,family=config.widgetFamily||'medium'){
         const height=dimensions.height-(weekly?14:11)-headerHeight-(error?14:0);
         const image=w.addImage(drawMonthCalendar(snapshot,width,height));
         image.imageSize=new Size(width,height);image.resizable=true;image.applyFittingContentMode();
+        // Split any spare width equally when the native widget differs from our size estimate.
+        image.centerAlignImage();
         if(error)text(w,'Offline · Open to sync',10,'#69765c');
         return w;
     }

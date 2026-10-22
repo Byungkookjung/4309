@@ -26,7 +26,7 @@ test('today summary respects pay rates, task rules, moved occurrences and comple
 const source=fs.readFileSync(require.resolve('../scriptable/Pocket Paws.js'),'utf8');
 async function harness(kind,cache=new Map(),failure=false,family='medium',now=null){
  const labels=[],requests=[],images=[];let widget;
- class Stack{addText(v){labels.push(v);return{}}addStack(){return new Stack()}addSpacer(){}addImage(){const image={applyFittingContentMode(){}};images.push(image);return image}setPadding(){}centerAlignContent(){}layoutVertically(){}}
+ class Stack{addText(v){labels.push(v);return{}}addStack(){return new Stack()}addSpacer(){}addImage(){const image={applyFittingContentMode(){},centerAlignImage(){this.alignment='center'}};images.push(image);return image}setPadding(...padding){this.padding=padding}centerAlignContent(){}layoutVertically(){}}
  const Clock=now?class extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return +new Date(now);}}:Date;
  const today=mobile.dayKey(new Clock());
  const doc=(id,fields)=>({name:'x/'+id,fields});
@@ -129,9 +129,9 @@ test('reference calendars stay within canvas at compact and large iPhone sizes',
 });
 
 
-test('monthly titles show six complete characters at the same font size with safe edge insets',()=>{
+test('monthly titles stay on one line at the same font size with safe edge insets',()=>{
  const code=fs.readFileSync(require.resolve('../scriptable/calendar.js'),'utf8');
- for(const width of [272,288,318,325,360]){
+ for(const [width,expectedCharacters] of [[272,4],[288,4],[318,5],[325,5],[360,5]]){
   const labels=[];let alignment='left',size=0;
   class DrawContext{
    setTextAlignedCenter(){alignment='center'}setTextAlignedLeft(){alignment='left'}
@@ -144,14 +144,23 @@ test('monthly titles show six complete characters at the same font size with saf
   context.module.exports({day:'2026-06-01',calendar:{period:'month',kind:'todo',offset:0,weeks:6,
    days:[{date:'2026-06-01',total:1,entries:[{title,kind:'todo',color:'#53bca5',completed:false}]}]}},width,293);
   const lines=labels.filter(label=>label.size===9),visible=lines.map(line=>line.value).join('');
-  assert.equal(visible,title.slice(0,6),JSON.stringify({width,visible}));
+  assert.equal(visible,title.slice(0,expectedCharacters),JSON.stringify({width,visible}));
   assert.ok(labels.every(label=>label.alignment==='center'));
   for(const line of lines){
-   assert.ok(line.value.length*9*1.12<=line.rect.w+.01,'full bold characters fit without font scaling');
-   assert.ok(line.rect.x>=2,'Monday text has a safe internal inset');
+   assert.ok(line.value.length*9<=line.rect.w+.01,'full Korean glyphs fit without font scaling');
+   assert.ok(Math.abs(line.rect.x-.1)<.01,'task text uses the cell width without excessive internal padding');
    assert.ok(line.rect.h>=13,'text frame does not clip full glyph height');
   }
-  assert.equal(lines.length,2);
+  assert.equal(lines.length,1);
+  labels.length=0;
+  context.module.exports({day:'2026-06-01',calendar:{period:'month',kind:'todo',offset:0,weeks:6,
+   days:[{date:'2026-06-01',total:1,entries:[{title:'PayStub확인',kind:'todo',color:'#53bca5',completed:false}]}]}},width,293);
+  assert.equal(labels.filter(label=>label.size===9).map(label=>label.value).join(''),width===360?'PayStub':width>=288?'PayStu':'PaySt');
+  labels.length=0;
+  context.module.exports({day:'2026-06-01',calendar:{period:'month',kind:'todo',offset:0,weeks:6,
+   days:[{date:'2026-06-01',total:1,entries:[{title:'abcdefghi',kind:'todo',color:'#53bca5',completed:false}]}]}},width,293);
+  const fittingCount=Math.floor((width/7-.2)/(9*.72));
+  assert.equal(labels.filter(label=>label.size===9).map(label=>label.value).join(''),'abcdefghi'.slice(0,fittingCount),'available width, not a six-character cap, limits the title');
  }
 });
 
@@ -172,8 +181,11 @@ test('only monthly todo and centered work week remain; removed modes do not fetc
   if(!['todo-month','work-week'].includes(kind)){
    assert.ok(result.labels.includes('Widget removed'));assert.equal(result.requests.length,0);continue;
   }
-  assert.equal(result.images.at(-1).imageSize.width,kind==='todo-month'?318:326);
+  assert.equal(result.images.at(-1).imageSize.width,kind==='todo-month'?332:326);
   assert.equal(result.images.at(-1).imageSize.height,kind==='todo-month'?323:144);
+  assert.equal(result.images.at(-1).alignment,'center','spare native widget width is balanced on both sides');
+  assert.equal(result.widget.padding[1],result.widget.padding[3],'calendar outer margins are balanced');
+  assert.equal(result.widget.padding[1],kind==='todo-month'?3:6);
   assert.ok(Math.abs(result.widget.refreshAfterDate-core.nextRefresh(mobile))<1000);
   const offline=await harness(kind,cache,true,family);assert.ok(offline.labels.some(t=>t.includes('Offline')));
   const wrong=await harness(kind,cache,false,'small');assert.ok(wrong.labels.includes('Widget size'));
