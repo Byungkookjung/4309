@@ -93,6 +93,7 @@ Main tools and companion views:
 - Fixed expense, expected expense, and expected income planning
 - Activity tracking with category-linked budget items
 - TXT import with validation, preview, shorthand support, and refresh after import
+- TXT imports require FE/EE/EI names to match an existing budget item in that type. Matching ignores case and extra spaces, supports multiword names, and stores the linked item ID. Unknown or ambiguous names block the entire import with a line-numbered error. UI/CE remain unlinked, free-text entries.
 - Budget progress breakdowns
 - Investment tracker
 - Exchange tracker
@@ -267,7 +268,7 @@ October 2026 companion/theme validation:
 
 - Task cards open a bottom action sheet: edit, delete, move to tomorrow (Edmonton), choose a date, or convert to a routine. Conversion is an atomic write; moving a routine occurrence leaves its other dates unchanged. Routine deletion removes the entire routine, as indicated in the menu.
 - Todo and shift calendars start on Monday. Completed tasks show a frog mark, and routines sort by category with category labels.
-- Work sheet and ledger headers include a widget-home shortcut and an accessible icon-only logout. Ledger entry submission sits beside Shared expense; Abbreviations starts collapsed and charts use ten pastel colors.
+- Work sheet and ledger headers include a widget-home shortcut and an accessible icon-only logout. Ledger entry submission sits beside Shared expense, and charts use ten pastel colors.
 
 - Routine frequency supports daily, weekly, every two weeks, monthly and yearly, with an optional inclusive end date. Older weekday-only routines remain weekly.
 - Monthly routines select one or more dates and/or Last day. Missing dates are skipped (for example, February has no 31st); yearly February 29 repeats only in leap years. Two-week cycles are anchored to the start date.

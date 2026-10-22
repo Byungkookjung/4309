@@ -75,9 +75,7 @@ for(const width of [320,375,390,430,768,1024,1440,1920]){
   return {sharedOverlap:a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top,iconOverlap:icons.some((a,i)=>icons.slice(i+1).some(b=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top))};
  });assert.equal(alignment.sharedOverlap,false,'shared/submit overlap '+width);assert.equal(alignment.iconOverlap,false,'header icons overlap '+width);
 }
- assert.equal(await page.locator('.abbreviations-card').getAttribute('open'),null);
-await page.locator('.abbreviations-card summary').tap();assert.equal(await page.locator('.activity-import-abbrev-grid').isVisible(),true);
-await page.locator('.abbreviations-card summary').tap();assert.equal(await page.locator('.activity-import-abbrev-grid').isVisible(),false);
+assert.equal(await page.locator('.abbreviations-card').count(),0);
 assert.equal(await page.locator('.activity-shared-field #addActivityBtn').count(),1);
 assert.equal(await page.evaluate(()=>new Set(buildColorPalette(100)).size),10);
 await page.locator('#activitySourceType').selectOption('unexpected_income');

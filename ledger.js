@@ -438,8 +438,9 @@ function parseActivityImportEntryLine(line, currentDate, lineNumber) {
     const amount = Number(match[2]);
     const sourceLabel = match[3];
     const rawReasonDetail = match[4].trim();
-    const [reason, ...detailParts] = rawReasonDetail.split(/\s+/);
-    const detail = detailParts.join(' ').trim();
+    const [firstWord, ...detailParts] = rawReasonDetail.split(/\s+/);
+    let reason = firstWord;
+    let detail = detailParts.join(' ').trim();
     const config = getImportedActivitySourceConfig(sourceLabel);
 
     if (!config) {
@@ -461,6 +462,26 @@ function parseActivityImportEntryLine(line, currentDate, lineNumber) {
         throw new Error(`Line ${lineNumber}: income rows must start with "+".`);
     }
 
+    let linkedItem = null;
+    if ([PLAN_TYPES.fixed, PLAN_TYPES.expected, PLAN_TYPES.income].includes(config.sourceType)) {
+        // Match the longest complete budget name; the remaining text is the detail.
+        const matches = getPlanItemsByType(config.sourceType).map(item => {
+            const name = item.label.trim().split(/\s+/).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
+            const match = rawReasonDetail.match(new RegExp(`^${name}(?=\\s|$)`, 'i'));
+            return match ? { item, length: match[0].length } : null;
+        }).filter(Boolean).sort((a, b) => b.length - a.length);
+        const sourceCode = config.sourceType === PLAN_TYPES.fixed ? 'FE' : config.sourceType === PLAN_TYPES.expected ? 'EE' : 'EI';
+        if (!matches.length) {
+            throw new Error(`Line ${lineNumber}: "${rawReasonDetail}" does not match a ${sourceCode} item in "Budget items you can match".`);
+        }
+        if (matches[1]?.length === matches[0].length) {
+            throw new Error(`Line ${lineNumber}: duplicate ${sourceCode} budget name "${matches[0].item.label}". Rename the duplicate budget items first.`);
+        }
+        linkedItem = matches[0].item;
+        reason = linkedItem.label;
+        detail = rawReasonDetail.slice(matches[0].length).trim();
+    }
+
     const timestamp = new Date().toISOString();
     return {
         id: `${Date.now()}-${lineNumber}-${Math.random().toString(36).slice(2, 8)}`,
@@ -471,8 +492,8 @@ function parseActivityImportEntryLine(line, currentDate, lineNumber) {
         detail,
         isShared: false,
         sourceType: config.sourceType,
-        linkedPlanItemId: '',
-        linkedPlanItemLabel: '',
+        linkedPlanItemId: linkedItem ? linkedItem.id : '',
+        linkedPlanItemLabel: linkedItem ? linkedItem.label : '',
         createdAt: timestamp,
         updatedAt: timestamp
     };
@@ -494,7 +515,12 @@ function parseActivityImportText(rawText) {
             return;
         }
 
-        entries.push(parseActivityImportEntryLine(line, currentDate, lineNumber));
+        try {
+            entries.push(parseActivityImportEntryLine(line, currentDate, lineNumber));
+        } catch (error) {
+            error.importLine = { number: lineNumber, text: rawLine };
+            throw error;
+        }
     });
 
     if (!entries.length) {
@@ -504,9 +530,11 @@ function parseActivityImportText(rawText) {
     return entries;
 }
 
-function setActivityImportStatus(message = '', tone = '') {
+function setActivityImportStatus(message = '', tone = '', errorLine = null) {
     if (!activityImportStatus) return;
-    activityImportStatus.textContent = message;
+    activityImportStatus.textContent = errorLine
+        ? `${message.replace(/\.$/, '')} --> "${errorLine.text}"`
+        : message;
     activityImportStatus.classList.remove('is-error', 'is-success', 'is-idle');
 
     if (!message) {
@@ -540,7 +568,7 @@ function validateActivityImportPreview() {
         setImportActivityButtonState(true);
         return entries;
     } catch (error) {
-        setActivityImportStatus(error && error.message ? error.message : 'Failed to parse TXT content.', 'error');
+        setActivityImportStatus(error && error.message ? error.message : 'Failed to parse TXT content.', 'error', error?.importLine);
         setImportActivityButtonState(false);
         return null;
     }
@@ -576,6 +604,7 @@ function renderActivityImportBudgetHints() {
         block.appendChild(value);
         activityImportBudgetHints.appendChild(block);
     });
+    if (activityImportText?.value.trim()) validateActivityImportPreview();
 }
 
 function isEntryInRange(entryDateValue, range, now, startOfWeek, endOfWeek, selectedMonth = now.getMonth() + 1) {
@@ -806,10 +835,7 @@ function enterActivityEditMode(id) {
     if (activityDateInput) activityDateInput.value = entry.date || '';
     if (activityAmountInput) activityAmountInput.value = Number(entry.amount || 0).toFixed(2);
     if (activitySourceTypeSelect) activitySourceTypeSelect.value = entry.sourceType || 'custom';
-    updateActivitySourceControls();
-    if (activityLinkedItemSelect && entry.linkedPlanItemId) {
-        activityLinkedItemSelect.value = String(entry.linkedPlanItemId);
-    }
+    updateActivitySourceControls(entry);
     if (activityReasonInput) activityReasonInput.value = entry.reason || '';
     if (activityDetailInput) activityDetailInput.value = entry.detail || '';
     if (activitySharedInput) activitySharedInput.checked = Boolean(entry.isShared);
@@ -1878,14 +1904,36 @@ function renderPlan() {
     renderActivityImportBudgetHints();
 }
 
-function populateActivityLinkedItems() {
+function populateActivityLinkedItems(savedEntry = null) {
     if (!activityLinkedItemSelect) return;
     const sourceType = activitySourceTypeSelect ? activitySourceTypeSelect.value : 'custom';
     const usesLinkedItem = sourceType !== 'custom' && sourceType !== PLAN_TYPES.unexpectedIncome;
     const items = usesLinkedItem ? getPlanItemsByType(normalizePlanType(sourceType)) : [];
+    const previous = activityLinkedItemSelect.selectedOptions[0];
+    const selection = savedEntry || (activityLinkedItemSelect.dataset.sourceType === sourceType && previous ? {
+        linkedPlanItemId: previous.dataset.linkedId,
+        linkedPlanItemLabel: previous.dataset.label
+    } : null);
+    const savedLabel = selection?.linkedPlanItemLabel || selection?.reason || '';
+    const normalizeLabel = value => String(value || '').trim().toLocaleLowerCase();
+    const matches = savedLabel ? items.filter(item => normalizeLabel(item.label) === normalizeLabel(savedLabel)) : [];
+    const selectedItem = items.find(item => String(item.id) === String(selection?.linkedPlanItemId))
+        || (matches.length === 1 ? matches[0] : null);
 
     activityLinkedItemSelect.innerHTML = '';
+    activityLinkedItemSelect.dataset.sourceType = sourceType;
+    // Keep an unmatched historical item instead of silently assigning another budget.
+    if (usesLinkedItem && selection && savedLabel && !selectedItem) {
+        const option = document.createElement('option');
+        option.value = `saved:${savedEntry?.id || selection.linkedPlanItemId || ''}`;
+        option.textContent = `${savedLabel} (saved item)`;
+        option.dataset.label = savedLabel;
+        option.dataset.linkedId = selection.linkedPlanItemId || '';
+        option.dataset.savedItem = 'true';
+        activityLinkedItemSelect.appendChild(option);
+    }
     if (!items.length) {
+        if (activityLinkedItemSelect.options.length) return;
         const option = document.createElement('option');
         option.value = '';
         option.textContent = usesLinkedItem ? 'No items available' : 'Not used for this type';
@@ -1896,12 +1944,15 @@ function populateActivityLinkedItems() {
     items.forEach(item => {
         const option = document.createElement('option');
         option.value = item.id;
+        option.dataset.label = item.label;
+        option.dataset.linkedId = item.id;
         option.textContent = `${item.label} (${formatCurrency(item.amount)})`;
         activityLinkedItemSelect.appendChild(option);
     });
+    if (selectedItem) activityLinkedItemSelect.value = String(selectedItem.id);
 }
 
-function updateActivitySourceControls() {
+function updateActivitySourceControls(savedEntry = null) {
     if (!activitySourceTypeSelect || !activityLinkedItemField || !activityReasonInput) return;
     const sourceType = activitySourceTypeSelect.value;
     const usingLinkedItem = sourceType !== 'custom' && sourceType !== PLAN_TYPES.unexpectedIncome;
@@ -1926,11 +1977,10 @@ function updateActivitySourceControls() {
     activityReasonInput.placeholder = canWriteReason ? 'Food, paycheck, rent...' : 'Reason comes from the selected budget item';
     activityReasonInput.parentElement?.classList.toggle('is-disabled', !canWriteReason);
 
-    populateActivityLinkedItems();
+    populateActivityLinkedItems(savedEntry);
 
     if (usingLinkedItem) {
-        const selectedItem = planItems.find(item => item.id === activityLinkedItemSelect.value) || getPlanItemsByType(normalizePlanType(sourceType))[0];
-        activityReasonInput.value = selectedItem ? selectedItem.label : '';
+        activityReasonInput.value = activityLinkedItemSelect.selectedOptions[0]?.dataset.label || '';
     } else if (!activityReasonInput.value) {
         activityReasonInput.value = '';
     }
@@ -2342,9 +2392,11 @@ async function addActivityEntry() {
         : null;
     const type = getActivityFormType(sourceType, editingEntry ? editingEntry.type : 'expense');
     const linkedItemId = activityLinkedItemSelect ? activityLinkedItemSelect.value : '';
+    const savedItem = activityLinkedItemSelect?.selectedOptions[0]?.dataset.savedItem === 'true'
+        ? activityLinkedItemSelect.selectedOptions[0] : null;
     const linkedItem = (sourceType === 'custom' || sourceType === PLAN_TYPES.unexpectedIncome)
         ? null
-        : planItems.find(item => item.id === linkedItemId);
+        : getPlanItemsByType(normalizePlanType(sourceType)).find(item => item.id === linkedItemId && !savedItem);
     const reason = linkedItem ? linkedItem.label : activityReasonInput.value.trim();
     const detail = activityDetailInput ? activityDetailInput.value.trim() : '';
     const isShared = Boolean(activitySharedInput && activitySharedInput.checked);
@@ -2381,8 +2433,8 @@ async function addActivityEntry() {
         detail,
         isShared,
         sourceType,
-        linkedPlanItemId: linkedItem ? linkedItem.id : '',
-        linkedPlanItemLabel: linkedItem ? linkedItem.label : '',
+        linkedPlanItemId: linkedItem ? linkedItem.id : (savedItem?.dataset.linkedId || ''),
+        linkedPlanItemLabel: linkedItem ? linkedItem.label : (savedItem?.dataset.label || ''),
         createdAt: editingEntry && editingEntry.createdAt ? editingEntry.createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
@@ -2809,9 +2861,9 @@ if (activitySharedInput) {
 }
 if (activityLinkedItemSelect) {
     activityLinkedItemSelect.addEventListener('change', () => {
-        const linkedItem = planItems.find(item => item.id === activityLinkedItemSelect.value);
-        if (linkedItem && activityReasonInput) {
-            activityReasonInput.value = linkedItem.label;
+        const label = activityLinkedItemSelect.selectedOptions[0]?.dataset.label;
+        if (label && activityReasonInput) {
+            activityReasonInput.value = label;
         }
     });
 }

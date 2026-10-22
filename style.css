@@ -2788,6 +2788,8 @@ body.ledger-body .container {
 }
 
 .activity-import-status {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
     margin-top: 8px;
     padding: 10px 12px;
     border-radius: 10px;

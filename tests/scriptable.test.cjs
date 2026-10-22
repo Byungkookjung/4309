@@ -129,6 +129,38 @@ test('reference calendars stay within canvas at compact and large iPhone sizes',
 });
 
 
+test('monthly titles show at least five Korean characters at the same font size, centered even on narrow phones',()=>{
+ const code=fs.readFileSync(require.resolve('../scriptable/calendar.js'),'utf8');
+ for(const width of [276,288,325,334,360]){
+  const labels=[];let alignment='left',size=0;
+  class DrawContext{
+   setTextAlignedCenter(){alignment='center'}setTextAlignedLeft(){alignment='left'}
+   setFont(font){size=font}setTextColor(){}setFillColor(){}fillRect(){}fillEllipse(){}
+   drawTextInRect(value,rect){labels.push({value,rect,size,alignment})}getImage(){return{}}
+  }
+  const context={module:{exports:{}},DrawContext,Rect:class{constructor(x,y,w,h){Object.assign(this,{x,y,w,h})}},Size:class{},Color:class{},Font:{boldSystemFont:size=>size,systemFont:size=>size}};
+  vm.runInNewContext(code,context);
+  const title='영양제챙겨먹기';
+  context.module.exports({day:'2026-08-01',calendar:{period:'month',kind:'todo',offset:5,weeks:6,
+   days:[{date:'2026-08-01',total:1,entries:[{title,kind:'todo',color:'#53bca5',completed:false}]}]}},width,293);
+  const lines=labels.filter(label=>label.size===9),visible=lines.map(line=>line.value).join('');
+  assert.ok(visible.length>=5&&title.startsWith(visible),JSON.stringify({width,visible}));
+  assert.ok(labels.every(label=>label.alignment==='center'));
+  for(const line of lines)assert.ok(line.value.length*9<=line.rect.w+.01,'characters fit without font scaling');
+  if(width>=325)assert.equal(lines.length,1);
+  else assert.equal(lines.length,2);
+ }
+});
+
+test('monthly label clipping keeps emoji sequences intact, including on older Scriptable engines',()=>{
+ const code=fs.readFileSync(require.resolve('../scriptable/calendar.js'),'utf8');
+ const helper=code.slice(code.indexOf('    function titleChars('),code.indexOf('    function eventInk('));
+ for(const intl of [Intl,{}]){
+  const parts=vm.runInNewContext(helper+';titleChars(input)',{Intl:intl,input:'🧺👩🏽‍💻🇨🇦1️⃣'});
+  assert.deepEqual(Array.from(parts),['🧺','👩🏽‍💻','🇨🇦','1️⃣']);
+ }
+});
+
 test('only monthly todo and centered work week remain; removed modes do not fetch',async()=>{
  for(const kind of ['work','todo','work-month','todo-week','unknown','todo-month','work-week']){
   const cache=new Map([['pocket-paws-v1-account',JSON.stringify({uid:'fixture',refreshToken:'token',connectionID:'same'})]]);
@@ -137,8 +169,8 @@ test('only monthly todo and centered work week remain; removed modes do not fetc
   if(!['todo-month','work-week'].includes(kind)){
    assert.ok(result.labels.includes('Widget removed'));assert.equal(result.requests.length,0);continue;
   }
-  assert.equal(result.images.at(-1).imageSize.width,326);
-  assert.equal(result.images.at(-1).imageSize.height,kind==='todo-month'?320:144);
+  assert.equal(result.images.at(-1).imageSize.width,kind==='todo-month'?334:326);
+  assert.equal(result.images.at(-1).imageSize.height,kind==='todo-month'?323:144);
   assert.ok(Math.abs(result.widget.refreshAfterDate-core.nextRefresh(mobile))<1000);
   const offline=await harness(kind,cache,true,family);assert.ok(offline.labels.some(t=>t.includes('Offline')));
   const wrong=await harness(kind,cache,false,'small');assert.ok(wrong.labels.includes('Widget size'));

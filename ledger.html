@@ -294,23 +294,10 @@
                         </div>
                     </div>
                     <div class="activity-import-format">
-                        <div class="activity-import-format-title">Quick format</div>
-                        <pre>- 8.12 EE groceries
-+ 400 EI booster juice
-- 12.75 CE coffee</pre>
-                    </div>
-                    <div class="activity-import-format">
                         <div class="activity-import-format-title">Budget items you can match</div>
+                        <p class="muted">FE, EE and EI must use a name listed under the same type below. Text after the budget name is saved as Detail. UI and CE do not need a budget item.</p>
                         <div id="activityImportBudgetHints" class="activity-import-budget-hints"></div>
                     </div>
-                    <details class="activity-import-format abbreviations-card"><summary class="activity-import-format-title">Abbreviations</summary>
-                        <div class="activity-import-abbrev-grid">
-                            <div class="activity-import-abbrev-item"><span>FE</span><strong>Fixed expense</strong></div>
-                            <div class="activity-import-abbrev-item"><span>EE</span><strong>Expected expense</strong></div>
-                            <div class="activity-import-abbrev-item"><span>EI</span><strong>Expected income</strong></div>
-                            <div class="activity-import-abbrev-item"><span>UI</span><strong>Unexpected income</strong></div>
-                        </div>
-                    </details>
                 </section>
             </section>
 
@@ -519,6 +506,6 @@
             }
         })();
     </script>
-    <script src="ledger.js?v=20260803c"></script>
+    <script src="ledger.js?v=20261021-budget-edit"></script>
 </body>
 </html>

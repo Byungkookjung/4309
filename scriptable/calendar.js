@@ -2,7 +2,7 @@
 function drawMonthCalendar(snapshot,width=330,canvasHeight=320){
     const ctx=new DrawContext();ctx.size=new Size(width,canvasHeight);ctx.opaque=false;ctx.respectScreenScale=true;
     const {days,offset,weeks}=snapshot.calendar;
-    const cell=width/7,top=20,height=(canvasHeight-top)/weeks;
+    const cell=width/7;
     function ink(value,x,y,width,size,color,bold=false){
         ctx.setTextColor(new Color(color));ctx.setFont(bold?Font.boldSystemFont(size):Font.systemFont(size));
         ctx.drawTextInRect(value,new Rect(x,y,width,size+4));
@@ -61,23 +61,68 @@ function drawMonthCalendar(snapshot,width=330,canvasHeight=320){
         });
         return ctx.getImage();
     }
-    ['M','T','W','T','F','S','S'].forEach((day,col)=>ink(day,col*cell+4,0,cell-6,11,col===5?'#368ac5':col===6?'#c5596b':'#69765c',true));
+    function monthText(value,x,y,w,size,color,bold=false){
+        ctx.setTextAlignedCenter();
+        ctx.setTextColor(new Color(color));ctx.setFont(bold?Font.boldSystemFont(size):Font.systemFont(size));
+        ctx.drawTextInRect(value,new Rect(x,y,w,Math.ceil(size*1.2)));
+        ctx.setTextAlignedLeft();
+    }
+    function titleChars(value){
+        if(typeof Intl.Segmenter==='function')return Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(String(value)),part=>part.segment);
+        const chars=[];
+        for(const char of Array.from(String(value))){
+            const last=chars.length-1;
+            if(last>=0&&(char==='\u200d'||chars[last].endsWith('\u200d')||/[\u0300-\u036f\ufe00-\ufe0f\u20e3\u{1f3fb}-\u{1f3ff}\u{e0020}-\u{e007f}]/u.test(char)
+                ||(/^[\u{1f1e6}-\u{1f1ff}]$/u.test(chars[last])&&/^[\u{1f1e6}-\u{1f1ff}]$/u.test(char))))chars[last]+=char;
+            else chars.push(char);
+        }
+        return chars;
+    }
+    function eventInk(color){
+        const olive=[34,48,30];
+        return '#'+[1,3,5].map((start,i)=>Math.round(parseInt(color.slice(start,start+2),16)*.38+olive[i]*.62).toString(16).padStart(2,'0')).join('');
+    }
+    function titleLines(value,w,size){
+        const chars=titleChars(value),lines=[];
+        let index=0;
+        while(index<chars.length&&lines.length<2){
+            let used=0,line='';
+            while(index<chars.length){
+                const char=chars[index],advance=(char.codePointAt(0)>255?1:.58)*size;
+                if(used+advance>w)break;
+                line+=char;used+=advance;index++;
+            }
+            lines.push(line);
+            // Avoid sacrificing a fifth character to an ellipsis. Narrow phones use a second line.
+            if(index>=Math.min(5,chars.length))break;
+        }
+        return lines;
+    }
+    const monthTop=18,monthHeight=(canvasHeight-monthTop)/weeks;
+    ['M','T','W','T','F','S','S'].forEach((day,col)=>monthText(day,col*cell,0,cell,11,col===5?'#368ac5':col===6?'#c5596b':'#526344',true));
     for(let index=0;index<days.length;index++){
-        const day=days[index],position=index+offset,col=position%7,row=Math.floor(position/7),x=col*cell,y=top+row*height;
+        const day=days[index],position=index+offset,col=position%7,row=Math.floor(position/7),x=col*cell,y=monthTop+row*monthHeight;
         const isToday=day.date===snapshot.day;
-        if(isToday){ctx.setFillColor(new Color('#e7edcb'));ctx.fillRect(new Rect(x,y,cell-2,height-2));}
-        ink(String(Number(day.date.slice(-2))),x+3,y,cell-6,11,col===5?'#368ac5':col===6?'#c5596b':'#30422a',true);
-        const slots=Math.max(1,Math.floor((height-17)/11));
-        const shown=day.entries.slice(0,day.total>slots?slots-1:slots);
-        shown.forEach((entry,n)=>{
-            const ey=y+15+n*11;
-            ctx.setFillColor(new Color(entry.color,entry.completed?.06:.15));ctx.fillRect(new Rect(x+1,ey,cell-3,10));
-            ctx.setFillColor(new Color(entry.color));ctx.fillRect(new Rect(x+1,ey,2,10));
+        if(isToday){ctx.setFillColor(new Color('#dfe8bb'));ctx.fillRect(new Rect(x,y,cell-.5,monthHeight-.5));}
+        monthText(String(Number(day.date.slice(-2))),x,y,cell,11,col===5?'#368ac5':col===6?'#c5596b':'#30422a',true);
+        let used=0,shown=0;
+        for(const entry of day.entries){
             const size=entry.kind==='work'?7.5:9;
-            ink(entry.kind==='work'?entry.title:shorten(entry.title,cell-8,size),x+4,ey-1,cell-6,size,entry.completed?'#7b8790':entry.color);
-            if(entry.completed){ctx.setFillColor(new Color('#7b8790',.5));ctx.fillRect(new Rect(x+5,ey+5,cell-11,.5));}
-        });
-        if(day.total>shown.length)ink('+'+(day.total-shown.length),x+4,y+15+shown.length*11,cell-8,9,'#69765c');
+            const lines=titleLines(entry.title,cell-1,size),entryHeight=lines.length*11;
+            if(15+used+entryHeight+2>monthHeight)break;
+            const ey=y+15+used;
+            ctx.setFillColor(new Color(entry.color,entry.completed?.10:.18));ctx.fillRect(new Rect(x+.25,ey+.25,cell-.5,entryHeight-.5));
+            lines.forEach((line,lineIndex)=>{
+                const ly=ey+lineIndex*11;
+                monthText(line,x+.5,ly-.5,cell-1,size,entry.completed?'#4e5944':eventInk(entry.color),true);
+                if(entry.completed){
+                    const lineWidth=titleChars(line).reduce((sum,c)=>sum+(c.codePointAt(0)>255?1:.58)*size,0);
+                    ctx.setFillColor(new Color('#4e5944',.45));ctx.fillRect(new Rect(x+(cell-lineWidth)/2,ly+5,lineWidth,.5));
+                }
+            });
+            used+=entryHeight;shown++;
+        }
+        if(day.total>shown)monthText('+'+(day.total-shown),x+cell-13,y+1,13,8,'#69765c');
     }
     return ctx.getImage();
 }

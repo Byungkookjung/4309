@@ -106,16 +106,17 @@ function widget(kind,snapshot,error,family=config.widgetFamily||'medium'){
     if(isCalendar(kind)&&snapshot){
         const weekly=kind.endsWith('-week');
         if(weekly){gradient.colors=[new Color('#fffef2'),new Color('#eaf2da')];}
-        w.setPadding(8,6,6,6);
-        const width=dimensions.width-12;
+        w.setPadding(weekly?8:6,weekly?6:2,weekly?6:5,weekly?6:2);
+        const width=dimensions.width-(weekly?12:4);
         let headerHeight=0;
         if(!weekly){
             const header=w.addStack();header.centerAlignContent();
+            header.addSpacer(16);header.addSpacer();
             text(header,snapshot.calendar.month+' · '+(contentKind(kind)==='work'?'WORK':'TO DO'),13,'#587b38',true);
             header.addSpacer();const mark=header.addImage(frogStamp());mark.imageSize=new Size(16,16);
             w.addSpacer(4);headerHeight=20;
         }
-        const height=dimensions.height-14-headerHeight-(error?14:0);
+        const height=dimensions.height-(weekly?14:11)-headerHeight-(error?14:0);
         const image=w.addImage(drawMonthCalendar(snapshot,width,height));
         image.imageSize=new Size(width,height);image.resizable=true;image.applyFittingContentMode();
         if(error)text(w,'Offline · Open to sync',10,'#69765c');
