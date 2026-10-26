@@ -22,8 +22,8 @@
         return rows;
     }
     function today(work,planner,date,data,kind){
-        if(kind==='work')return ['iron','booster'].map(id=>{
-            const def=work.definitions.find(d=>d.id===id),record=data[id];
+        if(kind==='work')return [...(data.workDefinitions||work.definitions)].sort((a,b)=>Number(b.id==='iron')-Number(a.id==='iron')).map(def=>{
+            const record=data[def.id];
             if(!record)throw Error('data');
             return work.summarize(def,record.shifts.find(s=>s.date===date),record.settings);
         });
@@ -53,7 +53,7 @@
             const day=period==='week'?cursor.toISOString().slice(0,10):key+'-'+String(i+1).padStart(2,'0');
             const shifts=kind==='todo'?[]:today(work,planner,day,data,'work').filter(job=>job.status!=='off').map(job=>({
                 title:job.status==='incomplete'?'Time missing':(compactTime(job.checkIn).slice(-1)===compactTime(job.checkOut).slice(-1)?compactTime(job.checkIn).slice(0,-1):compactTime(job.checkIn))+'–'+compactTime(job.checkOut),
-                color:job.id==='iron'?'#27744f':'#8052ae',kind:'work',completed:false
+                color:(data.workDefinitions||work.definitions).find(def=>def.id===job.id)?.color||(job.id==='iron'?'#27744f':'#8052ae'),kind:'work',completed:false
             }));
             const tasks=kind==='work'?[]:today(work,planner,day,data,'todo').map(item=>({title:item.title,color:item.categoryColor,kind:'todo',completed:!!item.completed}));
             const entries=[...shifts,...tasks];

@@ -11,9 +11,10 @@
     <link rel="stylesheet" href="polish.css?v=20261010-header">
     <link rel="stylesheet" href="frog-theme.css?v=20261016">
     <link rel="stylesheet" href="paystubs.css?v=20261021">
+    <link rel="stylesheet" href="work-setup.css?v=20261025">
 </head>
 <body class="work-body sheet-body">
-    <div class="container work-container sheet-container">
+    <div class="container work-container sheet-container" hidden>
         <header class="page-header app-header work-header sheet-header">
             <div class="header-actions header-actions-left">
                 <button id="ledgerBtn" class="icon-btn" type="button" aria-label="Open Expense Ledger" title="Expense Ledger">
@@ -29,7 +30,10 @@
 
         <section class="sheet-job-bar" aria-label="Current job">
             <div><span class="sheet-kicker">Workplace</span><h2 id="currentJobName">Booster Juice</h2></div>
-            <button id="switchJobBtn" class="ghost-btn" type="button">Switch job</button>
+            <div class="workplace-actions">
+                <button id="switchJobBtn" class="ghost-btn" type="button">Switch job</button>
+                <button id="manageJobsBtn" class="icon-btn" type="button" aria-label="Workplace settings" title="Workplace settings">⚙️</button>
+            </div>
         </section>
         <section class="sheet-topbar">
             <div class="sheet-rate-card">
@@ -46,10 +50,16 @@
                     <input id="hourlyRateInput" type="number" step="0.01" min="0" placeholder="15.00" />
                     <label for="holidayMultiplierInput">Holiday multiplier</label>
                     <input id="holidayMultiplierInput" type="number" step="0.1" min="1" placeholder="1.5" />
-                    <label for="periodAnchorInput">2-week period start</label>
-                    <input id="periodAnchorInput" type="date" required />
-                    <label for="payoutDelayInput">Payday: days after period ends</label>
-                    <input id="payoutDelayInput" type="number" min="0" max="60" step="1" required />
+                    <label for="payFrequencyInput">Pay frequency</label>
+                    <select id="payFrequencyInput"><option value="biweekly">Every 2 weeks</option><option value="monthly">Monthly</option></select>
+                    <label for="periodAnchorInput" data-biweekly-pay>2-week period start</label>
+                    <input id="periodAnchorInput" data-biweekly-pay type="date" required />
+                    <label for="payoutDelayInput" data-biweekly-pay>Payday: days after period ends</label>
+                    <input id="payoutDelayInput" data-biweekly-pay type="number" min="0" max="60" step="1" required />
+                    <label for="monthlyPayDayInput" data-monthly-pay>Monthly payday</label>
+                    <select id="monthlyPayDayInput" data-monthly-pay></select>
+                    <label for="monthlyPayMonthInput" data-monthly-pay>Pay month</label>
+                    <select id="monthlyPayMonthInput" data-monthly-pay><option value="0">Same month as work</option><option value="1">Following month</option></select>
                     <button id="saveRateBtn" class="primary-btn" type="submit">Save rate</button>
                     <button id="cancelRateEditBtn" class="ghost-btn" type="button">Cancel</button>
                 </form>
@@ -251,7 +261,7 @@
         })();
     </script>
     <script src="paystubs.js?v=20261021"></script>
-    <script src="app.js?v=20261021-paystubs"></script>
-    <script src="mobile-time.js?v=20260911a"></script>
+    <script src="work-profile.js?v=20261025"></script>
+    <script src="work-setup.js?v=20261025"></script>
 </body>
 </html>

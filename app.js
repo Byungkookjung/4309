@@ -1,9 +1,9 @@
-const JOBS = {
+const JOBS = window.__workJobs ? Object.fromEntries(window.__workJobs.map(job=>[job.id,job])) : {
     booster: { name: 'Booster Juice', tips: true, suffix: '' },
     iron: { name: 'Iron peak Auto Repair', tips: false, suffix: 'IronPeak' }
 };
 const requestedJob = new URLSearchParams(window.location.search).get('job') || localStorage.getItem('weeklySheetJob');
-const activeJobId = Object.hasOwn(JOBS, requestedJob) ? requestedJob : 'booster';
+const activeJobId = Object.hasOwn(JOBS, requestedJob) ? requestedJob : Object.keys(JOBS)[0];
 const activeJob = JOBS[activeJobId];
 localStorage.setItem('weeklySheetJob', activeJobId);
 const STORAGE_SHIFTS = `weeklySheetShifts${activeJob.suffix}`;
@@ -17,6 +17,9 @@ function normalizeSettings(raw = {}) {
     return {
         hourlyRate: Number(raw.hourlyRate ?? 15),
         holidayMultiplier: Number(raw.holidayMultiplier ?? 1.5),
+        payFrequency: raw.payFrequency==='monthly'?'monthly':'biweekly',
+        monthlyPayDay: raw.monthlyPayDay==='last'?'last':String(Math.max(1,Math.min(31,Number(raw.monthlyPayDay)||1))),
+        monthlyPayMonth: Number(raw.monthlyPayMonth)===1?1:0,
         periodAnchor,
         // Migrate the previous default once; later manual settings remain editable.
         payoutDelay: activeJobId === 'iron' && !raw.payrollScheduleVersion && (raw.payoutDelay == null || Number(raw.payoutDelay) === 7)
@@ -38,7 +41,7 @@ let shiftUnsub = null;
 let payoutUnsub = null;
 let settingsUnsub = null;
 let otherPayoutUnsub = null;
-let otherJobPayouts = [];
+let otherJobPayouts = {};
 let combinedPayoutsReady = true;
 let combinedPayoutsError = false;
 let combinedPayoutMonth = isoDate(new Date()).slice(0, 7);
@@ -70,6 +73,19 @@ const cancelRateEditBtn = document.getElementById('cancelRateEditBtn');
 const rateForm = document.getElementById('rateForm');
 const periodAnchorInput = document.getElementById('periodAnchorInput');
 const payoutDelayInput = document.getElementById('payoutDelayInput');
+const payFrequencyInput=document.getElementById('payFrequencyInput');
+const monthlyPayDayInput=document.getElementById('monthlyPayDayInput');
+const monthlyPayMonthInput=document.getElementById('monthlyPayMonthInput');
+for(const value of ['last',...Array.from({length:31},(_,i)=>String(i+1))]){
+    const option=document.createElement('option');option.value=value;option.textContent=value==='last'?'Last day of month':`Day ${value}`;monthlyPayDayInput.append(option);
+}
+function updatePayFields(){
+    const monthly=payFrequencyInput.value==='monthly';
+    for(const [selector,hidden] of [['[data-biweekly-pay]',monthly],['[data-monthly-pay]',!monthly]]){
+        rateForm.querySelectorAll(selector).forEach(element=>{element.hidden=hidden;if(element.matches('input,select'))element.disabled=hidden;});
+    }
+}
+payFrequencyInput.addEventListener('change',updatePayFields);
 const twoWeekHours = document.getElementById('twoWeekHours');
 const twoWeekIncome = document.getElementById('twoWeekIncome');
 const actualPayoutTotal = document.getElementById('actualPayoutTotal');
@@ -307,10 +323,10 @@ function normalizePayout(raw) {
 
 function loadLocalState() {
     try {
-        const otherJob = JOBS[activeJobId === 'booster' ? 'iron' : 'booster'];
-        otherJobPayouts = JSON.parse(localStorage.getItem(`weeklySheetPayouts${otherJob.suffix}`) || '[]').map(normalizePayout);
+        otherJobPayouts = Object.fromEntries(Object.entries(JOBS).filter(([id])=>id!==activeJobId).map(([id,job])=>
+            [id,JSON.parse(localStorage.getItem(`weeklySheetPayouts${job.suffix}`)||'[]').map(normalizePayout)]));
     } catch (error) {
-        otherJobPayouts = [];
+        otherJobPayouts = {};
     }
     try {
         shifts = JSON.parse(localStorage.getItem(STORAGE_SHIFTS) || '[]').map(normalizeShift);
@@ -342,6 +358,7 @@ function getPayPeriodAnchor() {
 }
 
 function getPayPeriodStart(offset = 0, referenceDate = new Date()) {
+    if(settings.payFrequency==='monthly')return new Date(referenceDate.getFullYear(),referenceDate.getMonth()+offset,1);
     const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
     const anchor = getPayPeriodAnchor();
     const dayDiff = (Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
@@ -367,7 +384,8 @@ function getWeekDates(offset = 0) {
 
 function getPayPeriodDates(offset = 0) {
     const start = getPayPeriodStart(offset);
-    return Array.from({ length: 14 }, (_, index) => {
+    const count=settings.payFrequency==='monthly'?new Date(start.getFullYear(),start.getMonth()+1,0).getDate():14;
+    return Array.from({ length: count }, (_, index) => {
         const date = new Date(start);
         date.setDate(start.getDate() + index);
         return date;
@@ -423,12 +441,17 @@ function getBlockExpectedIncome(blockDates) {
 }
 
 function getBlockPayoutDate(blockDates) {
-    return isoDate(addDays(blockDates[13], settings.payoutDelay));
+    if(settings.payFrequency==='monthly'){
+        const start=blockDates[0],month=start.getMonth()+settings.monthlyPayMonth;
+        const last=new Date(start.getFullYear(),month+1,0).getDate();
+        return isoDate(new Date(start.getFullYear(),month,settings.monthlyPayDay==='last'?last:Math.min(Number(settings.monthlyPayDay),last)));
+    }
+    return isoDate(addDays(blockDates[blockDates.length-1], settings.payoutDelay));
 }
 
 function getBlockPayoutTotal(blockDates) {
     const blockStart = isoDate(blockDates[0]);
-    const blockEnd = isoDate(blockDates[13]);
+    const blockEnd = isoDate(blockDates[blockDates.length-1]);
     const payoutDate = getBlockPayoutDate(blockDates);
     return Number(payouts
         .filter(item => (
@@ -445,6 +468,7 @@ function renderRate() {
     holidayMultiplierInput.value = Number(settings.holidayMultiplier || 1.5).toFixed(1);
     periodAnchorInput.value = settings.periodAnchor;
     payoutDelayInput.value = settings.payoutDelay;
+    payFrequencyInput.value=settings.payFrequency;monthlyPayDayInput.value=settings.monthlyPayDay;monthlyPayMonthInput.value=String(settings.monthlyPayMonth);updatePayFields();
     rateForm.classList.toggle('hidden', !isEditingRate);
 }
 
@@ -474,7 +498,7 @@ function buildWeekTableMarkup(weekDates) {
     return `
         <div class="sheet-card-header">
             <span class="sheet-month-tag">${safeText(monthLabel)}</span>
-            <span class="sheet-range-tag">${safeText(formatCompactDate(weekDates[0]))} - ${safeText(formatCompactDate(weekDates[6]))}</span>
+            <span class="sheet-range-tag">${safeText(formatCompactDate(weekDates[0]))} - ${safeText(formatCompactDate(weekDates[weekDates.length-1]))}</span>
         </div>
         <div class="sheet-table-wrap">
             <table class="weekly-sheet-table">
@@ -589,13 +613,15 @@ async function handleShiftInput(row) {
 }
 
 function renderWeekSheets() {
-    const { weekOne, weekTwo } = getBlockWeeks(weekBlockOffset);
-    weekCardOne.innerHTML = buildWeekTableMarkup(weekOne);
-    weekCardTwo.innerHTML = buildWeekTableMarkup(weekTwo);
-    attachWeekTableHandlers(weekCardOne);
-    attachWeekTableHandlers(weekCardTwo);
-
-    const rangeText = `${formatCompactDate(weekOne[0])} - ${formatCompactDate(weekTwo[6])}`;
+    const { blockDates } = getBlockWeeks(weekBlockOffset);
+    const board=weekCardOne.closest('.sheet-board');
+    board.querySelectorAll('[data-extra-pay-week]').forEach(card=>card.remove());
+    const containers=[weekCardOne,weekCardTwo];
+    for(let index=2;index<Math.ceil(blockDates.length/7);index++){
+        const card=document.createElement('article');card.className='sheet-card';card.dataset.extraPayWeek='true';board.append(card);containers.push(card);
+    }
+    containers.forEach((container,index)=>{container.innerHTML=buildWeekTableMarkup(blockDates.slice(index*7,index*7+7));attachWeekTableHandlers(container);});
+    const rangeText = `${formatCompactDate(blockDates[0])} - ${formatCompactDate(blockDates[blockDates.length-1])}`;
     sheetRangeTitle.textContent = rangeText;
 }
 
@@ -711,7 +737,7 @@ function renderSelectedDayDetail() {
 function renderTopSummary() {
     const { blockDates } = getBlockWeeks(weekBlockOffset);
     const payoutDate = parseISODate(getBlockPayoutDate(blockDates));
-    const followingDate = payoutDate ? addDays(payoutDate, 14) : null;
+    const followingDate = parseISODate(getBlockPayoutDate(getPayPeriodDates(weekBlockOffset+1)));
     const totalHours = blockDates.reduce((sum, date) => sum + getOrCreateShift(isoDate(date)).totalHours, 0);
     const totalIncome = getBlockExpectedIncome(blockDates);
     const payoutTotal = getBlockPayoutTotal(blockDates);
@@ -719,6 +745,9 @@ function renderTopSummary() {
 
     twoWeekHours.textContent = totalHours.toFixed(2);
     twoWeekIncome.textContent = formatCurrency(totalIncome);
+    const monthly=settings.payFrequency==='monthly';
+    twoWeekHours.previousElementSibling.textContent=monthly?'Monthly total hours':'2-week total hours';
+    twoWeekIncome.previousElementSibling.textContent=monthly?'Monthly expected income':'2-week expected income';
     actualPayoutTotal.textContent = formatCurrency(payoutTotal);
     if (nextPayoutDate) {
         nextPayoutDate.textContent = payoutDate ? formatCompactDate(payoutDate) : '--';
@@ -727,7 +756,7 @@ function renderTopSummary() {
         followingPayoutDate.textContent = followingDate ? `Next: ${formatCompactDate(followingDate)}` : '';
     }
     if (payoutCompareTitle) {
-        payoutCompareTitle.textContent = `${formatCompactDate(blockDates[0])} - ${formatCompactDate(blockDates[13])}`;
+        payoutCompareTitle.textContent = `${formatCompactDate(blockDates[0])} - ${formatCompactDate(blockDates[blockDates.length-1])}`;
     }
     if (payoutCompareValue) {
         const absDifference = formatCurrency(Math.abs(difference));
@@ -1069,14 +1098,12 @@ function renderPayoutTrend() {
 
 function getCombinedPayoutMonths() {
     const byMonth = new Map();
-    const jobEntries = activeJobId === 'booster'
-        ? { booster: payouts, iron: otherJobPayouts }
-        : { booster: otherJobPayouts, iron: payouts };
+    const jobEntries = {...otherJobPayouts,[activeJobId]:payouts};
     Object.entries(jobEntries).forEach(([jobId, entries]) => {
         entries.forEach(entry => {
             if (!entry.date) return;
             const month = entry.date.slice(0, 7);
-            if (!byMonth.has(month)) byMonth.set(month, { booster: 0, iron: 0 });
+            if (!byMonth.has(month)) byMonth.set(month, Object.fromEntries(Object.keys(JOBS).map(id=>[id,0])));
             // Use deposit month and integer cents, independently of each job's pay period.
             byMonth.get(month)[jobId] += Math.round(Number(entry.amount || 0) * 100);
         });
@@ -1085,9 +1112,9 @@ function getCombinedPayoutMonths() {
     return Array.from({ length: 10 }, (_, index) => {
         const date = new Date(selected.getFullYear(), selected.getMonth() - 9 + index, 1);
         const key = isoDate(date).slice(0, 7);
-        const item = byMonth.get(key) || { booster: 0, iron: 0 };
+        const item = byMonth.get(key) || Object.fromEntries(Object.keys(JOBS).map(id=>[id,0]));
         return { date: `${key}-01`, label: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-            booster: item.booster / 100, iron: item.iron / 100, amount: (item.booster + item.iron) / 100 };
+            ...Object.fromEntries(Object.entries(item).map(([id,cents])=>[id,cents/100])), amount: Object.values(item).reduce((sum,cents)=>sum+cents,0)/100 };
     });
 }
 
@@ -1099,17 +1126,16 @@ function renderCombinedPayoutTrend() {
     stats.innerHTML = '';
     if (combinedPayoutsError || !combinedPayoutsReady) {
         chart.innerHTML = `<div class="work-empty">${combinedPayoutsError
-            ? 'Could not load both jobs. Please reload to try again.' : 'Loading both jobs...'}</div>`;
+            ? 'Could not load workplaces. Please reload to try again.' : 'Loading workplaces...'}</div>`;
         return;
     }
     const ordered = getCombinedPayoutMonths();
     const selected = ordered[ordered.length - 1];
     const monthLabel = parseISODate(selected.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     stats.innerHTML = [
-        ['Booster Juice', selected.booster],
-        ['Iron peak Auto Repair', selected.iron],
+        ...Object.entries(JOBS).map(([id,job])=>[job.name,selected[id]]),
         ['Combined net pay', selected.amount]
-    ].map(([label, amount]) => `<div class="payout-trend-stat"><span>${label}</span><strong>${formatCurrency(amount)}</strong><small>${safeText(monthLabel)}</small></div>`).join('');
+    ].map(([label, amount]) => `<div class="payout-trend-stat"><span>${safeText(label)}</span><strong>${formatCurrency(amount)}</strong><small>${safeText(monthLabel)}</small></div>`).join('');
     chart.innerHTML = buildCombinedTrendChartMarkup({ ordered,
         payoutValues: ordered.map(item => item.amount), tipValues: ordered.map(() => 0), showTips: false });
 }
@@ -1182,7 +1208,7 @@ function resetPayoutForm() {
     payoutForm.reset();
     payoutDateInput.value = getBlockPayoutDate(blockDates);
     payoutPeriodStartInput.value = isoDate(blockDates[0]);
-    payoutPeriodEndInput.value = isoDate(blockDates[13]);
+    payoutPeriodEndInput.value = isoDate(blockDates[blockDates.length-1]);
     savePayoutBtn.textContent = 'Save payout';
     refreshPayoutTotals();
 }
@@ -1230,6 +1256,10 @@ async function saveHourlyRate() {
     settings.holidayMultiplier = holidayMultiplier;
     settings.periodAnchor = periodAnchorInput.value;
     settings.payoutDelay = Number(payoutDelayInput.value);
+    settings.payFrequency=payFrequencyInput.value;
+    settings.monthlyPayDay=monthlyPayDayInput.value;
+    settings.monthlyPayMonth=Number(monthlyPayMonthInput.value);
+    weekBlockOffset=0;
     if (isRemoteEnabled()) {
         await settingsDoc(currentUser).set(settings);
     } else {
@@ -1239,7 +1269,7 @@ async function saveHourlyRate() {
     if (!editingPayoutId) {
         const { blockDates } = getBlockWeeks(weekBlockOffset);
         payoutPeriodStartInput.value = isoDate(blockDates[0]);
-        payoutPeriodEndInput.value = isoDate(blockDates[13]);
+        payoutPeriodEndInput.value = isoDate(blockDates[blockDates.length-1]);
         payoutDateInput.value = getBlockPayoutDate(blockDates);
     }
     refreshPayoutTotals();
@@ -1346,7 +1376,7 @@ function startRemoteSync(user) {
     combinedPayoutsReady = false;
     combinedPayoutsError = false;
     let activeLoaded = false;
-    let otherLoaded = false;
+    const remaining=new Set(Object.keys(JOBS).filter(id=>id!==activeJobId));
     const handlePayoutError = () => {
         combinedPayoutsError = true;
         renderCombinedPayoutTrend();
@@ -1361,16 +1391,17 @@ function startRemoteSync(user) {
     payoutUnsub = payoutsCollection(user).onSnapshot(snapshot => {
         payouts = snapshot.docs.map(doc => normalizePayout({ id: doc.id, ...doc.data() }));
         activeLoaded = true;
-        combinedPayoutsReady = otherLoaded;
+        combinedPayoutsReady = remaining.size===0;
         renderAll();
     }, handlePayoutError);
 
-    otherPayoutUnsub = payoutsCollection(user, activeJobId === 'booster' ? 'iron' : 'booster').onSnapshot(snapshot => {
-        otherJobPayouts = snapshot.docs.map(doc => normalizePayout({ id: doc.id, ...doc.data() }));
-        otherLoaded = true;
-        combinedPayoutsReady = activeLoaded;
+    otherJobPayouts = {};
+    const otherSubscriptions=[...remaining].map(id=>payoutsCollection(user,id).onSnapshot(snapshot=>{
+        otherJobPayouts[id]=snapshot.docs.map(doc=>normalizePayout({id:doc.id,...doc.data()}));
+        remaining.delete(id);combinedPayoutsReady=activeLoaded&&remaining.size===0;
         renderCombinedPayoutTrend();
-    }, handlePayoutError);
+    },handlePayoutError));
+    otherPayoutUnsub=()=>otherSubscriptions.forEach(unsubscribe=>unsubscribe());
 
     settingsUnsub = settingsDoc(user).onSnapshot(async doc => {
         if (!doc.exists) {
@@ -1453,29 +1484,33 @@ if (ledgerBtn) {
 document.body.dataset.job = activeJobId;
 document.getElementById('currentJobName').textContent = activeJob.name;
 const switchJobBtn = document.getElementById('switchJobBtn');
-const otherJobId = activeJobId === 'booster' ? 'iron' : 'booster';
-switchJobBtn.textContent = `Switch to ${JOBS[otherJobId].name}`;
-switchJobBtn.addEventListener('click', async () => {
+const jobIds=Object.keys(JOBS),otherJobId=jobIds[(jobIds.indexOf(activeJobId)+1)%jobIds.length];
+switchJobBtn.hidden=jobIds.length<2;
+switchJobBtn.textContent = jobIds.length===2?`Switch to ${JOBS[otherJobId].name}`:'Next workplace';
+async function switchWorkplace(jobId,setup=false) {
     switchJobBtn.disabled = true;
     try {
         // Finish autosaved shift writes before unloading this job's page.
         if (isRemoteEnabled()) await dbRef.waitForPendingWrites();
         const url = new URL(window.location.href);
-        url.searchParams.set('job', otherJobId);
+        url.searchParams.set('job', jobId);
+        if(setup)url.searchParams.set('setup','jobs');
         window.location.assign(url.href);
     } catch (error) {
         switchJobBtn.disabled = false;
         alert('Could not finish saving. Please try switching jobs again.');
     }
-});
+}
+switchJobBtn.addEventListener('click',()=>switchWorkplace(otherJobId));
+document.getElementById('manageJobsBtn').addEventListener('click',()=>switchWorkplace(activeJobId,true));
 payoutTipsInput.disabled = !activeJob.tips;
 payoutTipsInput.closest('.field').hidden = !activeJob.tips;
-loadLocalState();
+if(!window.__workUser)loadLocalState();
 initializeDefaults();
 renderAll();
 
 if (requireAuthRef) {
-    requireAuthRef().then(user => {
+    Promise.resolve(window.__workUser||requireAuthRef()).then(user => {
         currentUser = user;
         startRemoteSync(user);
     });

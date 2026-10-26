@@ -1,5 +1,44 @@
 // Pocket Paws: install this ONE file in Scriptable.
 // Widget parameter: todo-month (Large) or work-week (Medium). Run inside the app to connect.
+const WorkProfile=(()=>{const module={exports:{}};
+(function(root){
+    const legacy = [
+        {id:'booster',name:'Booster Juice',tips:true,suffix:'',color:'#8052ae'},
+        {id:'iron',name:'Iron peak Auto Repair',tips:false,suffix:'IronPeak',color:'#27744f'}
+    ];
+    const colors=['#27744f','#8052ae','#367aa0','#ae485b','#946319'];
+    function validate(profile){
+        if(profile?.version!==1||!Array.isArray(profile.jobs)||profile.jobs.length<1||profile.jobs.length>10)throw Error('Invalid workplace profile.');
+        const ids=new Set(),suffixes=new Set();
+        const jobs=profile.jobs.map((job,index)=>{
+            const builtIn=legacy.find(item=>item.id===job.id);
+            if(typeof job.id!=='string'||!/^job_[a-z0-9]+$/.test(job.id)&&!builtIn||ids.has(job.id)
+                ||job.suffix!==(builtIn?builtIn.suffix:'Job_'+job.id.slice(4))||suffixes.has(job.suffix)
+                ||typeof job.name!=='string'||!job.name.trim()||job.name.trim().length>80||typeof job.tips!=='boolean')throw Error('Invalid workplace.');
+            ids.add(job.id);suffixes.add(job.suffix);
+            return {id:job.id,name:job.name.trim(),tips:job.tips,suffix:job.suffix,color:/^#[0-9a-f]{6}$/i.test(job.color||'')?job.color:colors[index%colors.length]};
+        });
+        return {version:1,jobs};
+    }
+    async function load(owner){
+        const doc=await owner.collection('weeklyWorkMeta').doc('jobs').get({source:'server'});
+        if(doc.exists)return validate(doc.data());
+        // Only remote evidence counts for a signed-in account; never import another user's local cache.
+        for(const job of legacy){
+            const settings=await owner.collection('weeklyWorkMeta').doc('settings'+job.suffix).get({source:'server'});
+            if(settings.exists)return {version:1,jobs:legacy.map(job=>({...job}))};
+            for(const name of ['weeklyWorkShifts','weeklyWorkPayouts']){
+                const rows=await owner.collection(name+job.suffix).limit(1).get({source:'server'});
+                if(!rows.empty&&rows.docs.length)return {version:1,jobs:legacy.map(job=>({...job}))};
+            }
+        }
+        return null;
+    }
+    const api={legacy,colors,validate,load};
+    if(typeof module!=='undefined')module.exports=api;else root.WorkProfile=api;
+})(globalThis);
+
+return module.exports;})();
 const WorkWidgetData=(()=>{const module={exports:{}};
 (function (root) {
     const definitions = [
@@ -29,7 +68,7 @@ const WorkWidgetData=(()=>{const module={exports:{}};
         const days = Array.from({ length: 32 }, (_, index) => {
             const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + index - 1);
             const key = dateKey(date);
-            return { date: key, jobs: definitions.map(def => {
+            return { date: key, jobs: (records.workDefinitions || definitions).map(def => {
                 const data = records[def.id];
                 if (!data) throw Error(`Missing ${def.name} data. Please retry.`);
                 return summarize(def, data.shifts.find(shift => shift.date === key), data.settings);
@@ -230,8 +269,8 @@ const Core=(()=>{const module={exports:{}};
         return rows;
     }
     function today(work,planner,date,data,kind){
-        if(kind==='work')return ['iron','booster'].map(id=>{
-            const def=work.definitions.find(d=>d.id===id),record=data[id];
+        if(kind==='work')return [...(data.workDefinitions||work.definitions)].sort((a,b)=>Number(b.id==='iron')-Number(a.id==='iron')).map(def=>{
+            const record=data[def.id];
             if(!record)throw Error('data');
             return work.summarize(def,record.shifts.find(s=>s.date===date),record.settings);
         });
@@ -261,7 +300,7 @@ const Core=(()=>{const module={exports:{}};
             const day=period==='week'?cursor.toISOString().slice(0,10):key+'-'+String(i+1).padStart(2,'0');
             const shifts=kind==='todo'?[]:today(work,planner,day,data,'work').filter(job=>job.status!=='off').map(job=>({
                 title:job.status==='incomplete'?'Time missing':(compactTime(job.checkIn).slice(-1)===compactTime(job.checkOut).slice(-1)?compactTime(job.checkIn).slice(0,-1):compactTime(job.checkIn))+'–'+compactTime(job.checkOut),
-                color:job.id==='iron'?'#27744f':'#8052ae',kind:'work',completed:false
+                color:(data.workDefinitions||work.definitions).find(def=>def.id===job.id)?.color||(job.id==='iron'?'#27744f':'#8052ae'),kind:'work',completed:false
             }));
             const tasks=kind==='work'?[]:today(work,planner,day,data,'todo').map(item=>({title:item.title,color:item.categoryColor,kind:'todo',completed:!!item.completed}));
             const entries=[...shifts,...tasks];
@@ -512,7 +551,12 @@ async function sync(kind){
     const get=url=>requestJSON(url,token.id_token);
     let data={};
     if(contentKind(kind)==='work'){
-        for(const def of WorkWidgetData.definitions){
+        const profileRequest=new Request(base+'/weeklyWorkMeta/jobs');profileRequest.timeoutInterval=12;profileRequest.headers={Authorization:'Bearer '+token.id_token};
+        const profileText=await profileRequest.loadString();
+        if(profileRequest.response.statusCode===200)data.workDefinitions=WorkProfile.validate(Core.fields(JSON.parse(profileText).fields)).jobs;
+        else if(profileRequest.response.statusCode===404)data.workDefinitions=WorkProfile.legacy;
+        else throw Error([401,403].includes(profileRequest.response.statusCode)?'auth':'network');
+        for(const def of data.workDefinitions){
             const shifts=await Core.list(get,base,'weeklyWorkShifts'+def.suffix);
             // A missing settings document is a valid new-account default; other errors must surface.
             const request=new Request(base+'/weeklyWorkMeta/settings'+def.suffix);request.timeoutInterval=12;request.headers={Authorization:'Bearer '+token.id_token};

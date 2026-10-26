@@ -26,7 +26,7 @@
         const days = Array.from({ length: 32 }, (_, index) => {
             const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + index - 1);
             const key = dateKey(date);
-            return { date: key, jobs: definitions.map(def => {
+            return { date: key, jobs: (records.workDefinitions || definitions).map(def => {
                 const data = records[def.id];
                 if (!data) throw Error(`Missing ${def.name} data. Please retry.`);
                 return summarize(def, data.shifts.find(shift => shift.date === key), data.settings);

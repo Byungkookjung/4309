@@ -1,0 +1,8 @@
+.work-setup{max-width:680px;margin:32px auto;padding:24px;border:1px solid #cbd7ad;border-radius:24px;background:linear-gradient(150deg,#fffef6,#edf1d9);color:#30422a}
+.work-setup[hidden],.sheet-container[hidden]{display:none!important}
+.workplace-actions [hidden]{display:none!important}
+.work-setup [hidden],#rateForm [hidden]{display:none!important}
+.work-setup select,#rateForm select{box-sizing:border-box;width:100%;min-height:44px;padding:8px;border:1px solid #aab99a;border-radius:8px;background:#fffef9;color:#30422a}
+.work-setup h1{font-size:26px}.work-setup form{display:grid;gap:18px}.work-setup fieldset{display:grid;grid-template-columns:1fr 1fr;gap:16px;border:1px solid #bbcba1;border-radius:14px;padding:18px;min-width:0;margin:18px 0}
+.work-setup fieldset[hidden]{display:none}.work-setup label{display:flex;flex-direction:column;gap:6px;min-width:0}.work-setup input{width:100%;box-sizing:border-box;min-height:44px;padding:8px;border:1px solid #aab99a;border-radius:8px;background:#fffef9;color:#30422a}.work-setup input[type=checkbox]{width:24px;min-height:24px}.work-setup fieldset p{grid-column:1/-1}.workplace-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+@media(max-width:480px){.work-setup{margin:12px;padding:18px}.work-setup fieldset{grid-template-columns:1fr}}

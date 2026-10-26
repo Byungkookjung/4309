@@ -39,7 +39,10 @@
             const auth = window.__ledgerAuth;
             const user = auth?.requireAuth ? await auth.requireAuth() : null;
             const records = {};
-            for (const def of api.definitions) {
+            const owner=user&&auth.db?auth.db.collection('users').doc(user.uid):null;
+            const profile=owner?await WorkProfile.load(owner):JSON.parse(localStorage.getItem('weeklyWorkProfile')||'null');
+            records.workDefinitions=profile?WorkProfile.validate(profile).jobs:owner?[]:api.definitions;
+            for (const def of records.workDefinitions) {
                 if (user && auth.db) {
                     const owner = auth.db.collection('users').doc(user.uid);
                     const [shifts, settings] = await Promise.all([
@@ -55,7 +58,7 @@
                 }
             }
             snapshot = api.buildSnapshot(records); sample = false; render();
-            status.textContent = 'Both schedules loaded. Download and import in Work Today to update your widget.';
+            status.textContent = 'Workplaces loaded. Download and import in Work Today to update your widget.';
         } catch (error) {
             status.textContent = `Schedules could not be loaded. ${sample ? 'Still showing sample data.' : 'Previous snapshot is still shown.'} Please retry.`;
         } finally { buttons.forEach(button => { button.disabled = false; }); }

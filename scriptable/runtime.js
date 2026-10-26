@@ -66,7 +66,12 @@ async function sync(kind){
     const get=url=>requestJSON(url,token.id_token);
     let data={};
     if(contentKind(kind)==='work'){
-        for(const def of WorkWidgetData.definitions){
+        const profileRequest=new Request(base+'/weeklyWorkMeta/jobs');profileRequest.timeoutInterval=12;profileRequest.headers={Authorization:'Bearer '+token.id_token};
+        const profileText=await profileRequest.loadString();
+        if(profileRequest.response.statusCode===200)data.workDefinitions=WorkProfile.validate(Core.fields(JSON.parse(profileText).fields)).jobs;
+        else if(profileRequest.response.statusCode===404)data.workDefinitions=WorkProfile.legacy;
+        else throw Error([401,403].includes(profileRequest.response.statusCode)?'auth':'network');
+        for(const def of data.workDefinitions){
             const shifts=await Core.list(get,base,'weeklyWorkShifts'+def.suffix);
             // A missing settings document is a valid new-account default; other errors must surface.
             const request=new Request(base+'/weeklyWorkMeta/settings'+def.suffix);request.timeoutInterval=12;request.headers={Authorization:'Bearer '+token.id_token};

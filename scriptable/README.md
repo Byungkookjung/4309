@@ -14,6 +14,7 @@ Install the generated `Pocket Paws.js` in Scriptable. Keep its script name **Poc
 - All reference dates use `America/Edmonton`, including daylight-saving changes.
 - Work week advances one date per day when refreshed. Saturday shows Wed/Thu/Fri/**Sat**/Sun/Mon/Tue. Green is Iron Peak; purple is Booster Juice. `a` and `p` mean AM and PM.
 - Work week uses cream and pond-green styling, a frog mark and a highlighted center date. Its heading shows the reference date so stale views are identifiable.
+- Work week reads the account's configured workplace names, colors and collection IDs. Accounts without a workplace profile retain the legacy Booster/Iron mapping. Replace the installed script to enable custom workplaces.
 - Monthly Todo is Monday-first and includes recurring and moved occurrences. Unfinished items sort first; completed items are muted and struck through. Long titles shorten, and excess entries show `+N`.
 - Monthly Todo centers weekdays, dates and task labels, with balanced 3 pt side insets. Task text remains 9 pt on one line; titles show as many complete grapheme characters as the available width permits, with no fixed character-count cap. Text rows reserve enough height for full glyphs. A small `+N` beside the date reports additional tasks without consuming a task row.
 - Monthly labels use consistent bold text, darker category-tinted ink and readable completed-task colors. Thin gaps separate label backgrounds without shifting their positions; emoji sequences stay intact when text is clipped.

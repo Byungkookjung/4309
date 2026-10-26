@@ -56,8 +56,8 @@
         const key = model.nextDay(today, selectedDay);
         $('dayLabel').textContent = new Intl.DateTimeFormat('en-CA', { month: 'short', day: 'numeric', timeZone: model.zone }).format(new Date(key + 'T18:00:00Z'));
         $('jobs').replaceChildren();
-        for (const id of ['iron', 'booster']) {
-            const def = api.definitions.find(item => item.id === id), record = data.jobs[id];
+        for (const def of [...(data.workDefinitions||api.definitions)].sort((a,b)=>Number(b.id==='iron')-Number(a.id==='iron'))) {
+            const id=def.id, record = data.jobs[id];
             const job = api.summarize(def, record.shifts.find(row => row.date === key), record.settings);
             const card = document.createElement('article'); card.className = `job ${id}`;
             const name = document.createElement('h3'); name.textContent = job.name;
@@ -90,16 +90,18 @@
         busy = true; $('refresh').disabled = true; $('syncStatus').textContent = 'Gathering your day...';
         try {
             const jobs = {};
-            for (const def of api.definitions) {
+            const profile=await WorkProfile.load(owner);
+            const workDefinitions=profile?.jobs||[];
+            for (const def of workDefinitions) {
                 const shifts = await owner.collection('weeklyWorkShifts' + def.suffix).get({ source: 'server' });
                 const settings = await owner.collection('weeklyWorkMeta').doc('settings' + def.suffix).get({ source: 'server' });
                 jobs[def.id] = { shifts: shifts.docs.map(doc => doc.data()), settings: settings.data() || {} };
             }
             const entries = await owner.collection('ledgerEntries').get({ source: 'server' });
             if (request !== version) return;
-            const next = { jobs, entries: entries.docs.map(doc => doc.data()), month: model.dayKey(new Date()).slice(0, 7) };
+            const next = { jobs, workDefinitions, entries: entries.docs.map(doc => doc.data()), month: model.dayKey(new Date()).slice(0, 7) };
             // Validate before replacing the last successful in-memory snapshot.
-            for (const def of api.definitions) api.summarize(def, { checkIn: '09:00', checkOut: '10:00' }, jobs[def.id].settings);
+            for (const def of workDefinitions) api.summarize(def, { checkIn: '09:00', checkOut: '10:00' }, jobs[def.id].settings);
             model.summarize(next);
             data = next; render();
             $('syncStatus').textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });

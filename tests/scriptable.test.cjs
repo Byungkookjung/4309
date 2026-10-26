@@ -24,7 +24,7 @@ test('today summary respects pay rates, task rules, moved occurrences and comple
  assert.equal(tasks.length,2);assert.equal(tasks[0].title,'Monthly');
 });
 const source=fs.readFileSync(require.resolve('../scriptable/Pocket Paws.js'),'utf8');
-async function harness(kind,cache=new Map(),failure=false,family='medium',now=null){
+async function harness(kind,cache=new Map(),failure=false,family='medium',now=null,profile=null){
  const labels=[],requests=[],images=[];let widget;
  class Stack{addText(v){labels.push(v);return{}}addStack(){return new Stack()}addSpacer(){}addImage(){const image={applyFittingContentMode(){},centerAlignImage(){this.alignment='center'}};images.push(image);return image}setPadding(...padding){this.padding=padding}centerAlignContent(){}layoutVertically(){}}
  const Clock=now?class extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return +new Date(now);}}:Date;
@@ -33,6 +33,11 @@ async function harness(kind,cache=new Map(),failure=false,family='medium',now=nu
  class Request{constructor(url){this.url=url;requests.push(url)}async loadString(){
   if(failure)throw Error('offline');this.response={statusCode:200};
   if(this.url.includes('securetoken'))return JSON.stringify({user_id:'fixture',id_token:'id-token',refresh_token:'rotated'});
+  if(this.url.includes('/weeklyWorkMeta/jobs')){
+   if(!profile){this.response.statusCode=404;return '{}';}
+   const encode=value=>Array.isArray(value)?{arrayValue:{values:value.map(encode)}}:typeof value==='object'?{mapValue:{fields:Object.fromEntries(Object.entries(value).map(([key,value])=>[key,encode(value)]))}}:typeof value==='boolean'?{booleanValue:value}:typeof value==='number'?{integerValue:String(value)}:{stringValue:value};
+   return JSON.stringify({fields:encode(profile).mapValue.fields});
+  }
   if(this.url.includes('/weeklyWorkMeta/'))return JSON.stringify({fields:{hourlyRate:{integerValue:'15'}}});
   if(this.url.includes('/weeklyWorkShifts'))return JSON.stringify({documents:[doc('shift',{date:{stringValue:today},checkIn:{stringValue:'09:00'},checkOut:{stringValue:'17:00'}})]});
   if(this.url.includes('/personalTasks'))return JSON.stringify({documents:[doc('task',{date:{stringValue:today},title:{stringValue:'Today fixture task'},completed:{booleanValue:false}})]});
@@ -190,6 +195,15 @@ test('only monthly todo and centered work week remain; removed modes do not fetc
   const offline=await harness(kind,cache,true,family);assert.ok(offline.labels.some(t=>t.includes('Offline')));
   const wrong=await harness(kind,cache,false,'small');assert.ok(wrong.labels.includes('Widget size'));
  }
+});
+test('work week REST sync loads every configured workplace and not the legacy collections',async()=>{
+ const profile={version:1,jobs:['a','b','c'].map((id,index)=>({id:'job_'+id,suffix:'Job_'+id,name:'Workplace '+index,tips:false,color:'#367aa0'}))};
+ const cache=new Map([['pocket-paws-v1-account',JSON.stringify({uid:'fixture',refreshToken:'token',connectionID:'same'})]]);
+ const result=await harness('work-week',cache,false,'medium','2026-10-25T18:00:00Z',profile);
+ for(const job of profile.jobs)assert.ok(result.requests.some(url=>url.includes('/weeklyWorkShifts'+job.suffix+'?')));
+ assert.ok(!result.requests.some(url=>url.includes('/weeklyWorkShifts?')||url.includes('ShiftsIronPeak')));
+ const snapshot=JSON.parse(cache.get('pocket-paws-cache-work-week'));
+ const today=snapshot.calendar.days.find(day=>day.date==='2026-10-25');assert.equal(today.total,3);assert.ok(today.entries.every(entry=>entry.color==='#367aa0'));
 });
 test('rolling work week puts today in the fourth column, advancing one day at a time',()=>{
  const data={iron:{shifts:[],settings:{}},booster:{shifts:[],settings:{}}};

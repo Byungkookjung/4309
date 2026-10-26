@@ -18,10 +18,13 @@ Main tools and companion views:
 
 ### Weekly Work Sheet
 
-- One-button switching between Booster Juice and Iron peak Auto Repair
+- New accounts set up 1-10 workplaces, including name, hourly rate, holiday multiplier, tips, period start and payday delay. Use Workplace settings to rename workplaces, change tip support or add another workplace; existing workplace removal is intentionally disabled to preserve history.
+- Existing accounts with saved work settings, shifts or payouts skip setup and retain Booster Juice and Iron peak Auto Repair, their collection IDs and saved pay settings. Opening the sheet does not rewrite their workplace profile. New signed-in accounts never inherit this browser's local work records.
+- The switch button cycles through configured workplaces without a separate loading screen. The gear button opens workplace settings. Combined monthly payouts total every configured workplace.
 - Separate shifts, hourly rates, payout history, and charts for each job; existing records remain under Booster Juice
 - Iron peak Auto Repair excludes tips from its payout form, totals, history, and chart
 - Two-week work sheet view with a configurable period start and payday delay in Pay Settings
+- Pay Settings and new-workplace setup support biweekly or monthly pay. Monthly work periods run from the first through the last day of the month; payday can be day 1-31 or month-end, in the work month or following month. Numbered dates beyond the end of a short month use that month's last day. Monthly sheets, totals and payout defaults cover the whole month. Existing settings default to biweekly without changing saved shifts or payouts. Expected pay remains hourly-rate based.
 - Defaults: $15/hour and a 1.5x holiday multiplier. Booster Juice periods start July 31, 2026, with payday seven days after period end. Iron Peak periods start Monday, October 5, 2026, with payday five days after the Sunday period end: October 5-18 pays October 23; October 19-November 1 pays November 6. This follows the supplied biweekly payroll sheet; its shared Sunday boundaries are represented as nonoverlapping Monday-Sunday work periods. The listed January 1, 2027 payday is retained without an automatic holiday adjustment. Previous Iron Peak default anchors (July 31, September 14 and September 28) and the old seven-day delay are migrated without changing shifts or actual payout records. Custom anchors and nondefault delays are preserved; subsequent manual settings remain editable.
 - Editable check-in and check-out times for past and current dates
 - Auto break rule:
