@@ -2,7 +2,7 @@
 .paystub-help,
 .paystub-meta { color: #61734f; line-height: 1.5; font-size: .8rem; }
 .sheet-payout-form input[type="file"] { min-width: 0; max-width: 100%; padding: 10px; font-size: .85rem; }
-.payout-history-card { align-self: start; min-width: 0; }
+.payout-history-card { align-self: stretch; min-width: 0; }
 .payout-history-card .payout-record { display: block; }
 .payout-record-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .payout-record-heading { min-width: 0; }
