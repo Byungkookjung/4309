@@ -1,6 +1,16 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),EE=require('../ee-model.js'),Export=require('../ee-export.js');
 const plans=()=>EE.applyTemplate([]);
 const entry=(parent,amount,child='',extra={})=>({id:'e',date:'2026-11-01',type:'expense',sourceType:'expected',linkedPlanItemId:parent.id,reason:parent.label,amount,subcategoryId:child,...extra});
+test('hierarchical EE parents cannot be deleted, including empty and archived-only children',()=>{
+ const parent=plans()[0];
+ for(const subcategories of [parent.subcategories,[],parent.subcategories.map(child=>({...child,archived:true}))]){
+  assert.match(EE.deletionBlockReason({...parent,subcategories},[],[parent]),/cannot be deleted/);
+ }
+ const flat={id:'old',type:'expected',label:'쇼핑',amount:450};
+ for(const record of [entry(flat,1),{type:'expense',sourceType:'expected',reason:'개인쇼핑',amount:1}])assert.match(EE.deletionBlockReason(flat,[record],[flat]),/historical/);
+ assert.equal(EE.deletionBlockReason(flat,[],[flat]),'');
+ for(const type of ['fixed','income','unexpected_income'])assert.equal(EE.deletionBlockReason({...flat,type},[entry(flat,1)],[flat]),'');
+});
 test('template has the exact six parents, eighteen defaults and CAD 2000, derived from children',()=>{
  const rows=plans();assert.deepEqual(rows.map(row=>row.amount),[420,500,120,450,230,280]);assert.equal(rows.reduce((sum,row)=>sum+row.amount,0),2000);
  assert.equal(rows.flatMap(row=>row.subcategories).length,18);

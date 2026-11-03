@@ -50,6 +50,13 @@
         if(child)return child.label+(child.archived?' (보관됨)':'');
         return entry.subcategoryId&&entry.subcategoryLabel?entry.subcategoryLabel+' (확인 필요)':'미분류';
     }
+    function deletionBlockReason(plan,entries,plans){
+        if(plan?.type!=='expected')return '';
+        if(hierarchical(plan))return 'EE parents with subcategories cannot be deleted. Archive subcategories instead to preserve historical relationships.';
+        const referenced=entries.some(entry=>entry.type==='expense'&&entry.sourceType==='expected'&&(
+            String(entry.linkedPlanItemId||'')===String(plan.id)||resolve(entry,plans)?.id===plan.id||canonical(entry.linkedPlanItemLabel||entry.reason)===canonical(plan.label)));
+        return referenced?'This EE parent is referenced by historical transactions and cannot be deleted.':'';
+    }
     function allocate(children,total){
         const target=cents(total),weight=children.reduce((sum,child)=>sum+cents(child.amount),0);
         const parts=children.map((child,index)=>({index,value:Math.floor(target*cents(child.amount)/weight),remainder:(target*cents(child.amount))%weight}));
@@ -71,6 +78,6 @@
             return normalize({...existing,id:existing?.id||item.id,type:'expected',label:item.label,subcategories});
         });
     }
-    const api={template,canonical,hierarchical,children,budget,normalize,resolve,effective,breakdown,subcategoryLabel,preview,applyTemplate};
+    const api={template,canonical,hierarchical,children,budget,normalize,resolve,effective,breakdown,subcategoryLabel,deletionBlockReason,preview,applyTemplate};
     if(typeof module!=='undefined')module.exports=api;else root.ExpectedBudget=api;
 })(globalThis);

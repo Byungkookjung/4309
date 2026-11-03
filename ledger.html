@@ -245,13 +245,14 @@
                     </div>
                     <div class="summary-progress-table-wrap">
                         <div class="summary-progress-table-title">Budget progress</div>
-                        <div class="summary-progress-table" role="table" aria-label="Budget progress summary">
+                        <p id="budgetProgressPeriodNote" class="ee-help" role="note"></p>
+                        <div class="summary-progress-table" role="table" aria-label="Budget progress summary" aria-describedby="budgetProgressPeriodNote">
                             <div class="summary-progress-row summary-progress-head" role="row">
                                 <span role="columnheader">Type</span>
-                                <span role="columnheader">Plan</span>
-                                <span role="columnheader">Actual</span>
-                                <span role="columnheader">Progress</span>
-                                <span role="columnheader">Status</span>
+                                <span role="columnheader">Monthly plan</span>
+                                <span role="columnheader">Period actual</span>
+                                <span role="columnheader">vs month (%)</span>
+                                <span role="columnheader">vs monthly plan</span>
                             </div>
                             <div id="budgetProgressRows"></div>
                         </div>
@@ -263,9 +264,9 @@
                             <div id="planDetailTable" class="plan-detail-table" role="table" aria-label="Budget item details">
                                 <div class="plan-detail-row plan-detail-head" role="row">
                                     <span role="columnheader">항목</span>
-                                    <span role="columnheader">계획</span>
-                                    <span role="columnheader">실제</span>
-                                    <span role="columnheader">남은 금액</span>
+                                    <span role="columnheader">월 기준 예산</span>
+                                    <span role="columnheader">선택 기간 실제액</span>
+                                    <span role="columnheader">월 기준 차액</span>
                                 </div>
                                 <div id="planDetailRows"></div>
                             </div>

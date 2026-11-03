@@ -975,6 +975,15 @@ function buildBudgetProgressRows() {
 
 function renderBudgetProgressTable() {
     if (!budgetProgressRows) return;
+    const note=document.getElementById('budgetProgressPeriodNote');
+    if(note){
+        const {range,now,startOfWeek,endOfWeek}=getSelectedRangeContext();
+        const key=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+        const last=new Date(endOfWeek);last.setDate(last.getDate()-1);
+        const period=range==='week'?`${key(startOfWeek)} to ${key(last)}`:range==='year'?`${now.getFullYear()} (year)`:`${now.getFullYear()}-${String(selectedSummaryMonth).padStart(2,'0')} (month)`;
+        note.textContent=`Spending period: ${period}. Monthly plan is one monthly reference budget. ${range==='month'?'Actuals, percentages and differences compare this month with its monthly plan.':'Week/year budgets are not prorated or multiplied. Percentages and differences compare selected-period actuals with ONE monthly plan, not a weekly/yearly allowance.'}`;
+        note.dataset.range=range;
+    }
     const rows = buildBudgetProgressRows();
     budgetProgressRows.innerHTML = '';
 
@@ -2308,7 +2317,9 @@ function enterEditMode(id) {
     addPlanItemBtn.textContent = 'Update item';
     if (removePlanItemBtn) {
         removePlanItemBtn.classList.remove('hidden');
-        removePlanItemBtn.disabled = false;
+        const reason=ExpectedBudget.deletionBlockReason(item,activityEntries,planItems);
+        removePlanItemBtn.disabled = Boolean(reason);
+        removePlanItemBtn.title=reason||'Remove budget item';
     }
 }
 
@@ -2381,35 +2392,54 @@ async function addPlanItem() {
 
 async function removeEditingPlanItem() {
     if (!editingPlanId) return;
-    if (isRemoteEnabled()) {
-        await planCollection(currentUser).doc(String(editingPlanId)).delete();
-        exitEditMode();
-        return;
-    }
-    planItems = planItems.filter(item => item.id !== editingPlanId);
-    savePlanItems();
-    exitEditMode();
-    renderPlan();
-    renderDashboard();
-    updateActivitySourceControls();
+    try{await deletePlanItemsSafely([String(editingPlanId)]);}catch(error){alert(error.code?'Could not verify budgets and history. Nothing was deleted.':error.message);}
 }
 
 async function clearPlan() {
+    const blocked=planItems.map(item=>ExpectedBudget.deletionBlockReason(item,activityEntries,planItems)).find(Boolean);
+    if(blocked){alert(blocked+' Clear all is blocked; no budgets were deleted.');return;}
     if (!confirm('Clear all budget items?')) return;
-    if (isRemoteEnabled()) {
-        const batch = dbRef.batch();
-        planItems.forEach(item => {
-            const ref = planCollection(currentUser).doc(String(item.id));
-            batch.delete(ref);
+    try{await deletePlanItemsSafely(planItems.map(item=>String(item.id)));}catch(error){alert(error.code?'Could not verify budgets and history. Nothing was deleted.':error.message);}
+}
+
+async function deletePlanItemsSafely(ids) {
+    const check=(plans,entries)=>{
+        for(const id of ids){
+            const item=plans.find(plan=>String(plan.id)===id);
+            if(!item)throw Error('A budget changed. Reload before deleting.');
+            const blocked=ExpectedBudget.deletionBlockReason(item,entries,plans);if(blocked)throw Error(blocked);
+        }
+    };
+    check(planItems,activityEntries);
+    if(requireAuthRef&&!currentUser)throw Error('Wait for your account to finish loading.');
+    if(isRemoteEnabled()){
+        const user=currentUser;
+        const latest=await planCollection(user).get({source:'server'});
+        const plans=normalizePlanItems(latest.docs.map(doc=>({id:doc.id,...doc.data()})));
+        const history=await activityCollection(user).get({source:'server'});
+        const entries=normalizeActivityEntries(history.docs.map(doc=>({id:doc.id,...doc.data()})));
+        check(plans,entries);
+        await dbRef.runTransaction(async transaction=>{
+            if(authApi.auth?.currentUser?.uid!==user.uid)throw Error('Account changed. Nothing was deleted.');
+            const docs=[];for(const id of ids)docs.push(await transaction.get(planCollection(user).doc(id)));
+            const current=docs.map(doc=>doc.exists?normalizePlanItem({id:doc.id,...doc.data()}):null);
+            check(current.filter(Boolean),entries);
+            for(const item of current){
+                if(JSON.stringify(item)!==JSON.stringify(plans.find(plan=>plan.id===item.id)))throw Error('A budget changed while deleting. Reload and review it.');
+            }
+            for(const id of ids)transaction.delete(planCollection(user).doc(id));
         });
-        await batch.commit();
-        return;
+    }else{
+        const raw=JSON.parse(localStorage.getItem(STORAGE_PLAN_ITEMS)||'[]');
+        const latest=normalizePlanItems(raw);
+        if(JSON.stringify(latest)!==JSON.stringify(planItems))throw Error('Budgets changed in another tab. Reload before deleting.');
+        const history=normalizeActivityEntries(JSON.parse(localStorage.getItem(STORAGE_ACTIVITY)||'[]'));
+        check(latest,history);
+        const remaining=raw.filter(item=>!ids.includes(String(item.id)));
+        localStorage.setItem(STORAGE_PLAN_ITEMS,JSON.stringify(remaining));planItems=normalizePlanItems(remaining);
+        renderPlan();renderDashboard();updateActivitySourceControls();
     }
-    planItems = [];
-    savePlanItems();
-    renderPlan();
-    renderDashboard();
-    updateActivitySourceControls();
+    exitEditMode();
 }
 
 async function addActivityEntry() {

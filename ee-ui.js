@@ -102,7 +102,10 @@
         const ratio=planned>0?actual/planned:null,over=planned!==null&&actual>planned;
         box.classList.toggle('ee-over',over);box.classList.toggle('ee-warning',!over&&ratio>=.8);
         box.append(el('strong',row.label+(row.archived?' (보관됨)':'')));
-        box.append(el('span',`월예산 ${planned===null?'없음':formatCurrency(planned)} · 사용 ${formatCurrency(actual)} · ${planned===null?'예산 미지정':over?`${formatCurrency(actual-planned)} 초과`:`${!over&&ratio>=.8?'주의 · ':''}${formatCurrency(planned-actual)} 남음`} · ${ratio!==null?(ratio*100).toFixed(1)+'%':planned===0&&actual>0?'예산 없이 지출':'—'}`));
+        const reference=selectedSummaryRange!=='month';
+        const periodLabel=selectedSummaryRange==='week'?'선택 주간 사용액':selectedSummaryRange==='year'?'선택 연간 사용액':'선택 월 사용액';
+        const difference=planned===null?'예산 미지정':over?`월예산 기준 ${formatCurrency(actual-planned)} 초과`:reference?`월예산 기준 차액 ${formatCurrency(planned-actual)}`:`${ratio>=.8?'주의 · ':''}${formatCurrency(planned-actual)} 남음`;
+        box.append(el('span',`월예산${reference?' (기준값)':''} ${planned===null?'없음':formatCurrency(planned)} · ${periodLabel} ${formatCurrency(actual)} · ${difference} · 월예산 대비 ${ratio!==null?(ratio*100).toFixed(1)+'%':planned===0&&actual>0?'예산 없이 지출':'—'}`));
         if(planned!==null){const bar=el('progress');bar.max=Math.max(planned,actual,1);bar.value=actual;bar.setAttribute('aria-label',row.label+' spending');box.append(bar);}
         return box;
     }

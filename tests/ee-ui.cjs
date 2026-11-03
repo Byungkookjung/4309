@@ -6,7 +6,8 @@ const plans=[{id:'g',type:'expected',label:'장보기',amount:500},{id:'shop',ty
 const entries=[{id:'history',date:'2026-11-10',type:'expense',sourceType:'expected',reason:'쇼핑',detail:'Sephora original',amount:80,isShared:true,createdAt:'2026-11-10T12:00:00Z'},
  {id:'grocery',date:'2026-11-02',type:'expense',sourceType:'expected',reason:'장보기',linkedPlanItemId:'g',amount:20,createdAt:'2026-11-02T12:00:00Z'},
  {id:'fe',date:'2026-11-01',type:'expense',sourceType:'fixed',reason:'Rent',linkedPlanItemId:'rent',amount:900},
- {id:'ei',date:'2026-11-01',type:'income',sourceType:'income',reason:'Salary',linkedPlanItemId:'pay',amount:3000}];
+ {id:'ei',date:'2026-11-01',type:'income',sourceType:'income',reason:'Salary',linkedPlanItemId:'pay',amount:3000},
+ {id:'ui',date:'2026-11-01',type:'income',sourceType:'unexpected_income',reason:'Gift',amount:5}];
 (async()=>{
  for(const [name,engine] of [['Chrome',chromium],['WebKit',webkit]]){
   const browser=await engine.launch(name==='Chrome'?{channel:'chrome',headless:true}:{headless:true});
@@ -21,6 +22,8 @@ const entries=[{id:'history',date:'2026-11-10',type:'expense',sourceType:'expect
    const page=await context.newPage(),errors=[],dialogs=[];page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>{dialogs.push(dialog.message());dialog.accept();});
    await page.goto(base+'/ledger.html');await page.locator('#activityList [data-id="history"]').waitFor();
    const original=await page.evaluate(()=>({transactions:localStorage.ledgerActivity,balances:localStorage.ledgerBalances}));
+   await page.evaluate(async()=>{enterEditMode('shop');await removeEditingPlanItem();});
+   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems).length),4,'legacy EE with historical alias references cannot be removed');
    await page.locator('#openPlanBtn').click();await page.locator('#eeTemplatePreviewBtn').click();
    assert.equal(await page.locator('#eeTemplatePreview .ee-template-row select').first().inputValue(),'keep');
    await page.getByRole('button',{name:'Apply reviewed template',exact:true}).click();
@@ -30,6 +33,23 @@ const entries=[{id:'history',date:'2026-11-10',type:'expense',sourceType:'expect
    assert.deepEqual(await page.evaluate(()=>({transactions:localStorage.ledgerActivity,balances:localStorage.ledgerBalances})),original);
    await page.locator('#eeTemplatePreviewBtn').click();await page.getByRole('button',{name:'Apply reviewed template',exact:true}).click();
    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems).length),8,'repeat template adds no duplicate parents');
+   await page.evaluate(()=>enterEditMode('shop'));assert.equal(await page.locator('#removePlanItemBtn').isDisabled(),true);
+   const deletionSnapshot=await page.evaluate(()=>[localStorage.ledgerPlanItems,localStorage.ledgerActivity]);
+   await page.evaluate(async()=>{await removeEditingPlanItem();await clearPlan();});
+   assert.deepEqual(await page.evaluate(()=>[localStorage.ledgerPlanItems,localStorage.ledgerActivity]),deletionSnapshot);
+   await page.evaluate(async()=>{
+    const previous=localStorage.ledgerPlanItems;
+    const rows=JSON.parse(previous);rows.find(row=>row.id==='shop').subcategories.forEach(child=>child.archived=true);
+    localStorage.ledgerPlanItems=JSON.stringify(rows);planItems=normalizePlanItems(rows);enterEditMode('shop');await removeEditingPlanItem();
+    if(localStorage.ledgerPlanItems!==JSON.stringify(rows))throw Error('Archived-only parent deleted');
+    localStorage.ledgerPlanItems=previous;planItems=normalizePlanItems(JSON.parse(previous));
+    const fixed={id:'temporary-unused-fe',type:'fixed',label:'Temporary test',amount:1,metadata:'preserved'};
+    localStorage.ledgerPlanItems=JSON.stringify([...JSON.parse(previous),fixed]);planItems=normalizePlanItems(JSON.parse(localStorage.ledgerPlanItems));
+    enterEditMode(fixed.id);await removeEditingPlanItem();
+   });
+   assert.deepEqual(await page.evaluate(()=>[localStorage.ledgerPlanItems,localStorage.ledgerActivity]),deletionSnapshot,'allowed FE removal preserves all remaining raw metadata/history');
+   assert.ok(dialogs.some(message=>message.includes('Clear all is blocked')));
+   await page.evaluate(()=>exitEditMode());
    const imported=await page.evaluate(()=>parseActivityImportText('11/10\n- 12 EE 쇼핑 Sephora\n- 5 FE Rent\n+ 30 EI Salary'));
    assert.equal(imported[0].linkedPlanItemId,'shop');assert.equal(imported[0].detail,'Sephora');assert.equal(imported[0].subcategoryId,undefined);assert.equal(imported[1].sourceType,'fixed');assert.equal(imported[2].sourceType,'income');
    await page.locator('#closePlanBtn').click();
@@ -42,9 +62,21 @@ const entries=[{id:'history',date:'2026-11-10',type:'expense',sourceType:'expect
    let totals=await page.evaluate(()=>ExpectedBudget.breakdown(planItems.find(row=>row.id==='shop'),getEntriesInSelectedRange(),planItems));
    assert.equal(totals.actual,40);assert.equal(totals.children.find(row=>row.id==='ee_shopping_1').actual,40);assert.equal(totals.children.at(-1).actual,0);
    await page.locator('.activity-range-btn[data-range="week"]').click();
+   assert.match(await page.locator('#budgetProgressPeriodNote').textContent(),/2026-11-09 to 2026-11-15/);
+   assert.match(await page.locator('#budgetProgressPeriodNote').textContent(),/not prorated or multiplied/);
+   const weeklyRows=await page.evaluate(()=>buildBudgetProgressRows());
    assert.equal(await page.evaluate(()=>getActivityAmountForPlanItem(planItems.find(row=>row.id==='g'))),0);
    await page.locator('.activity-range-btn[data-range="year"]').click();assert.equal(await page.evaluate(()=>getActivityAmountForPlanItem(planItems.find(row=>row.id==='g'))),20);
+   assert.match(await page.locator('#budgetProgressPeriodNote').textContent(),/2026 \(year\)/);
+   const yearlyRows=await page.evaluate(()=>buildBudgetProgressRows());
+   assert.deepEqual(yearlyRows.map(row=>row.planned),weeklyRows.map(row=>row.planned),'monthly reference budgets remain unchanged across spending periods');
    await page.locator('.activity-month-btn[data-month="11"]').click();
+   assert.match(await page.locator('#budgetProgressPeriodNote').textContent(),/2026-11 \(month\)/);
+   const monthlyRows=await page.evaluate(()=>buildBudgetProgressRows());
+   assert.deepEqual(monthlyRows.filter(row=>['fixed','income','unexpected_income'].includes(row.key)).map(row=>[row.key,row.planned,row.actual]),[['fixed',900,900],['income',3000,3000],['unexpected_income',null,5]]);
+   for(const key of ['fixed','income','unexpected_income']){
+    assert.deepEqual(monthlyRows.find(row=>row.key===key),yearlyRows.find(row=>row.key===key),'FE/EI/UI unchanged with identical period fixture actuals');
+   }
    await page.locator('#openPlanBtn').click();let editor=page.locator('#expectedPlanList [data-id="shop"] .ee-editor');
    await editor.locator('summary').click();await editor.locator('[data-subcategory-id="ee_shopping_1"]').getByRole('button',{name:'Archive',exact:true}).click();
    await editor.getByRole('button',{name:'Save subcategories',exact:true}).click();

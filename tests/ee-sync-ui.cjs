@@ -8,7 +8,7 @@ function fakeAuth(){
  function ref(path){
   if(!path.startsWith('users/owner')&&path!=='users')throw Error('Wrong account path');
   const object={path,id:path.split('/').at(-1),doc:id=>ref(path+'/'+id),collection:id=>ref(path+'/'+id),orderBy:()=>object,limit:()=>object,
-   async get(){return path.split('/').length%2===0?snap(path):{docs:Object.keys(read()).filter(key=>key.startsWith(path+'/')&&key.split('/').length===path.split('/').length+1).map(snap)};},
+   async get(){if(window.__eeFailServerReads)throw Object.assign(Error('server read failed'),{code:'permission-denied'});return path.split('/').length%2===0?snap(path):{docs:Object.keys(read()).filter(key=>key.startsWith(path+'/')&&key.split('/').length===path.split('/').length+1).map(snap)};},
    onSnapshot(callback){watchers.set(path,callback);queueMicrotask(async()=>callback(await object.get()));return ()=>watchers.delete(path);}};return object;
  }
  const user={uid:'owner'};
@@ -37,6 +37,22 @@ function fakeAuth(){
    let store=await page.evaluate(()=>JSON.parse(localStorage.eeRemote));assert.equal(store['users/owner/ledgerPlanItems/g'].amount,500);assert.equal(store['users/owner/ledgerPlanItems/g'].customField,'preserve');assert.equal(store['users/owner/ledgerPlanItems/fe'].amount,900);
    assert.equal(store['users/owner/ledgerBalances/main'].checking,1000);assert.ok(!JSON.stringify(store).includes('foreign'));
    assert.ok((await page.evaluate(()=>window.__eeWrites)).every(path=>path.startsWith('users/owner/ledgerPlanItems/')||path==='users/owner/ledgerSettings/eeRevision'));
+   const deletionSnapshot=await page.evaluate(()=>localStorage.eeRemote);
+   await page.evaluate(async()=>{window.__eeWrites=[];enterEditMode('g');await removeEditingPlanItem();await clearPlan();});
+   assert.equal(await page.evaluate(()=>localStorage.eeRemote),deletionSnapshot);assert.deepEqual(await page.evaluate(()=>window.__eeWrites),[]);
+   // A stale tab with a flat parent must still consult the authoritative server hierarchy.
+   await page.evaluate(async()=>{planItems=planItems.map(row=>row.id==='g'?{...row,subcategories:undefined}:row);enterEditMode('g');await removeEditingPlanItem();});
+   assert.equal(await page.evaluate(()=>localStorage.eeRemote),deletionSnapshot);assert.deepEqual(await page.evaluate(()=>window.__eeWrites),[]);
+   assert.ok(dialogs.some(message=>message.includes('EE parents with subcategories cannot be deleted')));
+   await page.evaluate(async()=>{
+    const store=JSON.parse(localStorage.eeRemote);delete store['users/owner/ledgerPlanItems/g'].subcategories;
+    store['users/owner/ledgerEntries/old']={id:'old',date:'2020-01-01',type:'expense',sourceType:'expected',reason:'장보기',linkedPlanItemId:'g',amount:10};
+    localStorage.eeRemote=JSON.stringify(store);await removeEditingPlanItem();
+   });
+   assert.ok(dialogs.some(message=>message.includes('referenced by historical transactions')));assert.deepEqual(await page.evaluate(()=>window.__eeWrites),[]);
+   await page.evaluate(snapshot=>localStorage.eeRemote=snapshot,deletionSnapshot);
+   await page.evaluate(async()=>{window.__eeFailServerReads=true;await removeEditingPlanItem();window.__eeFailServerReads=false;});
+   assert.ok(dialogs.some(message=>message.includes('Could not verify budgets and history')));assert.equal(await page.evaluate(()=>localStorage.eeRemote),deletionSnapshot);assert.deepEqual(await page.evaluate(()=>window.__eeWrites),[]);
    await page.reload();await page.locator('#openPlanBtn').click();let editor=page.locator('#expectedPlanList [data-id="g"] .ee-editor');await editor.locator('summary').click();
    await page.evaluate(()=>{const store=JSON.parse(localStorage.eeRemote);store['users/owner/ledgerPlanItems/g'].subcategories[0].amount+=1;localStorage.eeRemote=JSON.stringify(store);window.__eeWrites=[];});
    await editor.getByRole('button',{name:'Save subcategories',exact:true}).click();assert.ok(dialogs.some(message=>message.includes('changed in another tab')));assert.deepEqual(await page.evaluate(()=>window.__eeWrites),[]);
