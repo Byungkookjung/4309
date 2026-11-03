@@ -84,7 +84,7 @@ const base = process.env.MOBILE_TEST_URL || 'http://localhost:8000';
                 await page.locator('#activityAmount').fill('25');
                 await page.locator('#addActivityBtn').click();
                 const saved = await page.evaluate(id => JSON.parse(localStorage.getItem('ledgerActivity')).find(row => row.id === id), id);
-                assert.equal(saved.reason, 'Transit');
+                assert.equal(saved.reason, id==='old-id'?'TRANSIT':'Transit');
                 assert.equal(saved.linkedPlanItemId, 'transit');
                 assert.equal(saved.amount, 25);
             }

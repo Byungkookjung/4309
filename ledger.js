@@ -140,6 +140,7 @@ const authApi = window.__ledgerAuth || {};
 const requireAuthRef = authApi.requireAuth;
 const dbRef = authApi.db;
 let currentUser = null;
+let eePlansReady=!requireAuthRef;
 let balancesUnsub = null;
 let balanceHistoryUnsub = null;
 let exchangeHistoryUnsub = null;
@@ -212,6 +213,7 @@ function startLedgerSync(user) {
 
     planUnsub = planCollection(user).onSnapshot(snapshot => {
         planItems = normalizePlanItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        eePlansReady=true;
         renderPlan();
         renderDashboard();
         updateActivitySourceControls();
@@ -465,8 +467,13 @@ function parseActivityImportEntryLine(line, currentDate, lineNumber) {
     let linkedItem = null;
     if ([PLAN_TYPES.fixed, PLAN_TYPES.expected, PLAN_TYPES.income].includes(config.sourceType)) {
         // Match the longest complete budget name; the remaining text is the detail.
-        const matches = getPlanItemsByType(config.sourceType).map(item => {
-            const name = item.label.trim().split(/\s+/).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
+        const candidates=getPlanItemsByType(config.sourceType).flatMap(item=>{
+            if(config.sourceType!=='expected')return [{item,label:item.label}];
+            const template=ExpectedBudget.template.find(row=>ExpectedBudget.canonical(row.label)===ExpectedBudget.canonical(item.label));
+            return [...new Set([item.label,...(template?[template.label,...template.aliases]:[])])].map(label=>({item,label}));
+        });
+        const matches = candidates.map(({item,label}) => {
+            const name = label.trim().split(/\s+/).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
             const match = rawReasonDetail.match(new RegExp(`^${name}(?=\\s|$)`, 'i'));
             return match ? { item, length: match[0].length } : null;
         }).filter(Boolean).sort((a, b) => b.length - a.length);
@@ -811,6 +818,7 @@ function syncActivitySharedControls() {
 }
 
 function resetActivityForm() {
+    const subcategory=document.getElementById('activitySubcategory');if(subcategory)subcategory.value='';
     editingActivityId = null;
     if (activityDateInput) activityDateInput.value = getPreferredActivityDate();
     if (activityAmountInput) activityAmountInput.value = '';
@@ -998,6 +1006,7 @@ function renderBudgetProgressTable() {
 }
 
 function getActivityAmountForPlanItem(item) {
+    if(item.type===PLAN_TYPES.expected)return ExpectedBudget.breakdown(item,getEntriesInSelectedRange(),planItems).actual;
     const targetType = isIncomePlanType(item.type) ? 'income' : 'expense';
     return getEntriesInSelectedRange().reduce((sum, entry) => {
         if (entry.type !== targetType) return sum;
@@ -1074,6 +1083,10 @@ function renderPlanDetail() {
     planDetailCard.classList.remove('hidden');
     planDetailRows.innerHTML = '';
 
+    if(selectedPlanDetailType===PLAN_TYPES.expected){
+        const hierarchy=document.createElement('div');hierarchy.id='eeProgressRows';
+        EELedger.renderProgress(hierarchy,getEntriesInSelectedRange());planDetailRows.append(hierarchy);return;
+    }
     if (rows.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'plan-detail-empty';
@@ -1510,18 +1523,19 @@ function normalizeActivitySourceType(value) {
 }
 
 function normalizePlanItem(item) {
-    return {
+    return ExpectedBudget.normalize({
         id: String(item.id || Date.now()),
         type: normalizePlanType(item.type),
         label: String(item.label || '').trim(),
-        amount: Number(Number(item.amount || 0).toFixed(2))
-    };
+        amount: Number(Number(item.amount || 0).toFixed(2)),
+        ...(normalizePlanType(item.type)==='expected'&&Array.isArray(item.subcategories)?{subcategories:item.subcategories}:{})
+    });
 }
 
 function normalizePlanItems(items) {
     return (items || [])
         .map(normalizePlanItem)
-        .filter(item => item.label && item.amount > 0);
+        .filter(item => item.label && (item.amount > 0||ExpectedBudget.hierarchical(item)));
 }
 
 function normalizeActivityEntry(entry) {
@@ -1875,6 +1889,7 @@ function renderPlanBucket(listEl, items, amountClass = 'plan-amount') {
         li.appendChild(amount);
         li.appendChild(editBtn);
         listEl.appendChild(li);
+        EELedger.addEditor(li,item);
     });
 }
 
@@ -1917,8 +1932,9 @@ function populateActivityLinkedItems(savedEntry = null) {
     const savedLabel = selection?.linkedPlanItemLabel || selection?.reason || '';
     const normalizeLabel = value => String(value || '').trim().toLocaleLowerCase();
     const matches = savedLabel ? items.filter(item => normalizeLabel(item.label) === normalizeLabel(savedLabel)) : [];
-    const selectedItem = items.find(item => String(item.id) === String(selection?.linkedPlanItemId))
-        || (matches.length === 1 ? matches[0] : null);
+    const selectedItem = sourceType==='expected'&&selection
+        ? ExpectedBudget.resolve({type:'expense',sourceType:'expected',...selection,reason:savedLabel},planItems)
+        : items.find(item => String(item.id) === String(selection?.linkedPlanItemId)) || (matches.length === 1 ? matches[0] : null);
 
     activityLinkedItemSelect.innerHTML = '';
     activityLinkedItemSelect.dataset.sourceType = sourceType;
@@ -1978,6 +1994,7 @@ function updateActivitySourceControls(savedEntry = null) {
     activityReasonInput.parentElement?.classList.toggle('is-disabled', !canWriteReason);
 
     populateActivityLinkedItems(savedEntry);
+    EELedger.updateSelect(savedEntry);
 
     if (usingLinkedItem) {
         activityReasonInput.value = activityLinkedItemSelect.selectedOptions[0]?.dataset.label || '';
@@ -2043,6 +2060,9 @@ function renderActivity() {
                 detail.className = 'activity-detail';
                 detail.textContent = entry.detail;
                 meta.insertBefore(detail, meta.lastElementChild);
+            }
+            if(entry.type==='expense'&&entry.sourceType==='expected'){
+                const sub=document.createElement('div');sub.className='activity-detail';sub.textContent=ExpectedBudget.subcategoryLabel(entry,planItems)+(ExpectedBudget.resolve(entry,planItems)?'':' · 부모 분류 확인 필요');meta.insertBefore(sub,meta.lastElementChild);
             }
 
             if (entry.isShared) {
@@ -2284,6 +2304,7 @@ function enterEditMode(id) {
     if (planTypeSelect) planTypeSelect.value = item.type;
     planItemInput.value = item.label;
     planAmountInput.value = Number(item.amount || 0).toFixed(2);
+    planAmountInput.readOnly=ExpectedBudget.hierarchical(item);
     addPlanItemBtn.textContent = 'Update item';
     if (removePlanItemBtn) {
         removePlanItemBtn.classList.remove('hidden');
@@ -2296,6 +2317,7 @@ function exitEditMode() {
     if (planTypeSelect) planTypeSelect.value = PLAN_TYPES.fixed;
     planItemInput.value = '';
     planAmountInput.value = '';
+    planAmountInput.readOnly=false;
     addPlanItemBtn.textContent = 'Add item';
     if (removePlanItemBtn) {
         removePlanItemBtn.disabled = true;
@@ -2307,12 +2329,13 @@ async function addPlanItem() {
     const type = planTypeSelect ? normalizePlanType(planTypeSelect.value) : PLAN_TYPES.expected;
     const label = planItemInput.value.trim();
     const amount = parseFloat(planAmountInput.value);
+    const previous=planItems.find(item=>item.id===editingPlanId);
 
     if (!label) {
         alert('Please enter an item name.');
         return;
     }
-    if (isNaN(amount) || amount <= 0) {
+    if (isNaN(amount) || amount < 0 || amount===0&&!ExpectedBudget.hierarchical(previous||{})) {
         alert('Please enter a valid amount greater than 0.');
         return;
     }
@@ -2322,6 +2345,12 @@ async function addPlanItem() {
         label,
         amount: Number(amount.toFixed(2))
     };
+    if(type==='expected'){
+        if(planItems.some(item=>item.type==='expected'&&item.id!==editingPlanId&&ExpectedBudget.canonical(item.label)===ExpectedBudget.canonical(label))){alert('An EE parent with this name or alias already exists.');return;}
+        if(previous&&ExpectedBudget.hierarchical(previous)){
+            await EELedger.save([{...previous,label}]).catch(error=>alert(error.message));exitEditMode();return;
+        }
+    }else if(previous&&ExpectedBudget.hierarchical(previous)){alert('An EE parent with subcategories cannot be converted to another budget type.');return;}
 
     if (isRemoteEnabled()) {
         const id = editingPlanId ? String(editingPlanId) : Date.now().toString();
@@ -2397,7 +2426,8 @@ async function addActivityEntry() {
     const linkedItem = (sourceType === 'custom' || sourceType === PLAN_TYPES.unexpectedIncome)
         ? null
         : getPlanItemsByType(normalizePlanType(sourceType)).find(item => item.id === linkedItemId && !savedItem);
-    const reason = linkedItem ? linkedItem.label : activityReasonInput.value.trim();
+    const preserveEE=editingEntry?.sourceType==='expected'&&sourceType==='expected'&&ExpectedBudget.resolve(editingEntry,planItems)?.id===linkedItem?.id;
+    const reason = preserveEE?editingEntry.reason:linkedItem ? linkedItem.label : activityReasonInput.value.trim();
     const detail = activityDetailInput ? activityDetailInput.value.trim() : '';
     const isShared = Boolean(activitySharedInput && activitySharedInput.checked);
 
@@ -2424,7 +2454,13 @@ async function addActivityEntry() {
         }
     }
 
+    let subcategory={subcategoryId:'',subcategoryLabel:''};
+    if(sourceType==='expected'){
+        try{subcategory=EELedger.assignment(linkedItem,editingEntry);}catch(error){alert(error.message);return;}
+    }
     const entry = {
+        ...editingEntry,
+        ...subcategory,
         id: editingActivityId || Date.now().toString(),
         date,
         type,
@@ -2434,7 +2470,7 @@ async function addActivityEntry() {
         isShared,
         sourceType,
         linkedPlanItemId: linkedItem ? linkedItem.id : (savedItem?.dataset.linkedId || ''),
-        linkedPlanItemLabel: linkedItem ? linkedItem.label : (savedItem?.dataset.label || ''),
+        linkedPlanItemLabel: preserveEE&&editingEntry.linkedPlanItemLabel?editingEntry.linkedPlanItemLabel:linkedItem ? linkedItem.label : (savedItem?.dataset.label || ''),
         createdAt: editingEntry && editingEntry.createdAt ? editingEntry.createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
@@ -2861,6 +2897,7 @@ if (activitySharedInput) {
 }
 if (activityLinkedItemSelect) {
     activityLinkedItemSelect.addEventListener('change', () => {
+        EELedger.updateSelect(null,true);
         const label = activityLinkedItemSelect.selectedOptions[0]?.dataset.label;
         if (label && activityReasonInput) {
             activityReasonInput.value = label;
@@ -2989,6 +3026,7 @@ document.querySelectorAll('.exchange-swap-btn').forEach(button => {
 });
 
 (function init() {
+    EELedger.init();
     setActivityTypeFilter('all');
     loadActivityListSize();
     applyActivityListSize();
