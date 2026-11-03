@@ -13,7 +13,7 @@ window.__ledgerAuth={auth:{onAuthStateChanged(cb){window.authCallback=cb;cb({uid
  await page.clock.setFixedTime(new Date('2026-10-19T18:00:00Z'));
  await page.route('https://www.gstatic.com/**',r=>r.fulfill({body:'window.firebase={auth(){},firestore(){}};'}));
  await page.route('**/auth.js',r=>r.fulfill({body:mock}));
- await page.goto('http://localhost:8000/mobile/planner.html');
+ await page.goto((process.env.MOBILE_TEST_URL||'http://localhost:8000')+'/mobile/planner.html');
  await page.waitForFunction(()=>!document.querySelector('#addTask').disabled);
  await page.evaluate(()=>{
   store.personalTasks={a:{title:'Done',date:'2026-10-20',completed:true},b:{title:'Pending',date:'2026-10-20',completed:false},c:{title:'All done',date:'2026-10-21',completed:true}};

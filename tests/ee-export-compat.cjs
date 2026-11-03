@@ -27,7 +27,7 @@ const numeric=(xml,coordinate,value)=>assert.match(xml,new RegExp('<c r="'+coord
 numeric(activity,'C2',80);numeric(activity,'D2',40);numeric(activity,'E2',40);numeric(activity,'F2',0);
 numeric(activity,'C4',.03);numeric(activity,'D4',.01);numeric(activity,'E4',.01);
 numeric(summary,'B6',990.03);numeric(summary,'B7',950.01);numeric(summary,'B8',3005);numeric(summary,'B9',2054.99);
-assert.match(activity,/보관됨/);assert.match(activity,/Sephora &lt;original&gt;/);
+assert.match(activity,/이전 분류/);assert.match(activity,/Sephora &lt;original&gt;/);
 assert.equal(EE.breakdown(parent,entries.filter(entry=>entry.date<'2026-12-01'),plans).actual,50.01);
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'ee-xlsx-'));
 try{const file=path.join(temp,'ee.xlsx');fs.writeFileSync(file,result.bytes);assert.match(execFileSync('/usr/bin/unzip',['-t',file],{encoding:'utf8'}),/No errors detected/);}finally{fs.rmSync(temp,{recursive:true,force:true});}

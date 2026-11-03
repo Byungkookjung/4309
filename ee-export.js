@@ -45,7 +45,8 @@
         const rows=[['EE breakdown: parent rows are rollups; children are detail, not additional spending.','','','','',''],['EE category / subcategory','Monthly budget (CAD)','Selected-period spending (CAD)','Budget minus period spend (CAD)','Parent','Status']];
         for(const parent of plans.filter(plan=>plan.type==='expected')){
             const group=model.breakdown(parent,selected,plans);
-            for(const item of [group,...group.children])rows.push([item.label,item.planned,item.actual,item.planned===null?null:Number((item.planned-item.actual).toFixed(2)),item===group?'':parent.label,item.archived?'보관됨':item.id==='__unclassified__'?'예산 없음':'']);
+            if(parent.deleted&&!group.actual)continue;
+            for(const item of [group,...group.children])rows.push([item.label,item.planned,item.actual,item.planned===null?null:Number((item.planned-item.actual).toFixed(2)),item===group?'':parent.label,parent.deleted||item.deleted?'삭제됨':item.archived?'이전 분류':item.id==='__unclassified__'?'예산 없음':'']);
         }
         const review=selected.filter(entry=>entry.type==='expense'&&entry.sourceType==='expected'&&!model.resolve(entry,plans));
         if(review.length)rows.push(['확인 필요',null,review.reduce((sum,entry)=>sum+model.effective(entry),0)/100,null,'','연결 불명확']);

@@ -45,5 +45,14 @@ const gate=()=>{let release;const promise=new Promise(resolve=>release=resolve);
    if(await exists('ledgerEntries/'+id))assert.ok(await exists('ledgerPlanItems/'+id),'no orphan after simultaneous race');
   }
   console.log('8 real simultaneous races: no orphaned transaction PASS');
+  const hierarchy=require('../ee-model.js').applyTemplate([])[0];
+  await sdk.setDoc(ref('ledgerPlanItems/'+hierarchy.id).native,hierarchy);
+  const historical={...entry('cascade-history',hierarchy.id),subcategoryId:hierarchy.subcategories[0].id};
+  await M.saveRemote(store(),[historical]);await M.deleteRemote(store(),[hierarchy.id]);
+  const deleted=(await ref('ledgerPlanItems/'+hierarchy.id).get()).data();
+  assert.equal(deleted.deleted,true);assert.ok(deleted.subcategories.every(child=>child.deleted));assert.equal(deleted.amount,0);
+  assert.deepEqual((await ref('ledgerEntries/cascade-history').get()).data(),historical);
+  await assert.rejects(M.saveRemote(store(),[{...historical,id:'new-after-cascade'}]),/budget was deleted/);
+  console.log('Hierarchical EE cascade preserves exact historical entry, marks all children and rejects new assignments PASS');
  }finally{await env.cleanup();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

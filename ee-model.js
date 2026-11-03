@@ -17,13 +17,13 @@
         if(plan.subcategories&&(!Array.isArray(plan.subcategories)||plan.subcategories.length>100))throw Error('Use at most 100 subcategories per parent.');
         return (plan.subcategories||[]).map(child=>{
             if(!child||typeof child.id!=='string'||!child.id||child.id.length>120||seen.has(child.id)||typeof child.label!=='string'||!child.label.trim()||child.label.trim().length>80||!Number.isFinite(Number(child.amount))||Number(child.amount)<0||!Number.isSafeInteger(cents(child.amount)))throw Error('Invalid EE subcategory. Reload or review the budget data.');
-            if(!child.archived&&names.has(key(child.label)))throw Error('Active subcategory names must be unique within their parent.');
+            if(!child.archived&&!child.deleted&&names.has(key(child.label)))throw Error('Active subcategory names must be unique within their parent.');
             if(child.id==='__unclassified__'||key(child.label)==='미분류')throw Error('미분류 is reserved for unassigned transactions and has no budget.');
-            if(!child.archived)names.add(key(child.label));
-            seen.add(child.id);return {id:child.id,label:child.label.trim(),amount:cents(child.amount)/100,archived:child.archived===true};
+            if(!child.archived&&!child.deleted)names.add(key(child.label));
+            seen.add(child.id);return {id:child.id,label:child.label.trim(),amount:cents(child.amount)/100,archived:child.archived===true,...(child.deleted?{deleted:true}:{})};
         });
     }
-    function budget(plan){return hierarchical(plan)?children(plan).filter(child=>!child.archived).reduce((sum,child)=>sum+cents(child.amount),0)/100:Number(plan.amount||0);}
+    function budget(plan){return plan.deleted?0:hierarchical(plan)?children(plan).filter(child=>!child.archived&&!child.deleted).reduce((sum,child)=>sum+cents(child.amount),0)/100:Number(plan.amount||0);}
     function normalize(plan){return hierarchical(plan)?{...plan,subcategories:children(plan),amount:budget(plan)}:{...plan};}
     function resolve(entry,plans){
         if(entry.type!=='expense'||entry.sourceType!=='expected')return null;
@@ -35,7 +35,7 @@
     }
     function effective(entry){return cents(entry.isShared?Number((Number(entry.amount)/2).toFixed(2)):Number(entry.amount));}
     function breakdown(plan,entries,plans){
-        const rows=children(plan).map(child=>({...child,planned:child.archived?0:child.amount,actual:0}));
+        const rows=children(plan).map(child=>({...child,planned:plan.deleted||child.archived||child.deleted?0:child.amount,actual:0}));
         const unclassified={id:'__unclassified__',label:'미분류',planned:null,actual:0};let total=0;
         for(const entry of entries){
             if(resolve(entry,plans)?.id!==plan.id)continue;
@@ -47,16 +47,17 @@
     function subcategoryLabel(entry,plans){
         if(entry.type!=='expense'||entry.sourceType!=='expected')return '';
         const parent=resolve(entry,plans),child=parent&&children(parent).find(child=>child.id===entry.subcategoryId);
-        if(child)return child.label+(child.archived?' (보관됨)':'');
+        if(child)return child.label+(child.deleted||parent.deleted?' (삭제됨)':child.archived?' (이전 분류)':'');
         return entry.subcategoryId&&entry.subcategoryLabel?entry.subcategoryLabel+' (확인 필요)':'미분류';
     }
     function deletionBlockReason(plan,entries,plans){
         if(!plan)return '';
-        if(hierarchical(plan))return 'EE parents with subcategories cannot be deleted. Archive subcategories instead to preserve historical relationships.';
-        const referenced=entries.some(entry=>String(entry.linkedPlanItemId||'')===String(plan.id)||entry.sourceType===plan.type&&(
-            plan.type==='expected'?resolve(entry,plans)?.id===plan.id||canonical(entry.linkedPlanItemLabel||entry.reason)===canonical(plan.label):key(entry.linkedPlanItemLabel||entry.reason)===key(plan.label)));
+        if(plan.type==='expected')return '';
+        const referenced=entries.some(entry=>String(entry.linkedPlanItemId||'')===String(plan.id)||entry.sourceType===plan.type&&key(entry.linkedPlanItemLabel||entry.reason)===key(plan.label));
         return referenced?'This budget is referenced by historical transactions and cannot be deleted.':'';
     }
+    // Keep a non-selectable historical record instead of orphaning existing transaction IDs.
+    function removeParent(plan){return {...plan,deleted:true,amount:0,...(Array.isArray(plan.subcategories)?{subcategories:children(plan).map(child=>({...child,deleted:true}))}:{})};}
     function allocate(children,total){
         const target=cents(total),weight=children.reduce((sum,child)=>sum+cents(child.amount),0);
         const parts=children.map((child,index)=>({index,value:Math.floor(target*cents(child.amount)/weight),remainder:(target*cents(child.amount))%weight}));
@@ -78,6 +79,6 @@
             return normalize({...existing,id:existing?.id||item.id,type:'expected',label:item.label,subcategories});
         });
     }
-    const api={template,canonical,hierarchical,children,budget,normalize,resolve,effective,breakdown,subcategoryLabel,deletionBlockReason,preview,applyTemplate};
+    const api={template,canonical,hierarchical,children,budget,normalize,resolve,effective,breakdown,subcategoryLabel,deletionBlockReason,removeParent,preview,applyTemplate};
     if(typeof module!=='undefined')module.exports=api;else root.ExpectedBudget=api;
 })(globalThis);

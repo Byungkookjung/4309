@@ -6,7 +6,7 @@
         return /^\d{4}-\d{2}-\d{2}$/.test(value||'')&&value>='1900-01-01'&&value<='9999-12-31'&&Number.isFinite(+parsed)&&parsed.toISOString().slice(0,10)===value;
     }
     function select(entries,start,end){
-        if(!validDate(start)||!validDate(end)||start>=end)throw Error('Choose valid dates. End date must be after start date.');
+        if(!validDate(start)||!validDate(end)||start>=end)throw Error('날짜를 확인해 주세요. 종료일은 시작일보다 뒤여야 합니다.');
         return entries.filter(entry=>validDate(entry.date)&&entry.date>=start&&entry.date<end)
             .slice().sort((a,b)=>a.date.localeCompare(b.date)||String(a.createdAt||'').localeCompare(String(b.createdAt||''))||String(a.id).localeCompare(String(b.id)));
     }
@@ -17,7 +17,7 @@
             const value=item?.type?item:{value:item,type:'text'},ref=column(c)+(r+1);
             if(value.type==='money')return `<c r="${ref}" s="2"><v>${value.value}</v></c>`;
             if(value.type==='date')return `<c r="${ref}" s="1"><v>${Math.round((Date.parse(value.value+'T00:00:00Z')-Date.UTC(1899,11,30))/86400000)-(value.value<'1900-03-01'?1:0)}</v></c>`;
-            if(String(value.value??'').length>32767)throw Error('An entry has text longer than Excel allows. Shorten it before exporting.');
+            if(String(value.value??'').length>32767)throw Error('내용이 엑셀의 글자 수 제한을 초과했습니다. 내용을 줄여 주세요.');
             // Inline string cells keep =, +, -, @ and URLs as data, never spreadsheet formulas.
             return `<c r="${ref}" t="inlineStr" s="${r===0?3:0}"><is><t xml:space="preserve">${xml(value.value)}</t></is></c>`;
         };
@@ -40,14 +40,14 @@
     }
     function build(entries,start,end,plans=[]){
         const selected=select(entries,start,end);
-        if(!selected.length)throw Error('No activity entries in this period.');
-        if(selected.length>1048575)throw Error('Too many entries for Excel. Choose a shorter period.');
+        if(!selected.length)throw Error('선택한 기간에 가계부 내역이 없습니다.');
+        if(selected.length>1048575)throw Error('내역이 너무 많습니다. 더 짧은 기간을 선택해 주세요.');
         let spent=0,income=0,grossExpenses=0;
         const labels={fixed:'Fixed expense',expected:'Expected expense',income:'Expected income',unexpected_income:'Unexpected income',custom:'Custom expense'};
         const rows=[['Date','Type','Amount (CAD)','My amount (CAD)','Expense (CAD)','Income (CAD)','Shared expense','Linked budget type','Budget item','Reason','Detail','Created at','Updated at','Entry ID','Budget item ID']];
         for(const entry of selected){
             const amount=Number(entry.amount),effective=entry.isShared?Number((amount/2).toFixed(2)):amount;
-            if(!Number.isFinite(amount)||amount<=0)throw Error('An entry has an invalid amount. Correct it before exporting.');
+            if(!Number.isFinite(amount)||amount<=0)throw Error('금액이 올바르지 않은 내역이 있습니다. 금액을 수정해 주세요.');
             const isIncome=entry.type==='income',cents=Math.round(effective*100);
             if(isIncome)income+=cents;else{spent+=cents;grossExpenses+=Math.round(amount*100);}
             const budgetType=!entry.sourceType||entry.sourceType==='custom'?(isIncome?'Custom income':'Custom expense'):labels[entry.sourceType]||String(entry.sourceType);
@@ -63,7 +63,8 @@
             'xl/worksheets/sheet1.xml':sheet(rows,[14,12,19,19,19,19,18,23,26,30,55,27,27,25,25],true),
             'xl/worksheets/sheet2.xml':sheet(summary,[36,72])
         };
-        return {bytes:zip(files),filename:`ledger_${start}_to_${end}.xlsx`,count:selected.length,mime};
+        const short=value=>value.slice(2).replace(/-/g,'.');
+        return {bytes:zip(files),filename:`${short(start)}-${short(end)}.xlsx`,count:selected.length,mime};
     }
     const api={build,select,validDate};if(typeof module!=='undefined')module.exports=api;else root.LedgerExport=api;
 })(globalThis);

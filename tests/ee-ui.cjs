@@ -1,110 +1,108 @@
-// Every account and financial record below is a local fixture. Firebase is stubbed.
-const {chromium,webkit}=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict');
-const EE=require('../ee-model.js'),fs=require('node:fs/promises');
-const base=process.env.MOBILE_TEST_URL||'http://localhost:8001';
-const plans=[{id:'g',type:'expected',label:'장보기',amount:500},{id:'shop',type:'expected',label:'쇼핑',amount:450},{id:'rent',type:'fixed',label:'Rent',amount:900,customMetadata:'keep fixed untouched'},{id:'pay',type:'income',label:'Salary',amount:3000,customMetadata:'keep income untouched'}];
-const entries=[{id:'history',date:'2026-11-10',type:'expense',sourceType:'expected',reason:'쇼핑',detail:'Sephora original',amount:80,isShared:true,createdAt:'2026-11-10T12:00:00Z'},
- {id:'grocery',date:'2026-11-02',type:'expense',sourceType:'expected',reason:'장보기',linkedPlanItemId:'g',amount:20,createdAt:'2026-11-02T12:00:00Z'},
- {id:'fe',date:'2026-11-01',type:'expense',sourceType:'fixed',reason:'Rent',linkedPlanItemId:'rent',amount:900},
- {id:'ei',date:'2026-11-01',type:'income',sourceType:'income',reason:'Salary',linkedPlanItemId:'pay',amount:3000},
- {id:'ui',date:'2026-11-01',type:'income',sourceType:'unexpected_income',reason:'Gift',amount:5}];
+// Isolated local fixtures only; real Firebase SDK and account access are disabled.
+const {chromium,webkit}=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),EE=require('../ee-model.js');
+const base=process.env.MOBILE_TEST_URL||'http://127.0.0.1:8008';
+const plans=[...EE.applyTemplate([{id:'g',type:'expected',label:'장보기',amount:500},{id:'shop',type:'expected',label:'쇼핑',amount:450}]),{id:'rent',type:'fixed',label:'Rent',amount:900,customMetadata:'keep'},{id:'pay',type:'income',label:'Salary',amount:3000}];
+const entries=[{id:'history',date:'2026-11-02',type:'expense',sourceType:'expected',reason:'쇼핑',detail:'Original Sephora',amount:80,isShared:true,createdAt:'2026-11-02T12:00:00Z'},{id:'grocery',date:'2026-11-02',type:'expense',sourceType:'expected',reason:'장보기',linkedPlanItemId:'g',amount:20},
+ {id:'salary',date:'2026-11-02',type:'income',sourceType:'income',reason:'Salary',linkedPlanItemId:'pay',amount:3500},
+ {id:'gift-a',date:'2026-11-02',type:'income',sourceType:'unexpected_income',reason:'Gift',amount:15},{id:'gift-b',date:'2026-11-02',type:'income',sourceType:'unexpected_income',reason:'Gift',amount:35}];
 (async()=>{
  for(const [name,engine] of [['Chrome',chromium],['WebKit',webkit]]){
   const browser=await engine.launch(name==='Chrome'?{channel:'chrome',headless:true}:{headless:true});
   try{
-   const context=await browser.newContext({serviceWorkers:'block',timezoneId:'America/Edmonton',viewport:{width:1440,height:1000}});
+   const context=await browser.newContext({serviceWorkers:'block',viewport:{width:1440,height:1000}});
    await context.route('https://www.gstatic.com/**',r=>r.fulfill({body:''}));await context.route('**/auth.js',r=>r.fulfill({body:'window.__ledgerAuth={};'}));
    await context.addInitScript(({plans,entries})=>{
-    const NativeDate=Date;window.Date=class extends NativeDate{constructor(...args){super(...(args.length?args:['2026-11-15T18:00:00Z']));}static now(){return +new NativeDate('2026-11-15T18:00:00Z');}};
-    if(localStorage.getItem('eeFixture'))return;localStorage.setItem('eeFixture','1');
-    localStorage.setItem('ledgerBalances',JSON.stringify({checking:1000,saving:2000,etc:0}));localStorage.setItem('ledgerPlanItems',JSON.stringify(plans));localStorage.setItem('ledgerActivity',JSON.stringify(entries));
+    const NativeDate=Date;window.Date=class extends NativeDate{constructor(...args){super(...(args.length?args:['2026-11-03T18:00:00Z']));}static now(){return +new NativeDate('2026-11-03T18:00:00Z');}};
+    if(localStorage.fixture)return;localStorage.fixture='1';localStorage.ledgerBalances=JSON.stringify({checking:1000,saving:2000,etc:0});localStorage.ledgerPlanItems=JSON.stringify(plans);localStorage.ledgerActivity=JSON.stringify(entries);localStorage.ledgerExchangeHistory='[{"id":"historical-exchange","amount":25}]';
    },{plans,entries});
-   const page=await context.newPage(),errors=[],dialogs=[];page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>{dialogs.push(dialog.message());dialog.accept();});
-   await page.goto(base+'/ledger.html');await page.locator('#activityList [data-id="history"]').waitFor();
-   const original=await page.evaluate(()=>({transactions:localStorage.ledgerActivity,balances:localStorage.ledgerBalances}));
-   await page.evaluate(async()=>{enterEditMode('shop');await removeEditingPlanItem();});
-   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems).length),4,'legacy EE with historical alias references cannot be removed');
-   await page.locator('#openPlanBtn').click();await page.locator('#eeTemplatePreviewBtn').click();
-   assert.equal(await page.locator('#eeTemplatePreview .ee-template-row select').first().inputValue(),'keep');
-   await page.getByRole('button',{name:'Apply reviewed template',exact:true}).click();
-   let saved=await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems));
-   assert.equal(saved.filter(row=>row.type==='expected').length,6);assert.equal(saved.find(row=>row.id==='g').amount,500);assert.equal(saved.find(row=>row.id==='shop').label,'개인쇼핑');
-   assert.deepEqual(saved.filter(row=>row.type!=='expected'),plans.filter(row=>row.type!=='expected'));
-   assert.deepEqual(await page.evaluate(()=>({transactions:localStorage.ledgerActivity,balances:localStorage.ledgerBalances})),original);
-   await page.locator('#eeTemplatePreviewBtn').click();await page.getByRole('button',{name:'Apply reviewed template',exact:true}).click();
-   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems).length),8,'repeat template adds no duplicate parents');
-   await page.evaluate(()=>enterEditMode('shop'));assert.equal(await page.locator('#removePlanItemBtn').isDisabled(),true);
-   const deletionSnapshot=await page.evaluate(()=>[localStorage.ledgerPlanItems,localStorage.ledgerActivity]);
-   await page.evaluate(async()=>{await removeEditingPlanItem();await clearPlan();});
-   assert.deepEqual(await page.evaluate(()=>[localStorage.ledgerPlanItems,localStorage.ledgerActivity]),deletionSnapshot);
-   await page.evaluate(async()=>{
-    const previous=localStorage.ledgerPlanItems;
-    const rows=JSON.parse(previous);rows.find(row=>row.id==='shop').subcategories.forEach(child=>child.archived=true);
-    localStorage.ledgerPlanItems=JSON.stringify(rows);planItems=normalizePlanItems(rows);enterEditMode('shop');await removeEditingPlanItem();
-    if(localStorage.ledgerPlanItems!==JSON.stringify(rows))throw Error('Archived-only parent deleted');
-    localStorage.ledgerPlanItems=previous;planItems=normalizePlanItems(JSON.parse(previous));
-    const fixed={id:'temporary-unused-fe',type:'fixed',label:'Temporary test',amount:1,metadata:'preserved'};
-    localStorage.ledgerPlanItems=JSON.stringify([...JSON.parse(previous),fixed]);planItems=normalizePlanItems(JSON.parse(localStorage.ledgerPlanItems));
-    enterEditMode(fixed.id);await removeEditingPlanItem();
-   });
-   assert.deepEqual(await page.evaluate(()=>[localStorage.ledgerPlanItems,localStorage.ledgerActivity]),deletionSnapshot,'allowed FE removal preserves all remaining raw metadata/history');
-   assert.ok(dialogs.some(message=>message.includes('Clear all is blocked')));
-   await page.evaluate(()=>exitEditMode());
-   const imported=await page.evaluate(()=>parseActivityImportText('11/10\n- 12 EE 쇼핑 Sephora\n- 5 FE Rent\n+ 30 EI Salary'));
-   assert.equal(imported[0].linkedPlanItemId,'shop');assert.equal(imported[0].detail,'Sephora');assert.equal(imported[0].subcategoryId,undefined);assert.equal(imported[1].sourceType,'fixed');assert.equal(imported[2].sourceType,'income');
-   await page.locator('#closePlanBtn').click();
-   await page.locator('#activityList [data-id="history"]').getByRole('button',{name:'Edit activity entry'}).click();
-   assert.equal(await page.locator('#activityLinkedItem').inputValue(),'shop');assert.equal(await page.locator('#activitySubcategory').inputValue(),'');
-   await page.locator('#activitySubcategory').selectOption('ee_shopping_1');await page.locator('#addActivityBtn').click();await page.waitForFunction(()=>!editingActivityId);
-   let history=await page.evaluate(()=>JSON.parse(localStorage.ledgerActivity).find(row=>row.id==='history'));
-   assert.equal(history.reason,'쇼핑');assert.equal(history.detail,'Sephora original');assert.equal(history.amount,80);assert.equal(history.isShared,true);assert.equal(history.subcategoryId,'ee_shopping_1');
+   const page=await context.newPage(),errors=[],rateRequests=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',request=>{if(request.url().includes('frankfurter'))rateRequests.push(request.url());});let accept=true;const dialogs=[];page.on('dialog',dialog=>{dialogs.push(dialog.message());accept?dialog.accept():dialog.dismiss();});
+   await page.goto(base+'/ledger.html');await page.locator('#budgetProgressRows').waitFor();
+   for(const selector of ['#dashboardSection','#spendingSummarySection','#activitySection','#activitySummarySection','#investmentHubSection'])assert.equal(await page.locator(selector).evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(240, 245, 228)','shared outer card '+selector);
+   for(const selector of ['.balance-card','.budget-overview-card','.investment-hub-summary-card','.ledger-activity-item','.summary-chart','.activity-import-card'])assert.equal(await page.locator(selector).first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 255, 255)','shared inner card '+selector);
+   assert.equal(await page.locator('#eeProgressRows').count(),0,'expected expense details start closed');
+   await page.locator('#budgetProgressRows [data-plan-type="fixed"]').click();await page.locator('#fixedProgressRows').waitFor();
+   assert.equal(await page.locator('#fixedProgressRows .ee-progress-parent').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 255, 255)');
+   assert.match(await page.locator('#fixedProgressRows').textContent(),/Rent/);assert.match(await page.locator('#fixedProgressRows').textContent(),/\$900\.00/);
+   await page.locator('#budgetProgressRows [data-plan-type="income"]').click();await page.locator('#incomeProgressRows').waitFor();
+   assert.match(await page.locator('#incomeProgressRows').textContent(),/\$3,500\.00/);assert.match(await page.locator('#incomeProgressRows').textContent(),/\$3,000\.00/);assert.match(await page.locator('#incomeProgressRows').textContent(),/예상보다 \$500\.00 더 입금/);
+   assert.equal(await page.locator('#incomeProgressRows .ee-over,#incomeProgressRows .ee-warning').count(),0,'higher income is not an expense overspend');
+   await page.locator('#budgetProgressRows [data-plan-type="unexpected_income"]').click();await page.locator('#unexpectedIncomeProgressRows').waitFor();
+   assert.match(await page.locator('#unexpectedIncomeProgressRows').textContent(),/Gift/);assert.match(await page.locator('#unexpectedIncomeProgressRows').textContent(),/\$50\.00/);
+   assert.equal(await page.locator('#unexpectedIncomeProgressRows .ee-progress-parent').count(),1,'unexpected income keeps existing reason grouping');
+   assert.equal(await page.locator('#unexpectedIncomeProgressRows progress').count(),0,'no invented budget for unexpected income');
+   for(const type of ['income','unexpected_income']){
+    await page.evaluate(type=>{selectedPlanDetailType=type;renderActivity();},type);
+    const card=page.locator(type==='income'?'#incomeProgressRows .ee-progress-parent':'#unexpectedIncomeProgressRows .ee-progress-parent');
+    assert.equal(await card.evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 255, 255)');
+    for(const width of [320,390,1024,1440]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'income overflow '+type+' '+width);}
+   }
    await page.locator('#budgetProgressRows [data-plan-type="expected"]').click();await page.locator('#eeProgressRows').waitFor();
-   let totals=await page.evaluate(()=>ExpectedBudget.breakdown(planItems.find(row=>row.id==='shop'),getEntriesInSelectedRange(),planItems));
-   assert.equal(totals.actual,40);assert.equal(totals.children.find(row=>row.id==='ee_shopping_1').actual,40);assert.equal(totals.children.at(-1).actual,0);
-   await page.locator('.activity-range-btn[data-range="week"]').click();
-   assert.match(await page.locator('#budgetProgressPeriodNote').textContent(),/2026-11-09 to 2026-11-15/);
-   assert.match(await page.locator('#budgetProgressPeriodNote').textContent(),/not prorated or multiplied/);
-   const weeklyRows=await page.evaluate(()=>buildBudgetProgressRows());
-   assert.equal(await page.evaluate(()=>getActivityAmountForPlanItem(planItems.find(row=>row.id==='g'))),0);
-   await page.locator('.activity-range-btn[data-range="year"]').click();assert.equal(await page.evaluate(()=>getActivityAmountForPlanItem(planItems.find(row=>row.id==='g'))),20);
-   assert.match(await page.locator('#budgetProgressPeriodNote').textContent(),/2026 \(year\)/);
-   const yearlyRows=await page.evaluate(()=>buildBudgetProgressRows());
-   assert.deepEqual(yearlyRows.map(row=>row.planned),weeklyRows.map(row=>row.planned),'monthly reference budgets remain unchanged across spending periods');
-   await page.locator('.activity-month-btn[data-month="11"]').click();
-   assert.match(await page.locator('#budgetProgressPeriodNote').textContent(),/2026-11 \(month\)/);
-   const monthlyRows=await page.evaluate(()=>buildBudgetProgressRows());
-   assert.deepEqual(monthlyRows.filter(row=>['fixed','income','unexpected_income'].includes(row.key)).map(row=>[row.key,row.planned,row.actual]),[['fixed',900,900],['income',3000,3000],['unexpected_income',null,5]]);
-   for(const key of ['fixed','income','unexpected_income']){
-    assert.deepEqual(monthlyRows.find(row=>row.key===key),yearlyRows.find(row=>row.key===key),'FE/EI/UI unchanged with identical period fixture actuals');
+   assert.equal(await page.locator('.summary-progress-detail-row').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(240, 245, 228)');
+   assert.equal(await page.locator('.ee-progress-parent').first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 255, 255)');
+   assert.equal(await page.locator('.ee-progress-parent>summary').first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 255, 255)');
+   assert.equal(await page.locator('#eeTemplatePreviewBtn,#eeTemplatePreview,#exchangeSection,#exchangeHistorySection').count(),0);
+   assert.equal(await page.locator('.ee-progress-parent[open]').count(),6,'progress children are expanded by default');
+   const progress=page.locator('.ee-progress-parent').first();await progress.locator('summary').click();assert.equal(await progress.evaluate(node=>node.open),false);await progress.locator('summary').click();assert.equal(await progress.evaluate(node=>node.open),true);
+   for(const width of [320,390,1024,1440]){
+    await page.setViewportSize({width,height:1000});
+    assert.ok((await progress.locator('summary').boundingBox()).height<=56,'compact parent height '+width);
+    assert.ok((await progress.locator('.ee-progress-children .ee-metric').first().boundingBox()).height<=36,'compact child height '+width);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'compact card overflow '+width);
+    const sizes=await progress.evaluate(node=>{const size=selector=>parseFloat(getComputedStyle(node.querySelector(selector)).fontSize);return {parent:size('.ee-parent-metric .ee-metric-amount strong'),child:size('.ee-progress-children .ee-metric-amount strong'),parentBudget:size('.ee-parent-metric .ee-metric-amount small'),childBudget:size('.ee-progress-children .ee-metric-amount small')};});
+    assert.ok(sizes.parent>sizes.child&&sizes.parentBudget>sizes.childBudget,'only parent amounts are enlarged '+width);
    }
+   await page.setViewportSize({width:1100,height:1000});
+   await page.locator('.summary-progress-table-wrap').screenshot({path:'/tmp/ledger-all-cards-progress-'+name+'.png'});
+   await page.locator('#spendingSummarySection').screenshot({path:'/tmp/ledger-all-cards-overview-'+name+'.png'});
+   await page.setViewportSize({width:390,height:1000});await page.locator('.summary-progress-table-wrap').screenshot({path:'/tmp/ledger-all-cards-mobile-'+name+'.png'});
    await page.locator('#openPlanBtn').click();let editor=page.locator('#expectedPlanList [data-id="shop"] .ee-editor');
-   await editor.locator('summary').click();await editor.locator('[data-subcategory-id="ee_shopping_1"]').getByRole('button',{name:'Archive',exact:true}).click();
-   await editor.getByRole('button',{name:'Save subcategories',exact:true}).click();
-   await page.waitForFunction(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').subcategories.find(row=>row.id==='ee_shopping_1').archived);
-   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').subcategories.find(row=>row.id==='ee_shopping_1').archived),true);
-   await page.reload();await page.locator('#activityList [data-id="history"]').waitFor();assert.match(await page.locator('#activityList [data-id="history"]').textContent(),/보관됨/);
-   await page.locator('#activitySourceType').selectOption('expected');await page.locator('#activityLinkedItem').selectOption('shop');
-   assert.equal(await page.locator('#activitySubcategory option[value="ee_shopping_1"]').count(),0,'archived category not offered on new entries');
-   await page.locator('#activityList [data-id="history"]').getByRole('button',{name:'Edit activity entry'}).click();assert.equal(await page.locator('#activitySubcategory').inputValue(),'ee_shopping_1');
-   await page.locator('#activitySubcategory').selectOption('ee_shopping_0');await page.locator('#addActivityBtn').click();await page.waitForFunction(()=>!editingActivityId);
-   assert.equal(await page.evaluate(()=>ExpectedBudget.breakdown(planItems.find(row=>row.id==='shop'),activityEntries,planItems).children.find(row=>row.id==='ee_shopping_1').actual),0);
-   await page.locator('#activityList [data-id="history"]').getByRole('button',{name:'Delete activity entry'}).click();
-   await page.waitForFunction(()=>!activityEntries.some(row=>row.id==='history'));
-   assert.equal(await page.evaluate(()=>ExpectedBudget.breakdown(planItems.find(row=>row.id==='shop'),activityEntries,planItems).actual),0);
-   await page.locator('#openPlanBtn').click();editor=page.locator('#expectedPlanList [data-id="shop"] .ee-editor');if(!await editor.evaluate(node=>node.open))await editor.locator('summary').click();
-   await editor.getByRole('button',{name:'Add subcategory',exact:true}).click();let last=editor.locator('.ee-edit-row').last();await last.getByLabel('Subcategory name').fill('Custom 🐸');await last.getByLabel('Subcategory monthly budget').fill('12.34');await editor.getByRole('button',{name:'Save subcategories',exact:true}).click();
-   await page.waitForFunction(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').amount===362.34);saved=await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems));assert.equal(saved.find(row=>row.id==='shop').amount,362.34);
-   editor=page.locator('#expectedPlanList [data-id="shop"] .ee-editor');if(!await editor.evaluate(node=>node.open))await editor.locator('summary').click();
-   last=editor.locator('.ee-edit-row').last();await last.getByLabel('Subcategory name').fill('Renamed custom');
-   await editor.locator('[data-subcategory-id="ee_shopping_1"]').getByRole('button',{name:'Restore',exact:true}).click();await editor.getByRole('button',{name:'Save subcategories',exact:true}).click();
-   await page.waitForFunction(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').amount===462.34);saved=await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems));assert.equal(saved.find(row=>row.id==='shop').amount,462.34);assert.equal(saved.find(row=>row.id==='shop').subcategories.at(-1).label,'Renamed custom');
-   await page.locator('#closePlanBtn').click();
-   for(const width of [320,390,600,1024,1440]){
-    await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,name+' overflow '+width);
-    await page.locator('#openPlanBtn').click();const panel=page.locator('#expectedPlanList [data-id="shop"] .ee-editor');if(!await panel.evaluate(node=>node.open))await panel.locator('summary').click();
-    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,name+' expanded editor overflow '+width);await page.locator('#closePlanBtn').click();
+   assert.equal(await editor.evaluate(node=>node.open),true);assert.equal(await editor.locator('.ee-child-row').count(),5);
+   assert.equal(await page.locator('.ee-subheading,.ee-count').count(),0,'no child heading or count badge');
+   assert.equal(await page.locator('#expectedPlanList [data-id="shop"]').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 255, 255)');
+   for(const selector of ['.ledger-plan-item','.plan-label','.plan-amount']){
+    const read=node=>{const style=getComputedStyle(node);return [style.backgroundColor,style.color,style.fontSize,style.fontWeight,style.padding,style.borderColor];};
+    assert.deepEqual(await page.locator('#fixedPlanList '+selector).first().evaluate(read),await page.locator('#expectedPlanList '+selector).first().evaluate(read),'matching expense style '+selector);
    }
-   assert.deepEqual(errors,[]);assert.ok(dialogs.every(message=>!message.includes('Invalid')));console.log(name+': EE template, preserved budgets/history, assignment, archive, move, delete, custom edits, ranges and refresh PASS');
+   assert.equal(await page.locator('#fixedPlanList').getByLabel('Rent 상위 분류 수정',{exact:true}).count(),1);
+   for(const [fixed,income] of [['.ledger-plan-item','.ledger-plan-item'],['.plan-label','.plan-label'],['.plan-amount','.plan-income-amount']]){
+    const read=node=>{const style=getComputedStyle(node);return [style.backgroundColor,style.color,style.fontSize,style.fontWeight,style.padding,style.borderColor];};
+    assert.deepEqual(await page.locator('#fixedPlanList '+fixed).first().evaluate(read),await page.locator('#incomePlanList '+income).first().evaluate(read),'matching income overview style');
+   }
+   assert.equal(await page.locator('#incomePlanList').getByLabel('Salary 상위 분류 수정',{exact:true}).count(),1);
+   assert.ok(await editor.locator('.ee-child-row').first().evaluate(node=>node.getBoundingClientRect().left-node.closest('li').querySelector('.plan-label').getBoundingClientRect().left)>=16,'children are indented');
+   assert.equal(await page.getByRole('button',{name:'Archive',exact:true}).count(),0);
+   await editor.locator('summary').click();assert.equal(await editor.evaluate(node=>node.open),false);await editor.locator('summary').click();
+   await editor.getByLabel('뷰티·화장품 수정',{exact:true}).click();await editor.getByLabel('하위 분류 이름').fill('화장품');await editor.getByLabel('하위 분류 월예산').fill('107');await editor.getByLabel('저장',{exact:true}).click();
+   await page.waitForFunction(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').amount===457);
+   assert.equal(await editor.locator('.ee-child-name').filter({hasText:'화장품'}).count(),1);
+   await editor.getByRole('button',{name:'하위 분류 추가',exact:true}).click();await editor.getByLabel('하위 분류 이름').fill('작은 기쁨');await editor.getByLabel('하위 분류 월예산').fill('12.34');await editor.getByLabel('저장',{exact:true}).click();
+   await page.waitForFunction(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').amount===469.34);
+   await page.locator('#closePlanBtn').click();await page.locator('#activityList [data-id="history"]').getByRole('button',{name:'Edit activity entry'}).click();
+   await page.locator('#activitySubcategory').selectOption('ee_shopping_1');await page.locator('#addActivityBtn').click();await page.waitForFunction(()=>!editingActivityId);
+   const historical=await page.evaluate(()=>JSON.parse(localStorage.ledgerActivity).find(row=>row.id==='history'));
+   await page.locator('#openPlanBtn').click();accept=false;await editor.getByLabel('화장품 삭제',{exact:true}).click();assert.equal(await editor.getByLabel('화장품 삭제',{exact:true}).count(),1);
+   accept=true;await editor.getByLabel('화장품 삭제',{exact:true}).click();await page.waitForFunction(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').subcategories.find(row=>row.id==='ee_shopping_1').deleted);
+   assert.equal(await editor.getByLabel('화장품 수정',{exact:true}).count(),0);
+   await page.locator('#closePlanBtn').click();assert.match(await page.locator('#activityList [data-id="history"]').textContent(),/삭제됨/);
+   assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.ledgerActivity).find(row=>row.id==='history')),historical);
+   await page.locator('#activitySourceType').selectOption('expected');await page.locator('#activityLinkedItem').selectOption('shop');assert.equal(await page.locator('#activitySubcategory option[value="ee_shopping_1"]').count(),0);
+   await page.locator('#openPlanBtn').click();await page.evaluate(()=>enterEditMode('shop'));assert.equal(await page.locator('#removePlanItemBtn').isEnabled(),true);
+   accept=false;await page.locator('#removePlanItemBtn').click();assert.equal(await page.locator('#expectedPlanList [data-id="shop"]').count(),1);
+   accept=true;await page.locator('#removePlanItemBtn').click();await page.waitForFunction(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').deleted);
+   assert.equal(await page.locator('#expectedPlanList [data-id="shop"]').count(),0);assert.ok(dialogs.some(message=>message.includes('하위 분류도 모두 삭제')));
+   const removed=await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop'));assert.ok(removed.subcategories.every(child=>child.deleted));
+   await page.locator('#closePlanBtn').click();assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.ledgerActivity).find(row=>row.id==='history')),historical);
+   assert.equal(await page.locator('#activityLinkedItem option[value="shop"]').count(),0);
+   assert.equal(await page.evaluate(()=>ExpectedBudget.breakdown(planItems.find(row=>row.id==='shop'),activityEntries,planItems).actual),40);
+   for(const width of [320,390,600,1024,1440]){
+    await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,name+' progress overflow '+width);
+    await page.locator('#openPlanBtn').click();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,name+' overview overflow '+width);
+    if(width===390)await page.locator('#planSection').screenshot({path:'/tmp/ledger-frog-overview-'+name+'.png'});await page.locator('#closePlanBtn').click();
+   }
+   await page.setViewportSize({width:1024,height:1000});await page.locator('.summary-progress-table-wrap').screenshot({path:'/tmp/ledger-frog-progress-'+name+'.png'});
+   await page.reload();await page.locator('#budgetProgressRows').waitFor();assert.equal(await page.locator('#eeProgressRows').count(),0);assert.equal(await page.locator('#activityLinkedItem option[value="shop"]').count(),0);
+   assert.equal(await page.evaluate(()=>localStorage.ledgerExchangeHistory),'[{"id":"historical-exchange","amount":25}]');assert.deepEqual(rateRequests,[]);
+   assert.deepEqual(errors,[]);console.log(name+': frog UI, default expansion, child edit/add/delete, parent confirmation/cascade, historical links, reload and responsive PASS');
   }finally{await browser.close();}
  }
 })().catch(error=>{console.error(error);process.exit(1)});

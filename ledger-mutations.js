@@ -15,7 +15,7 @@
                 continue;
             }
             const parent=plans.find(row=>String(row.id)===linked);
-            if(!parent){
+            if(!parent||parent.deleted){
                 // A previously orphaned historical record can retain its saved link, never create a new one.
                 if(editing&&sameLink(old,entry)&&String(old.subcategoryId||'')===String(entry.subcategoryId||''))continue;
                 throw Error('The selected budget was deleted. Reload and choose an existing budget.');
@@ -23,7 +23,7 @@
             if(parent.type!==entry.sourceType)throw Error('The selected budget type changed. Reload before saving.');
             if(entry.sourceType==='expected'&&entry.subcategoryId){
                 const child=model.children(parent).find(row=>row.id===entry.subcategoryId);
-                if(!child||child.archived){
+                if(!child||child.archived||child.deleted){
                     if(editing&&sameLink(old,entry)&&old.subcategoryId===entry.subcategoryId)continue;
                     throw Error('The selected subcategory is unavailable. Reload before saving.');
                 }
@@ -33,7 +33,7 @@
     function checkDeletion(ids,plans,history){
         for(const id of ids){
             const parent=plans.find(row=>String(row.id)===id);
-            if(!parent)throw Error('A budget changed. Reload before deleting.');
+            if(!parent||parent.deleted)throw Error('A budget changed. Reload before deleting.');
             const reason=model.deletionBlockReason(parent,history,plans);if(reason)throw Error(reason);
         }
     }
@@ -68,7 +68,10 @@
             for(const parent of current){
                 if(JSON.stringify(normalize(parent))!==JSON.stringify(normalize(plans.find(row=>String(row.id)===String(parent.id)))))throw Error('A budget changed while deleting. Reload and review it.');
             }
-            for(const id of ids)tx.delete(store.plan(id));
+            for(const parent of current){
+                if(parent.type==='expected')tx.set(store.plan(String(parent.id)),model.removeParent(parent));
+                else tx.delete(store.plan(String(parent.id)));
+            }
             tx.set(store.revision,{version:version(revision)+1});
         });
     }

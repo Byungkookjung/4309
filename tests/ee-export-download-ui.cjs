@@ -26,16 +26,16 @@ const entries=[{id:'shared',date:'2026-11-01',type:'expense',sourceType:'expecte
    // Compare at the exporter boundary, after the app's existing entry normalization.
    const input=await page.evaluate(()=>({entries:activityEntries,plans:planItems}));
    const promise=page.waitForEvent('download');await page.locator('#activityExportBtn').click();const download=await promise;
-   assert.equal(download.suggestedFilename(),'ledger_2026-11-01_to_2026-12-01.xlsx');
+   assert.equal(download.suggestedFilename(),'26.11.01-26.12.01.xlsx');
    const parts=adapter.unpack(await fs.readFile(await download.path())),original=adapter.unpack(exporter.build(input.entries,'2026-11-01','2026-12-01',input.plans).bytes);
    for(const [name,xml] of Object.entries(original)){
     if(!name.startsWith('xl/worksheets/'))assert.equal(parts[name],xml);
     for(const match of xml.matchAll(/<c\b[^>]*>[\s\S]*?<\/c>/g))assert.ok(parts[name].includes(match[0]),'original cell preserved');
    }
    const activity=parts['xl/worksheets/sheet1.xml'],summary=parts['xl/worksheets/sheet2.xml'];
-   assert.match(activity,/의류·패션잡화 \(보관됨\)/);assert.match(activity,/미분류/);assert.match(activity,/Original detail &lt;&amp;&gt;/);assert.ok(!activity.includes('Excluded boundary'));
+   assert.match(activity,/의류·패션잡화 \(이전 분류\)/);assert.match(activity,/미분류/);assert.match(activity,/Original detail &lt;&amp;&gt;/);assert.ok(!activity.includes('Excluded boundary'));
    assert.match(activity,/<c r="D2"[^>]*><v>40<\/v><\/c>/);assert.match(summary,/<c r="B7"[^>]*><v>50<\/v><\/c>/);assert.match(summary,/<c r="B9"[^>]*><v>2950<\/v><\/c>/);
-   assert.match(summary,/EE breakdown/);assert.match(await page.locator('#activityExportStatus').textContent(),/Downloaded 3 entries/);assert.deepEqual(errors,[]);
+   assert.match(summary,/EE breakdown/);assert.match(await page.locator('#activityExportStatus').textContent(),/3개 내역/);assert.deepEqual(errors,[]);
    console.log(name+': combined-preview Excel download preserves all original cells, shared amounts, Summary, dates and archived/uncategorized EE details PASS');
   }finally{await browser.close();}
  }

@@ -57,3 +57,7 @@ for suite in ee-export-download-ui ee-sync-ui ee-ui ledger-activity-layout-ui \
 ```
 
 For actual-rules Emulator reproduction, follow `EE_SUBCATEGORIES.md` and run both `tests/ee-firestore-emulator.cjs` and `tests/ledger-concurrency-emulator.cjs` in the same `firebase emulators:exec` session. The actual rules file is mandatory; absent rules are a release blocker. The tests refuse non-localhost hosts or a non-demo project. No deployment command is part of this workflow.
+
+## Subsequent UI Revision
+
+`feature/ledger-frog-polish` supersedes the earlier UI/deletion restrictions described above. The template and Archive controls are removed; confirmed EE deletion now hides history-preserving parent/child records instead of blocking deletion or physically orphaning references. See `EE_SUBCATEGORIES.md` for the current behavior. This revision is local feature work and does not authorize another production deployment.

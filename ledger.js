@@ -203,13 +203,6 @@ function startLedgerSync(user) {
             renderBalanceHistory();
         });
 
-    exchangeHistoryUnsub = exchangeHistoryCollection(user)
-        .orderBy('savedAt', 'desc')
-        .limit(30)
-        .onSnapshot(snapshot => {
-            exchangeHistoryEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            renderExchangeHistory();
-        });
 
     planUnsub = planCollection(user).onSnapshot(snapshot => {
         planItems = normalizePlanItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -981,7 +974,7 @@ function renderBudgetProgressTable() {
         const key=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
         const last=new Date(endOfWeek);last.setDate(last.getDate()-1);
         const period=range==='week'?`${key(startOfWeek)} to ${key(last)}`:range==='year'?`${now.getFullYear()} (year)`:`${now.getFullYear()}-${String(selectedSummaryMonth).padStart(2,'0')} (month)`;
-        note.textContent=`Spending period: ${period}. Monthly plan is one monthly reference budget. ${range==='month'?'Actuals, percentages and differences compare this month with its monthly plan.':'Week/year budgets are not prorated or multiplied. Percentages and differences compare selected-period actuals with ONE monthly plan, not a weekly/yearly allowance.'}`;
+        note.textContent=`${period} · 선택 기간 사용액 / 월예산 기준${range==='month'?'':' · 주·연간 예산으로 환산하지 않아요.'}`;
         note.dataset.range=range;
     }
     const rows = buildBudgetProgressRows();
@@ -1096,31 +1089,9 @@ function renderPlanDetail() {
         const hierarchy=document.createElement('div');hierarchy.id='eeProgressRows';
         EELedger.renderProgress(hierarchy,getEntriesInSelectedRange());planDetailRows.append(hierarchy);return;
     }
-    if (rows.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'plan-detail-empty';
-        empty.textContent = '표시할 항목이 없습니다.';
-        planDetailRows.appendChild(empty);
-        return;
-    }
-
-    rows.forEach(row => {
-        const rowEl = document.createElement('div');
-        rowEl.className = `plan-detail-row plan-detail-${row.type} plan-detail-${row.statusClass}`;
-        let remainingText = row.remaining === null ? '✕' : formatCurrency(row.remaining);
-        if (row.remaining !== null && row.remaining < 0) {
-            remainingText = isIncomePlanType(row.type)
-                ? `+${formatCurrency(Math.abs(row.remaining))}`
-                : `-${formatCurrency(Math.abs(row.remaining))}`;
-        }
-        rowEl.innerHTML = `
-            <span class="plan-detail-label" role="cell">${row.label}</span>
-            <span role="cell">${row.planned === null ? '✕' : formatCurrency(row.planned)}</span>
-            <span role="cell">${formatCurrency(row.actual)}</span>
-            <span role="cell" class="plan-detail-remaining ${row.statusClass}">${remainingText}</span>
-        `;
-        planDetailRows.appendChild(rowEl);
-    });
+    const cards=document.createElement('div');
+    cards.id=selectedPlanDetailType===PLAN_TYPES.fixed?'fixedProgressRows':selectedPlanDetailType===PLAN_TYPES.income?'incomeProgressRows':'unexpectedIncomeProgressRows';
+    EELedger.renderSimpleProgress(cards,rows,selectedPlanDetailType);planDetailRows.append(cards);
 }
 
 function togglePlanDetailType(type) {
@@ -1537,6 +1508,7 @@ function normalizePlanItem(item) {
         type: normalizePlanType(item.type),
         label: String(item.label || '').trim(),
         amount: Number(Number(item.amount || 0).toFixed(2)),
+        ...(item.deleted?{deleted:true}:{}),
         ...(normalizePlanType(item.type)==='expected'&&Array.isArray(item.subcategories)?{subcategories:item.subcategories}:{})
     });
 }
@@ -1544,7 +1516,7 @@ function normalizePlanItem(item) {
 function normalizePlanItems(items) {
     return (items || [])
         .map(normalizePlanItem)
-        .filter(item => item.label && (item.amount > 0||ExpectedBudget.hierarchical(item)));
+        .filter(item => item.label && (item.deleted||item.amount > 0||ExpectedBudget.hierarchical(item)));
 }
 
 function normalizeActivityEntry(entry) {
@@ -1570,7 +1542,7 @@ function normalizeActivityEntries(entries) {
 }
 
 function getPlanItemsByType(type) {
-    return planItems.filter(item => item.type === type);
+    return planItems.filter(item => item.type === type&&!item.deleted);
 }
 
 function getPlanTotalByType(type) {
@@ -1888,7 +1860,7 @@ function renderPlanBucket(listEl, items, amountClass = 'plan-amount') {
 
         li.appendChild(label);
         li.appendChild(amount);
-        li.appendChild(editBtn);
+        li.appendChild(['expected','fixed','income'].includes(item.type)?EELedger.parentEditButton(item,()=>enterEditMode(item.id)):editBtn);
         listEl.appendChild(li);
         EELedger.addEditor(li,item);
     });
@@ -1934,7 +1906,7 @@ function populateActivityLinkedItems(savedEntry = null) {
     const normalizeLabel = value => String(value || '').trim().toLocaleLowerCase();
     const matches = savedLabel ? items.filter(item => normalizeLabel(item.label) === normalizeLabel(savedLabel)) : [];
     const selectedItem = sourceType==='expected'&&selection
-        ? ExpectedBudget.resolve({type:'expense',sourceType:'expected',...selection,reason:savedLabel},planItems)
+        ? items.find(item=>item.id===ExpectedBudget.resolve({type:'expense',sourceType:'expected',...selection,reason:savedLabel},planItems)?.id)
         : items.find(item => String(item.id) === String(selection?.linkedPlanItemId)) || (matches.length === 1 ? matches[0] : null);
 
     activityLinkedItemSelect.innerHTML = '';
@@ -2349,7 +2321,7 @@ async function addPlanItem() {
         amount: Number(amount.toFixed(2))
     };
     if(type==='expected'){
-        if(planItems.some(item=>item.type==='expected'&&item.id!==editingPlanId&&ExpectedBudget.canonical(item.label)===ExpectedBudget.canonical(label))){alert('An EE parent with this name or alias already exists.');return;}
+        if(planItems.some(item=>!item.deleted&&item.type==='expected'&&item.id!==editingPlanId&&ExpectedBudget.canonical(item.label)===ExpectedBudget.canonical(label))){alert('An EE parent with this name or alias already exists.');return;}
         if(previous&&ExpectedBudget.hierarchical(previous)){
             await EELedger.save([{...previous,label}]).catch(error=>alert(error.message));exitEditMode();return;
         }
@@ -2378,14 +2350,17 @@ async function addPlanItem() {
 
 async function removeEditingPlanItem() {
     if (!editingPlanId) return;
+    const item=planItems.find(row=>String(row.id)===String(editingPlanId));
+    if(!confirm(`「${item?.label||'분류'}」를 삭제할까요?\n하위 분류도 모두 삭제됩니다. 기존 거래 내역과 금액은 그대로 유지됩니다.`))return;
     try{await deletePlanItemsSafely([String(editingPlanId)]);}catch(error){alert(error.code?'Could not verify budgets and history. Nothing was deleted.':error.message);}
 }
 
 async function clearPlan() {
-    const blocked=planItems.map(item=>ExpectedBudget.deletionBlockReason(item,activityEntries,planItems)).find(Boolean);
+    const active=planItems.filter(item=>!item.deleted);
+    const blocked=active.map(item=>ExpectedBudget.deletionBlockReason(item,activityEntries,planItems)).find(Boolean);
     if(blocked){alert(blocked+' Clear all is blocked; no budgets were deleted.');return;}
-    if (!confirm('Clear all budget items?')) return;
-    try{await deletePlanItemsSafely(planItems.map(item=>String(item.id)));}catch(error){alert(error.code?'Could not verify budgets and history. Nothing was deleted.':error.message);}
+    if (!confirm('모든 예산 분류와 하위 분류를 삭제할까요? 기존 거래 내역은 유지됩니다.')) return;
+    try{await deletePlanItemsSafely(active.map(item=>String(item.id)));}catch(error){alert(error.code?'Could not verify budgets and history. Nothing was deleted.':error.message);}
 }
 
 async function deletePlanItemsSafely(ids) {
@@ -2401,7 +2376,7 @@ async function deletePlanItemsSafely(ids) {
             if(JSON.stringify(latest)!==JSON.stringify(planItems))throw Error('Budgets changed in another tab. Reload before deleting.');
             const history=JSON.parse(localStorage.getItem(STORAGE_ACTIVITY)||'[]').map(normalizeActivityEntry);
             check(latest,history);
-            const remaining=raw.filter(item=>!ids.includes(String(item.id)));
+            const remaining=raw.flatMap(item=>!ids.includes(String(item.id))?[item]:normalizePlanType(item.type)==='expected'?[ExpectedBudget.removeParent(item)]:[]);
             localStorage.setItem(STORAGE_PLAN_ITEMS,JSON.stringify(remaining));planItems=normalizePlanItems(remaining);
             renderPlan();renderDashboard();updateActivitySourceControls();
         });
@@ -2584,6 +2559,7 @@ function renderReasonOptions() {
     if (!activityReasonList) return;
     const reasons = new Set();
     planItems.forEach(item => {
+        if(item.deleted)return;
         if (item.label) reasons.add(item.label.trim());
     });
     activityEntries.forEach(entry => {
@@ -3036,6 +3012,8 @@ const activityExportForm=document.getElementById('activityExportForm');
 if(activityExportForm){
     const start=document.getElementById('activityExportStart'),end=document.getElementById('activityExportEnd');
     const button=document.getElementById('activityExportBtn'),status=document.getElementById('activityExportStatus');
+    activityExportForm.noValidate=true;
+    const showStatus=(message,state='error')=>{status.textContent=message;status.dataset.state=state;};
     const today=getTodayDateString();
     start.max=today;end.max=today;
     start.value=today.slice(0,7)+'-01';
@@ -3048,31 +3026,29 @@ if(activityExportForm){
         event.preventDefault();
         const limit=getTodayDateString(),from=start.value,to=end.value;
         start.max=limit;end.max=limit;
-        if(from>limit||to>limit){status.textContent='Future dates cannot be exported. Choose today or an earlier date.';return;}
-        if(!activityExportForm.reportValidity())return;
-        button.disabled=true;status.textContent='Preparing your Excel file...';
+        if(from>limit||to>limit){showStatus('미래 날짜는 선택할 수 없습니다. 오늘 또는 이전 날짜를 선택해 주세요.');return;}
+        button.disabled=true;showStatus('엑셀 파일을 준비하고 있어요.','loading');
         try{
             LedgerExport.select([],from,to);
             // Read the entire account collection, independent of visible month/type/list filters.
             let entries=activityEntries;const account=currentUser;
-            if(requireAuthRef&&!account)throw Error('Wait for your account to finish loading.');
+            if(requireAuthRef&&!account)throw Error('계정 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
             if(isRemoteEnabled()){
                 const snapshot=await activityCollection(account).get({source:'server'});
-                if(currentUser?.uid!==account.uid||authApi.auth?.currentUser?.uid!==account.uid)throw Error('Account changed. Reload before exporting.');
+                if(currentUser?.uid!==account.uid||authApi.auth?.currentUser?.uid!==account.uid)throw Error('로그인 계정이 변경됐습니다. 새로고침 후 다시 시도해 주세요.');
                 entries=normalizeActivityEntries(snapshot.docs.map(doc=>({...doc.data(),id:doc.id})));
             }
             const result=LedgerExport.build(entries,from,to,planItems);
             const url=URL.createObjectURL(new Blob([result.bytes],{type:result.mime}));
             const link=document.createElement('a');link.href=url;link.download=result.filename;document.body.append(link);link.click();link.remove();
             setTimeout(()=>URL.revokeObjectURL(url),60000);
-            status.textContent=`Downloaded ${result.count} entries. Start date included; end date not included.`;
-        }catch(error){status.textContent=error.code?'Could not read your saved entries. Check your connection and retry.':error.message;}
+            showStatus(`${result.count}개 내역을 다운로드했습니다. 시작일 포함 · 종료일 제외`,'success');
+        }catch(error){showStatus(error.code?'내역을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.':/[가-힣]/.test(error.message||'')?error.message:'엑셀 파일을 만들지 못했습니다. 새로고침 후 다시 시도해 주세요.');}
         finally{button.disabled=false;}
     });
 }
 
 (function init() {
-    EELedger.init();
     setActivityTypeFilter('all');
     loadActivityListSize();
     applyActivityListSize();
@@ -3086,9 +3062,6 @@ if(activityExportForm){
         });
     }
 
-    loadExchangeRates();
-    renderExchangeSection();
-    fetchExchangeRates();
 
     if (requireAuthRef) {
         renderInvestmentHubOverview();
@@ -3101,7 +3074,6 @@ if(activityExportForm){
 
     loadBalances();
     loadBalanceHistory();
-    loadExchangeHistory();
     loadPlanItems();
     loadActivityEntries();
     loadInvestmentSnapshot();

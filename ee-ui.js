@@ -1,7 +1,7 @@
 (function(root){
     const model=root.ExpectedBudget;
     const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
-    const openEditors=new Set(),openProgress=new Set();let busy=false;
+    let busy=false;
     function notify(error){alert(error.code?'Could not save EE settings. Check your connection and reload.':error.message);}
     async function save(changes){
         if(!eePlansReady||requireAuthRef&&!currentUser)throw Error('Wait for your account budgets to finish loading.');
@@ -41,106 +41,103 @@
             }
         }finally{busy=false;}
     }
-    function remember(details,set,id){details.open=set.has(id);details.addEventListener('toggle',()=>{if(details.isConnected){if(details.open)set.add(id);else set.delete(id);}});}
+    const collapsedEditors=new Set(),collapsedProgress=new Set();
+    function remember(details,set,id){details.open=!set.has(id);details.addEventListener('toggle',()=>{if(details.isConnected){if(details.open)set.delete(id);else set.add(id);}});}
+    const paths={edit:'M16 3l5 5-12 12H4v-5L16 3z M13 6l5 5',delete:'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',plus:'M12 5v14 M5 12h14',close:'M6 6l12 12 M18 6L6 18',check:'M5 12l4 4L19 6',chevron:'M6 9l6 6 6-6'};
+    function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',paths[name]);svg.append(path);return svg;}
+    function button(name,label,handler){const node=el('button',undefined,'ee-icon-button'+(name==='delete'?' ee-delete':''));node.type='button';node.title=label;node.setAttribute('aria-label',label);node.append(icon(name));node.onclick=handler;return node;}
     function addEditor(li,item){
-        if(item.type!=='expected')return;
-        const details=el('details',undefined,'ee-editor');remember(details,openEditors,item.id);
-        details.append(el('summary',`하위 분류 · ${formatCurrency(model.budget(item))}`));
-        const form=el('form'),list=el('div',undefined,'ee-editor-list'),message=el('p',undefined,'ee-help');
-        message.textContent='부모 예산은 활성 하위 예산의 합계입니다. 보관된 분류의 과거 지출은 유지됩니다. 기존 거래는 자동 분류하지 않습니다.';
-        const draft=model.children(item).map(child=>({...child}));
-        function render(){
-            list.replaceChildren();
-            draft.forEach(child=>{
-                const row=el('div',undefined,'ee-edit-row');row.dataset.subcategoryId=child.id;
-                const name=el('input');name.value=child.label;name.required=true;name.maxLength=80;name.setAttribute('aria-label','Subcategory name');
-                const amount=el('input');amount.type='number';amount.min='0';amount.max='1000000';amount.step='.01';amount.required=true;amount.value=child.amount;amount.setAttribute('aria-label','Subcategory monthly budget');
-                name.disabled=amount.disabled=child.archived;
-                name.oninput=()=>child.label=name.value;amount.oninput=()=>child.amount=amount.value;
-                const archive=el('button',child.draft?'Remove draft':child.archived?'Restore':'Archive','ghost-btn');archive.type='button';
-                archive.onclick=()=>{if(child.draft)draft.splice(draft.indexOf(child),1);else child.archived=!child.archived;render();};
-                row.append(name,amount,archive);if(child.archived)row.append(el('small','보관됨 · 월예산 합계에서 제외'));list.append(row);
-            });
+        if(item.type!=='expected'||item.deleted)return;
+        const details=el('details',undefined,'ee-editor');remember(details,collapsedEditors,item.id);
+        const children=model.children(item).filter(child=>!child.archived&&!child.deleted),summary=el('summary');
+        summary.setAttribute('aria-label',item.label+' 하위 항목 접기/펼치기');
+        summary.append(icon('chevron'));details.append(summary);
+        const list=el('div',undefined,'ee-edit-list');
+        async function commit(next){
+            const changed=model.normalize({...item,subcategories:next});
+            await save([changed]);
         }
-        render();
-        const add=el('button','Add subcategory','ghost-btn');add.type='button';
-        add.onclick=()=>{draft.push({id:'sub_'+crypto.randomUUID(),label:'',amount:draft.length?0:item.amount,archived:false,draft:true});render();};
-        const submit=el('button','Save subcategories','primary-btn');submit.type='submit';
-        form.append(message,list,add,submit);
-        form.onsubmit=async event=>{
-            event.preventDefault();if(!form.reportValidity())return;
-            submit.disabled=true;
-            try{
-                const next=model.normalize({...item,subcategories:draft});
-                if(next.amount!==item.amount&&!confirm(`부모 월예산: ${formatCurrency(item.amount)} → ${formatCurrency(next.amount)}. 저장할까요?`))return;
-                await save([next]);
-            }catch(error){notify(error);}finally{submit.disabled=false;}
-        };
-        details.append(form);li.append(details);
+        function edit(child=null,row=null){
+            const form=el('form',undefined,'ee-inline-form');
+            const name=el('input');name.value=child?.label||'';name.required=true;name.maxLength=80;name.placeholder='분류 이름';name.setAttribute('aria-label','하위 분류 이름');
+            const amount=el('input');amount.type='number';amount.min='0';amount.step='.01';amount.required=true;amount.value=child?.amount??(model.children(item).length?0:item.amount);amount.setAttribute('aria-label','하위 분류 월예산');
+            const actions=el('div',undefined,'ee-row-actions');
+            const submit=button('check','저장',()=>form.requestSubmit());
+            const cancel=button('close','취소',()=>{if(row)form.replaceWith(row);else form.remove();});actions.append(submit,cancel);form.append(name,amount,actions);
+            form.onsubmit=async event=>{event.preventDefault();if(!form.reportValidity())return;submit.disabled=true;
+                try{const next={id:child?.id||'sub_'+crypto.randomUUID(),label:name.value,amount:Number(amount.value),archived:false};
+                    await commit(child?model.children(item).map(value=>value.id===child.id?next:value):[...model.children(item),next]);
+                }catch(error){notify(error);submit.disabled=false;}
+            };
+            if(row)row.replaceWith(form);else list.append(form);name.focus();
+        }
+        for(const child of children){
+            const row=el('div',undefined,'ee-child-row');row.dataset.subcategoryId=child.id;
+            const info=el('div',undefined,'ee-child-name');info.append(el('span',child.label),el('small','월예산'));
+            const amount=el('strong',formatCurrency(child.amount),'ee-child-amount'),actions=el('div',undefined,'ee-row-actions');
+            actions.append(button('edit',child.label+' 수정',()=>edit(child,row)),button('delete',child.label+' 삭제',async()=>{
+                if(!confirm(`「${child.label}」 하위 분류를 삭제할까요? 기존 거래 내역은 유지됩니다.`))return;
+                try{await commit(model.children(item).map(value=>value.id===child.id?{...value,deleted:true}:value));}catch(error){notify(error);}
+            }));row.append(info,amount,actions);list.append(row);
+        }
+        if(!children.length)list.append(el('p','아직 하위 분류가 없어요. 필요한 항목만 추가하세요.','ee-empty'));
+        const add=el('button',undefined,'ee-add');add.type='button';add.append(icon('plus'),el('span','하위 분류 추가'));add.onclick=()=>{if(!list.querySelector('.ee-inline-form'))edit();};
+        details.append(list,add);li.append(details);
     }
     function updateSelect(savedEntry=null,reset=false){
         const field=document.getElementById('activitySubcategoryField'),select=document.getElementById('activitySubcategory');
         const enabled=activitySourceTypeSelect.value==='expected';field.hidden=!enabled;select.disabled=!enabled;
-        const parent=planItems.find(item=>item.id===activityLinkedItemSelect.value&&item.type==='expected');
+        const parent=planItems.find(item=>item.id===activityLinkedItemSelect.value&&item.type==='expected'&&!item.deleted);
         const oldId=savedEntry?.subcategoryId||(!reset&&select.dataset.parent===parent?.id?select.value:'');
         select.replaceChildren();const empty=el('option','미분류');empty.value='';select.append(empty);
         const child=model.children(parent||{}).find(child=>child.id===oldId);
-        for(const entry of model.children(parent||{}).filter(child=>!child.archived)){
+        for(const entry of model.children(parent||{}).filter(child=>!child.archived&&!child.deleted)){
             const option=el('option',`${entry.label} (${formatCurrency(entry.amount)})`);option.value=entry.id;select.append(option);
         }
         const editing=editingActivityId&&activityEntries.find(entry=>String(entry.id)===String(editingActivityId));
-        if(oldId&&(child?.archived||!child)&&editing?.subcategoryId===oldId){const option=el('option',model.subcategoryLabel(editing,planItems));option.value=oldId;select.append(option);}
+        if(oldId&&(child?.archived||child?.deleted||!child)&&editing?.subcategoryId===oldId){const option=el('option',model.subcategoryLabel(editing,planItems));option.value=oldId;select.append(option);}
         select.value=oldId||'';if(select.selectedIndex<0)select.value='';select.dataset.parent=parent?.id||'';
     }
     function assignment(parent,editing){
         const id=document.getElementById('activitySubcategory').value;
         if(!parent||parent.type!=='expected')return {subcategoryId:id&&editing?.subcategoryId===id?id:'',subcategoryLabel:id&&editing?.subcategoryId===id?editing.subcategoryLabel||'':''};
         const child=model.children(parent).find(child=>child.id===id);
-        if(id&&(!child||child.archived)&&!(editing?.subcategoryId===id&&model.resolve(editing,planItems)?.id===parent.id))throw Error('Choose an active subcategory.');
+        if(id&&(!child||child.archived||child.deleted)&&!(editing?.subcategoryId===id&&model.resolve(editing,planItems)?.id===parent.id))throw Error('사용 가능한 하위 분류를 선택해 주세요.');
         return {subcategoryId:id,subcategoryLabel:child?.label||(id?editing?.subcategoryLabel:'')||''};
     }
-    function metric(row){
-        const box=el('div',undefined,'ee-metric'),planned=row.planned,actual=row.actual;
-        const ratio=planned>0?actual/planned:null,over=planned!==null&&actual>planned;
-        box.classList.toggle('ee-over',over);box.classList.toggle('ee-warning',!over&&ratio>=.8);
-        box.append(el('strong',row.label+(row.archived?' (보관됨)':'')));
-        const reference=selectedSummaryRange!=='month';
-        const periodLabel=selectedSummaryRange==='week'?'선택 주간 사용액':selectedSummaryRange==='year'?'선택 연간 사용액':'선택 월 사용액';
-        const difference=planned===null?'예산 미지정':over?`월예산 기준 ${formatCurrency(actual-planned)} 초과`:reference?`월예산 기준 차액 ${formatCurrency(planned-actual)}`:`${ratio>=.8?'주의 · ':''}${formatCurrency(planned-actual)} 남음`;
-        box.append(el('span',`월예산${reference?' (기준값)':''} ${planned===null?'없음':formatCurrency(planned)} · ${periodLabel} ${formatCurrency(actual)} · ${difference} · 월예산 대비 ${ratio!==null?(ratio*100).toFixed(1)+'%':planned===0&&actual>0?'예산 없이 지출':'—'}`));
-        if(planned!==null){const bar=el('progress');bar.max=Math.max(planned,actual,1);bar.value=actual;bar.setAttribute('aria-label',row.label+' spending');box.append(bar);}
+    function metric(row,parent=false,income=false){
+        const box=el('div',undefined,'ee-metric'+(parent?' ee-parent-metric':'')),planned=row.planned,actual=row.actual,ratio=planned>0?actual/planned:null,over=planned!==null&&actual>planned;
+        box.classList.toggle('ee-over',!income&&over);box.classList.toggle('ee-warning',!income&&!over&&ratio>=.8);
+        const name=el('div',undefined,'ee-metric-name');name.append(el('strong',row.label+(row.deleted?' · 삭제됨':row.archived?' · 이전 분류':'')));
+        const delta=income?(planned===null?'입금 합계':over?'예상보다 '+formatCurrency(actual-planned)+' 더 입금':formatCurrency(planned-actual)+' 입금 예정'):planned===null?'예산 미지정':over?formatCurrency(actual-planned)+' 초과':formatCurrency(planned-actual)+' 남음';if(!parent)name.append(el('small',delta,'ee-delta'));
+        const amount=el('div',undefined,'ee-metric-amount');amount.append(el('strong',formatCurrency(actual)),el('small',planned===null?(income?'비정기 수입':'예산 없음'):'/ '+formatCurrency(planned)+(income?' 예상 수입':' 월예산')));
+        box.append(name,amount);
+        if(planned!==null&&parent){const bar=el('progress');bar.max=Math.max(planned,actual,1);bar.value=actual;bar.setAttribute('aria-label',row.label+(income?' 수입 달성률':' 예산 사용률'));box.append(bar,el('small',delta+' · '+(ratio===null?'—':(ratio*100).toFixed(0)+'%'),'ee-percent'));}
         return box;
     }
     function renderProgress(container,entries){
         container.replaceChildren();
         for(const parent of planItems.filter(item=>item.type==='expected')){
-            const row=model.breakdown(parent,entries,planItems),details=el('details',undefined,'ee-progress-parent');remember(details,openProgress,parent.id);
-            const summary=el('summary');summary.append(metric(row));details.append(summary);
-            for(const child of row.children)details.append(metric(child));container.append(details);
+            const row=model.breakdown(parent,entries,planItems);
+            if(parent.deleted&&!row.actual)continue;
+            const details=el('details',undefined,'ee-progress-parent');remember(details,collapsedProgress,parent.id);
+            const summary=el('summary');summary.append(metric({...row,planned:parent.deleted?null:row.planned,deleted:parent.deleted},true),icon('chevron'));details.append(summary);
+            const children=el('div',undefined,'ee-progress-children');
+            for(const child of row.children){if((child.deleted||child.archived||child.id==='__unclassified__')&&!child.actual)continue;children.append(metric({...child,planned:parent.deleted||child.deleted?null:child.planned}));}
+            if(!children.childElementCount)children.append(el('p','이번 기간의 사용 내역이 없어요.','ee-empty'));
+            details.append(children);container.append(details);
         }
         const review=entries.filter(entry=>entry.type==='expense'&&entry.sourceType==='expected'&&!model.resolve(entry,planItems));
-        if(review.length){container.append(metric({label:'확인 필요 · 연결되지 않은 EE',planned:null,actual:review.reduce((sum,entry)=>sum+model.effective(entry),0)/100}));}
+        if(review.length)container.append(metric({label:'확인 필요',planned:null,actual:review.reduce((sum,entry)=>sum+model.effective(entry),0)/100}));
+        if(!container.childElementCount)container.append(el('p','예상 지출을 추가하면 여기에서 사용 내역을 볼 수 있어요.','ee-empty'));
     }
-    function init(){
-        document.getElementById('eeTemplatePreviewBtn').onclick=()=>{
-            if(!eePlansReady){alert('Wait for your budgets to finish loading.');return;}
-            const original=JSON.stringify(planItems);
-            const panel=document.getElementById('eeTemplatePreview');panel.replaceChildren();
-            const rows=model.preview(planItems),choices={};let invalid=false;
-            for(const row of rows){
-                const box=el('label',undefined,'ee-template-row');
-                box.append(el('span',`${row.template.label}: ${row.existing?formatCurrency(row.existing.amount):'새 항목'} → 권장 ${formatCurrency(row.template.amount)}`));
-                if(row.conflict){box.append(el('strong','중복 부모가 있습니다. 먼저 확인하세요.'));invalid=true;}
-                else if(row.existing&&model.hierarchical(row.existing))box.append(el('span','이미 설정된 하위 분류 유지'));
-                else if(row.existing){const select=el('select');for(const [value,label] of [['keep','기존 부모 예산 유지 (하위에 비례 배분)'],['recommended','권장 예산 적용']]){const option=el('option',label);option.value=value;select.append(option);}select.onchange=()=>choices[row.template.id]=select.value;box.append(select);}
-                else box.append(el('span','권장 기본값으로 추가'));
-                panel.append(box);
-            }
-            panel.append(el('p','기존 부모 ID는 유지됩니다. 기존 거래는 변경되지 않습니다. 기타 사용자 EE 항목도 그대로 유지됩니다.','ee-help'));
-            const apply=el('button','Apply reviewed template','primary-btn');apply.type='button';apply.disabled=invalid;
-            apply.onclick=async()=>{if(JSON.stringify(planItems)!==original){alert('Budgets changed. Review the template again before applying.');return;}if(!confirm('검토한 EE 예산 템플릿만 적용할까요? 거래·고정지출·수입·은행 잔액은 변경하지 않습니다.'))return;apply.disabled=true;try{await save(model.applyTemplate(planItems,choices));panel.replaceChildren();}catch(error){notify(error);}finally{apply.disabled=invalid;}};
-            panel.append(apply);
-        };
+    function renderSimpleProgress(container,rows,type){
+        container.replaceChildren();
+        for(const row of rows){
+            const card=el('div',undefined,'ee-progress-parent ee-simple-progress');
+            card.append(metric(row,true,['income','unexpected_income'].includes(type)));container.append(card);
+        }
+        if(!rows.length)container.append(el('p','이번 기간에 표시할 내역이 없어요.','ee-empty'));
     }
-    root.EELedger={addEditor,updateSelect,assignment,renderProgress,init,save};
+    root.EELedger={addEditor,updateSelect,assignment,renderProgress,renderSimpleProgress,save,parentEditButton:(item,handler)=>button('edit',item.label+' 상위 분류 수정',handler)};
 })(globalThis);
