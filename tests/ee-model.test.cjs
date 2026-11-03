@@ -1,13 +1,14 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),EE=require('../ee-model.js'),Export=require('../ee-export.js');
 const plans=()=>EE.applyTemplate([]);
 const entry=(parent,amount,child='',extra={})=>({id:'e',date:'2026-11-01',type:'expense',sourceType:'expected',linkedPlanItemId:parent.id,reason:parent.label,amount,subcategoryId:child,...extra});
-test('hierarchical EE parents cannot be deleted, including empty and archived-only children',()=>{
+test('EE deletion hides parents and children without orphaning historical records',()=>{
  const parent=plans()[0];
  for(const subcategories of [parent.subcategories,[],parent.subcategories.map(child=>({...child,archived:true}))]){
-  assert.match(EE.deletionBlockReason({...parent,subcategories},[],[parent]),/cannot be deleted/);
+  assert.equal(EE.deletionBlockReason({...parent,subcategories},[],[parent]),'');
+  const removed=EE.removeParent({...parent,subcategories});assert.equal(removed.deleted,true);assert.equal(EE.budget(removed),0);assert.ok(removed.subcategories.every(child=>child.deleted));
  }
  const flat={id:'old',type:'expected',label:'쇼핑',amount:450};
- for(const record of [entry(flat,1),{type:'expense',sourceType:'expected',reason:'개인쇼핑',amount:1}])assert.match(EE.deletionBlockReason(flat,[record],[flat]),/historical/);
+ for(const record of [entry(flat,1),{type:'expense',sourceType:'expected',reason:'개인쇼핑',amount:1}])assert.equal(EE.deletionBlockReason(flat,[record],[flat]),'');
  assert.equal(EE.deletionBlockReason(flat,[],[flat]),'');
  for(const type of ['fixed','income','unexpected_income']){
   assert.match(EE.deletionBlockReason({...flat,type},[entry(flat,1)],[flat]),/historical/);
@@ -61,7 +62,7 @@ test('archived categories retain historical labels and spending but do not alloc
  const rows=plans(),parent=rows[0],child=parent.subcategories[0],record=entry(parent,100,child.id);
  const updated=EE.normalize({...parent,subcategories:parent.subcategories.map(row=>row.id===child.id?{...row,archived:true}:row)});
  rows[0]=updated;const result=EE.breakdown(updated,[record],rows);
- assert.equal(result.planned,70);assert.equal(result.children[0].actual,100);assert.equal(result.children[0].planned,0);assert.match(EE.subcategoryLabel(record,rows),/보관됨/);
+ assert.equal(result.planned,70);assert.equal(result.children[0].actual,100);assert.equal(result.children[0].planned,0);assert.match(EE.subcategoryLabel(record,rows),/이전 분류/);
  assert.equal(EE.breakdown(updated,[{...record,subcategoryId:'missing'}],rows).children.at(-1).actual,100);
 });
 test('weekly/monthly/yearly windows reuse the same stored parent and child budgets without new scaling',()=>{

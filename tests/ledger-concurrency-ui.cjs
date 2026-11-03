@@ -33,8 +33,9 @@ const base=process.env.MOBILE_TEST_URL||'http://127.0.0.1:8006';
     const [saved,deleted]=[await a.evaluate(()=>window.result),await b.evaluate(()=>window.result)];
     const data=await a.evaluate(()=>({plans:JSON.parse(localStorage.ledgerPlanItems),entries:JSON.parse(localStorage.ledgerActivity)}));
     if(first==='save'){
-     assert.equal(saved.ok,true);assert.match(deleted.error,/historical/);assert.equal(data.entries[0].linkedPlanItemId,'parent');assert.equal(data.plans.find(row=>row.id==='parent').customMetadata,'keep');
-    }else{assert.equal(deleted.ok,true);assert.match(saved.error,/budget was deleted/);assert.equal(data.entries.length,0);assert.equal(data.plans.some(row=>row.id==='parent'),false);}
+     assert.equal(saved.ok,true);if(type==='expected'){assert.equal(deleted.ok,true);assert.equal(data.plans.find(row=>row.id==='parent').deleted,true);}else assert.match(deleted.error,/historical/);
+     assert.equal(data.entries[0].linkedPlanItemId,'parent');assert.equal(data.plans.find(row=>row.id==='parent').customMetadata,'keep');
+    }else{assert.equal(deleted.ok,true);assert.match(saved.error,/budget was deleted/);assert.equal(data.entries.length,0);assert.equal(data.plans.some(row=>row.id==='parent'&&!row.deleted),false);}
     console.log(name+' '+type+' '+first+' first: actual app, two tabs, no broken link PASS');
    }
    await fixture('expected');await a.evaluate(()=>{localStorage.ledgerPlanItems=JSON.stringify(JSON.parse(localStorage.ledgerPlanItems).filter(row=>row.id!=='parent'));});
@@ -42,7 +43,8 @@ const base=process.env.MOBILE_TEST_URL||'http://127.0.0.1:8006';
    assert.match(imported,/budget was deleted/);assert.equal(await a.evaluate(()=>JSON.parse(localStorage.ledgerActivity).length),0);
    await fixture('expected');await a.evaluate(()=>{localStorage.ledgerActivity=JSON.stringify([{id:'legacy-invalid',reason:'',amount:0,linkedPlanItemId:'parent'}]);});
    const protectedHistory=await a.evaluate(()=>deletePlanItemsSafely(['parent']).then(()=>null,error=>error.message));
-   assert.match(protectedHistory,/historical/,'even records excluded from visible amount/reason filters retain their parent');
+   assert.equal(protectedHistory,null);assert.equal(await a.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='parent').deleted),true);
+   assert.equal(await a.evaluate(()=>JSON.parse(localStorage.ledgerActivity)[0].linkedPlanItemId),'parent','invisible legacy records keep their historical parent reference');
    assert.deepEqual(errors,[]);console.log(name+': stale TXT batch fails all-or-nothing PASS');
   }finally{await browser.close();}
  }

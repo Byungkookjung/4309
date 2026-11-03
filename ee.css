@@ -1,10 +1,68 @@
-.ee-editor{grid-column:1/-1;min-width:0;padding-top:10px;border-top:1px solid #d4dfc3}
-.ee-editor summary,.ee-progress-parent>summary{cursor:pointer;min-height:44px;padding:8px 0}
-.ee-editor form{display:grid;gap:10px}.ee-help{font-size:.85rem;line-height:1.6;color:#61734f}
-.ee-edit-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(80px,110px) auto;gap:8px;margin:8px 0;align-items:center}
-.ee-edit-row small{grid-column:1/-1}.ee-edit-row input,.ee-template-row select{min-width:0;width:100%;box-sizing:border-box;min-height:44px;padding:8px;border:1px solid #bfcdaa;border-radius:10px;background:#fffef6;color:#30422a;font:inherit}
-.ee-template-row{display:grid;gap:8px;padding:12px 0}.ee-metric{display:grid;gap:6px;padding:10px 12px;min-width:0;overflow-wrap:anywhere}
-.ee-metric span{font-size:.85rem;line-height:1.6}.ee-metric progress{width:100%;height:10px;accent-color:#648745}.ee-warning{background:#fff4d8}.ee-over{background:#ffe8e5;color:#903e3e}.ee-over progress{accent-color:#b94d4d}
-.ee-progress-parent{border:1px solid #d4dfc3;border-radius:12px;margin:10px 0;overflow:hidden}.ee-progress-parent>summary{padding:0}.ee-progress-parent>.ee-metric{margin-left:12px;border-top:1px solid #e2e8d7}
-#eeProgressRows{grid-column:1/-1;min-width:0}#activitySubcategoryField[hidden]{display:none!important}
-@media(max-width:600px){.ee-edit-row{grid-template-columns:minmax(0,1fr) 90px}.ee-edit-row button{grid-column:1/-1}.ee-editor .primary-btn{white-space:normal}}
+/* Compact pond-paper cards, shared by budget setup and spending progress. */
+:root{--ee-ink:#30452c;--ee-muted:#75806a;--ee-line:#dce5cb;--ee-leaf:#557d39;--ee-soft:#f0f5e4}
+.ee-editor{grid-column:1/-1;min-width:0;margin:0 0 0 24px;border:0;color:var(--ee-ink);position:relative}
+.ee-editor summary,.ee-progress-parent>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;min-height:40px}
+.ee-editor summary::-webkit-details-marker,.ee-progress-parent>summary::-webkit-details-marker{display:none}
+.ee-editor summary>svg,.ee-progress-parent>summary>svg{width:16px;height:16px;flex:none;fill:none;stroke:var(--ee-leaf);stroke-width:1.8;transition:transform .18s}
+.ee-editor[open]>summary>svg,.ee-progress-parent[open]>summary>svg{transform:rotate(180deg)}
+.ee-editor>summary{position:absolute;left:-24px;top:7px;width:24px;min-height:24px;justify-content:center}
+.ee-editor:not([open]){min-height:30px}
+.ee-edit-list{display:grid;gap:1px}.ee-child-row{display:grid;grid-template-columns:minmax(0,1fr) auto 68px;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dotted var(--ee-line);min-width:0}
+.ee-child-name{min-width:0;display:grid;gap:2px}.ee-child-name span{font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:var(--ee-ink)}
+.ee-child-name small{font-size:9px;color:var(--ee-muted)}.ee-child-amount{font-size:12px;font-variant-numeric:tabular-nums;color:var(--ee-leaf);white-space:nowrap}
+.ee-row-actions{display:flex;justify-content:flex-end;gap:3px}.ledger-body .ee-icon-button{display:inline-grid;place-items:center;width:31px;min-width:31px;height:32px;min-height:32px;padding:7px;border:0;border-radius:9px;box-shadow:none;background:transparent;color:var(--ee-leaf)}
+.ee-icon-button svg,.ee-add svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ledger-body .ee-icon-button:hover{background:#e6efd7}.ledger-body .ee-icon-button.ee-delete{color:#a66d5c}.ledger-body .ee-icon-button.ee-delete:hover{background:#f9e8df}
+.ledger-body .ee-icon-button::after,.ledger-body .ee-add::after{display:none!important}
+.ledger-body .ee-add{display:flex;align-items:center;gap:6px;margin:10px 0 2px;padding:7px 9px;border:1px dashed #c8d8b2;border-radius:9px;background:var(--ee-soft);box-shadow:none;color:var(--ee-leaf);font:inherit;font-size:11px;font-weight:800;min-height:34px}
+.ee-inline-form{display:grid;grid-template-columns:minmax(0,1fr) 88px 68px;gap:6px;align-items:center;margin:7px 0;padding:8px;border-radius:12px;background:#edf3df;min-width:0}
+.ee-inline-form input{width:100%;min-width:0;box-sizing:border-box;padding:8px;border:1px solid #cbd8b7;border-radius:8px;background:#fffef9;font:inherit;font-size:12px;color:var(--ee-ink);min-height:36px}
+.ee-empty,.ee-help{color:var(--ee-muted);font-size:11px;line-height:1.6}.ee-empty{padding:10px 2px;margin:0}
+#eeProgressRows,#fixedProgressRows,#incomeProgressRows,#unexpectedIncomeProgressRows{grid-column:1/-1;min-width:0;display:grid;gap:6px;padding:2px 0}#activitySubcategoryField[hidden]{display:none!important}
+.ee-simple-progress{padding:0 10px}
+.ee-progress-parent{min-width:0;border:1px solid var(--ee-line);border-radius:15px;background:#fff;overflow:hidden;box-shadow:0 3px 10px #40522b04}
+.ee-progress-parent>summary{padding:0 10px;background:#fff;gap:8px}
+.ee-metric{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:5px 12px;padding:9px 12px;min-width:0;position:relative;font-variant-numeric:tabular-nums}
+.ee-parent-metric{flex:1;padding:6px 0;gap:3px 8px}.ee-metric-name{display:grid;min-width:0;gap:3px}.ee-metric-name strong{font-size:12px;line-height:1.5;overflow-wrap:anywhere;font-weight:700;color:var(--ee-ink)}
+.ee-parent-metric .ee-metric-name strong{font-size:13px;font-weight:900;padding-left:20px;background:url('frog-mark.svg') left center/14px no-repeat}
+.ee-metric .ee-delta{font-size:10px;color:var(--ee-muted)}.ee-metric-amount{text-align:right;display:flex;align-items:baseline;justify-content:flex-end;gap:5px;white-space:nowrap}.ee-metric-amount strong{font-size:13px;font-weight:900;color:var(--ee-ink)}.ee-metric-amount small{font-size:9px;color:var(--ee-muted)}
+.ee-metric progress{grid-column:1/-1;width:100%;height:4px;border:0;border-radius:5px;overflow:hidden;accent-color:#87a95d;background:#e7eddc}.ee-metric progress::-webkit-progress-bar{background:#e7eddc;border-radius:5px}.ee-metric progress::-webkit-progress-value{background:#87a95d;border-radius:5px}.ee-percent{grid-column:1/-1;text-align:right;font-size:9px;color:var(--ee-muted)}
+.ee-parent-metric progress{grid-column:1;grid-row:2;align-self:center;height:3px;margin:0}.ee-parent-metric .ee-percent{grid-column:2;grid-row:2;line-height:1.3;white-space:nowrap}
+.ee-progress-children{margin:0 10px 3px 18px;border-left:2px solid #e4ebd5}.ee-progress-children .ee-metric+.ee-metric{border-top:1px dotted #e2e8d7}
+.ee-over .ee-delta,.ee-over .ee-metric-amount strong{color:#ac5447}.ee-over progress{accent-color:#c47b65}.ee-over progress::-webkit-progress-value{background:#c47b65}.ee-warning .ee-delta{color:#96763c}
+.ledger-body .summary-progress-table-wrap{border:1px solid var(--ee-line);border-radius:18px;background:#fffef8;box-shadow:0 5px 18px #4d642a05}
+.ledger-body .summary-progress-table-title{padding:16px 18px 13px 44px;background:#edf3de url('frog-mark.svg') 18px center/17px no-repeat;color:var(--ee-ink);font-size:15px;border-bottom:1px solid var(--ee-line)}
+#budgetProgressPeriodNote{margin:0;padding:10px 16px;font-size:10px;line-height:1.6;background:#fafbf3}
+.ledger-body .summary-progress-head{background:#f1f5e8}.ledger-body .summary-progress-head span{color:#738269;font-size:10px;text-transform:none;letter-spacing:0}
+.ledger-body .summary-progress-row>span{padding:11px 10px;border-color:#e7ecdd;font-size:12px;overflow-wrap:anywhere}
+.ledger-body .summary-progress-row.selected,.ledger-body .summary-progress-detail-row{background:var(--ee-soft);box-shadow:none;border-color:var(--ee-line)}
+.ledger-body .summary-progress-row:not(.summary-progress-head):hover{background:#edf3df}.ledger-body .summary-progress-detail-row{padding:8px 12px 12px}
+.ledger-body .summary-progress-row.selected:hover{background:var(--ee-soft)}
+.ledger-body .plan-detail-card.plan-detail-inline{border:0;background:transparent;box-shadow:none;padding:0}.ledger-body .plan-detail-header h3{font-size:12px;color:var(--ee-leaf)}
+#planDetailTable:has(#eeProgressRows,#fixedProgressRows,#incomeProgressRows,#unexpectedIncomeProgressRows)>.plan-detail-head{display:none}
+#activityExportStatus[data-state=error]{color:#b52e35!important;font-weight:700;font-size:13px;line-height:1.6}
+#activityExportStatus[data-state=success]{color:var(--ee-leaf);font-size:12px}
+@media(max-width:600px){.ee-inline-form{grid-template-columns:minmax(0,1fr) 82px}.ee-inline-form .ee-row-actions{grid-column:1/-1}.ledger-body .summary-progress-row{grid-template-columns:minmax(60px,1.15fr) repeat(4,minmax(0,1fr))}.ledger-body .summary-progress-row>span{font-size:10px;padding:10px 5px}.ledger-body .summary-progress-head>span{font-size:9px}.ee-progress-children{margin-left:14px;margin-right:8px}.ee-metric{padding:8px}.ee-metric-name strong{font-size:11px}.ee-metric-amount strong{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.ee-editor summary>svg,.ee-progress-parent>summary>svg{transition:none}}
+.ledger-body :is(#expectedPlanList,#fixedPlanList,#incomePlanList) .ledger-plan-item{grid-template-columns:minmax(0,1fr) auto 34px;padding:14px 12px;gap:8px;background:#fff;border-color:var(--ee-line)}
+.ledger-body :is(#expectedPlanList,#fixedPlanList,#incomePlanList) .plan-label{grid-column:auto;font-size:14px;font-weight:800;overflow-wrap:anywhere;color:var(--ee-ink)}
+.ledger-body :is(#expectedPlanList,#fixedPlanList,#incomePlanList) :is(.plan-amount,.plan-income-amount){grid-column:auto;color:var(--ee-leaf);font-size:14px;font-weight:900;font-variant-numeric:tabular-nums}
+.ledger-body .expense-sheet-header:is(.expected,.fixed,.income){background:#fff;color:var(--ee-leaf);border-color:var(--ee-line)}
+.ledger-body .expense-sheet:has(#expectedPlanList,#fixedPlanList,#incomePlanList),.ledger-body .expense-sheet:has(#expectedPlanList,#fixedPlanList,#incomePlanList) .expense-sheet-total{background:#fff}
+.ledger-body .summary-progress-label>span{padding:0!important;border:0!important;color:var(--ee-ink);font-size:inherit!important}
+.ledger-body .summary-progress-label{display:flex;gap:6px;align-items:center;justify-content:space-between;min-width:0}
+.ee-progress-children .ee-delta{display:none}.ee-progress-children .ee-metric{padding:5px 8px}
+.ledger-body .plan-detail-header .summary-range-label{background:#e7efd7;border-color:#d3dfbd;color:#607c47;font-size:10px}
+
+/* All ledger sections share the same outer/inner card hierarchy. */
+.ledger-body .ledger-card{background:var(--ee-soft);border:1px solid var(--ee-line);border-radius:18px;box-shadow:0 5px 18px #40522b05}
+.ledger-body :is(.balance-card,.budget-overview-card,.investment-hub-summary-card,.expense-sheet,.ledger-history-item,.ledger-activity-item,.summary-chart,.summary-progress-table-wrap,.totals-row){background:#fff;border-color:var(--ee-line);border-radius:15px;box-shadow:0 3px 10px #40522b04}
+.ledger-body .ledger-activity-item.selected{border-color:#8ea870;box-shadow:0 0 0 2px #e0ebd2}
+.ledger-body .activity-import-card{padding:14px;border:1px solid var(--ee-line);border-radius:15px;background:#fff;box-shadow:0 3px 10px #40522b04}
+.ledger-body :is(.balance-title,.budget-overview-label,.investment-hub-summary-label,.summary-chart-title){color:var(--ee-muted)}
+.ledger-body :is(.balance-value,.budget-overview-value,.investment-hub-summary-value):not(.negative):not(.positive):not(.deficit){color:var(--ee-ink)}
+.ledger-body .expense-summary-row span{background:#fff;border-color:var(--ee-line)}
+.ee-parent-metric .ee-metric-amount strong{font-size:20px;line-height:1.2}
+.ee-parent-metric .ee-metric-amount small{font-size:13px;line-height:1.2}
+@media(max-width:600px){.ee-parent-metric{padding:6px 0}.ee-parent-metric .ee-metric-name strong{font-size:12px;padding-left:16px;background-size:12px}.ee-parent-metric .ee-metric-amount strong{font-size:17px}.ee-parent-metric .ee-metric-amount small{font-size:10.5px}}
+@media(max-width:360px){.ee-progress-parent>summary{padding:0 7px;gap:3px}}

@@ -15,8 +15,12 @@ test('archived/missing children are allowed only on unchanged historical assignm
  assert.doesNotThrow(()=>M.validateEntries([entry],[entry],[plan],['e']));
  assert.throws(()=>M.validateEntries([{...entry,subcategoryId:'missing'}],[entry],[plan],['e']),/subcategory is unavailable/);
 });
-test('all referenced budgets are protected but unused FE/EI budgets remain removable',()=>{
- for(const type of ['expected','fixed','income']){
+test('referenced FE/EI budgets stay protected; EE uses history-preserving deletion',()=>{
+ assert.doesNotThrow(()=>M.checkDeletion(['p'],[parent],[record]));
+ const removed=EE.removeParent(parent);
+ assert.throws(()=>M.validateEntries([record],[],[removed]),/budget was deleted/);
+ assert.doesNotThrow(()=>M.validateEntries([record],[record],[removed],['e']));
+ for(const type of ['fixed','income']){
   assert.throws(()=>M.checkDeletion(['p'],[{...parent,type}],[{...record,sourceType:type}]),/historical/);
   assert.doesNotThrow(()=>M.checkDeletion(['p'],[{...parent,type}],[]));
  }
