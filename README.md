@@ -337,3 +337,7 @@ Changing a repeat rule or its start/end dates preserves completed occurrences on
 - Daily (`일상`) appears first in task groups, category management and category selectors; other categories retain their order.
 - All logout buttons require confirmation; cancel keeps the current session.
 - Verification: 30 Node tests, Chrome/WebKit planner and calendar checks, plus mobile dashboard responsive/auth/offline tests passed using isolated fixtures.
+
+## Integrated EE, Excel and Activity Layout Validation
+
+The review integration branch is `integration/ee-excel-layout`. See [INTEGRATION_VALIDATION.md](INTEGRATION_VALIDATION.md) for the concurrency protocol, preserved source work, combined test commands and production rollout restrictions. No merge or deployment is authorized by the test results.

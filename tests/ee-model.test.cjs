@@ -9,7 +9,10 @@ test('hierarchical EE parents cannot be deleted, including empty and archived-on
  const flat={id:'old',type:'expected',label:'쇼핑',amount:450};
  for(const record of [entry(flat,1),{type:'expense',sourceType:'expected',reason:'개인쇼핑',amount:1}])assert.match(EE.deletionBlockReason(flat,[record],[flat]),/historical/);
  assert.equal(EE.deletionBlockReason(flat,[],[flat]),'');
- for(const type of ['fixed','income','unexpected_income'])assert.equal(EE.deletionBlockReason({...flat,type},[entry(flat,1)],[flat]),'');
+ for(const type of ['fixed','income','unexpected_income']){
+  assert.match(EE.deletionBlockReason({...flat,type},[entry(flat,1)],[flat]),/historical/);
+  assert.equal(EE.deletionBlockReason({...flat,type},[],[flat]),'');
+ }
 });
 test('template has the exact six parents, eighteen defaults and CAD 2000, derived from children',()=>{
  const rows=plans();assert.deepEqual(rows.map(row=>row.amount),[420,500,120,450,230,280]);assert.equal(rows.reduce((sum,row)=>sum+row.amount,0),2000);

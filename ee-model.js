@@ -51,11 +51,11 @@
         return entry.subcategoryId&&entry.subcategoryLabel?entry.subcategoryLabel+' (확인 필요)':'미분류';
     }
     function deletionBlockReason(plan,entries,plans){
-        if(plan?.type!=='expected')return '';
+        if(!plan)return '';
         if(hierarchical(plan))return 'EE parents with subcategories cannot be deleted. Archive subcategories instead to preserve historical relationships.';
-        const referenced=entries.some(entry=>entry.type==='expense'&&entry.sourceType==='expected'&&(
-            String(entry.linkedPlanItemId||'')===String(plan.id)||resolve(entry,plans)?.id===plan.id||canonical(entry.linkedPlanItemLabel||entry.reason)===canonical(plan.label)));
-        return referenced?'This EE parent is referenced by historical transactions and cannot be deleted.':'';
+        const referenced=entries.some(entry=>String(entry.linkedPlanItemId||'')===String(plan.id)||entry.sourceType===plan.type&&(
+            plan.type==='expected'?resolve(entry,plans)?.id===plan.id||canonical(entry.linkedPlanItemLabel||entry.reason)===canonical(plan.label):key(entry.linkedPlanItemLabel||entry.reason)===key(plan.label)));
+        return referenced?'This budget is referenced by historical transactions and cannot be deleted.':'';
     }
     function allocate(children,total){
         const target=cents(total),weight=children.reduce((sum,child)=>sum+cents(child.amount),0);

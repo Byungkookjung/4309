@@ -55,7 +55,7 @@ const entries=[{id:'history',date:'2026-11-10',type:'expense',sourceType:'expect
    await page.locator('#closePlanBtn').click();
    await page.locator('#activityList [data-id="history"]').getByRole('button',{name:'Edit activity entry'}).click();
    assert.equal(await page.locator('#activityLinkedItem').inputValue(),'shop');assert.equal(await page.locator('#activitySubcategory').inputValue(),'');
-   await page.locator('#activitySubcategory').selectOption('ee_shopping_1');await page.locator('#addActivityBtn').click();
+   await page.locator('#activitySubcategory').selectOption('ee_shopping_1');await page.locator('#addActivityBtn').click();await page.waitForFunction(()=>!editingActivityId);
    let history=await page.evaluate(()=>JSON.parse(localStorage.ledgerActivity).find(row=>row.id==='history'));
    assert.equal(history.reason,'쇼핑');assert.equal(history.detail,'Sephora original');assert.equal(history.amount,80);assert.equal(history.isShared,true);assert.equal(history.subcategoryId,'ee_shopping_1');
    await page.locator('#budgetProgressRows [data-plan-type="expected"]').click();await page.locator('#eeProgressRows').waitFor();
@@ -80,22 +80,24 @@ const entries=[{id:'history',date:'2026-11-10',type:'expense',sourceType:'expect
    await page.locator('#openPlanBtn').click();let editor=page.locator('#expectedPlanList [data-id="shop"] .ee-editor');
    await editor.locator('summary').click();await editor.locator('[data-subcategory-id="ee_shopping_1"]').getByRole('button',{name:'Archive',exact:true}).click();
    await editor.getByRole('button',{name:'Save subcategories',exact:true}).click();
+   await page.waitForFunction(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').subcategories.find(row=>row.id==='ee_shopping_1').archived);
    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').subcategories.find(row=>row.id==='ee_shopping_1').archived),true);
    await page.reload();await page.locator('#activityList [data-id="history"]').waitFor();assert.match(await page.locator('#activityList [data-id="history"]').textContent(),/보관됨/);
    await page.locator('#activitySourceType').selectOption('expected');await page.locator('#activityLinkedItem').selectOption('shop');
    assert.equal(await page.locator('#activitySubcategory option[value="ee_shopping_1"]').count(),0,'archived category not offered on new entries');
    await page.locator('#activityList [data-id="history"]').getByRole('button',{name:'Edit activity entry'}).click();assert.equal(await page.locator('#activitySubcategory').inputValue(),'ee_shopping_1');
-   await page.locator('#activitySubcategory').selectOption('ee_shopping_0');await page.locator('#addActivityBtn').click();
+   await page.locator('#activitySubcategory').selectOption('ee_shopping_0');await page.locator('#addActivityBtn').click();await page.waitForFunction(()=>!editingActivityId);
    assert.equal(await page.evaluate(()=>ExpectedBudget.breakdown(planItems.find(row=>row.id==='shop'),activityEntries,planItems).children.find(row=>row.id==='ee_shopping_1').actual),0);
    await page.locator('#activityList [data-id="history"]').getByRole('button',{name:'Delete activity entry'}).click();
+   await page.waitForFunction(()=>!activityEntries.some(row=>row.id==='history'));
    assert.equal(await page.evaluate(()=>ExpectedBudget.breakdown(planItems.find(row=>row.id==='shop'),activityEntries,planItems).actual),0);
    await page.locator('#openPlanBtn').click();editor=page.locator('#expectedPlanList [data-id="shop"] .ee-editor');if(!await editor.evaluate(node=>node.open))await editor.locator('summary').click();
    await editor.getByRole('button',{name:'Add subcategory',exact:true}).click();let last=editor.locator('.ee-edit-row').last();await last.getByLabel('Subcategory name').fill('Custom 🐸');await last.getByLabel('Subcategory monthly budget').fill('12.34');await editor.getByRole('button',{name:'Save subcategories',exact:true}).click();
-   saved=await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems));assert.equal(saved.find(row=>row.id==='shop').amount,362.34);
+   await page.waitForFunction(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').amount===362.34);saved=await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems));assert.equal(saved.find(row=>row.id==='shop').amount,362.34);
    editor=page.locator('#expectedPlanList [data-id="shop"] .ee-editor');if(!await editor.evaluate(node=>node.open))await editor.locator('summary').click();
    last=editor.locator('.ee-edit-row').last();await last.getByLabel('Subcategory name').fill('Renamed custom');
    await editor.locator('[data-subcategory-id="ee_shopping_1"]').getByRole('button',{name:'Restore',exact:true}).click();await editor.getByRole('button',{name:'Save subcategories',exact:true}).click();
-   saved=await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems));assert.equal(saved.find(row=>row.id==='shop').amount,462.34);assert.equal(saved.find(row=>row.id==='shop').subcategories.at(-1).label,'Renamed custom');
+   await page.waitForFunction(()=>JSON.parse(localStorage.ledgerPlanItems).find(row=>row.id==='shop').amount===462.34);saved=await page.evaluate(()=>JSON.parse(localStorage.ledgerPlanItems));assert.equal(saved.find(row=>row.id==='shop').amount,462.34);assert.equal(saved.find(row=>row.id==='shop').subcategories.at(-1).label,'Renamed custom');
    await page.locator('#closePlanBtn').click();
    for(const width of [320,390,600,1024,1440]){
     await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,name+' overflow '+width);

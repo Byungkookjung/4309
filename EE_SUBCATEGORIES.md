@@ -1,5 +1,7 @@
 # Expected Expense Subcategories
 
+Integration update: `integration/ee-excel-layout` deliberately includes the previously separate Excel/layout changes. See `INTEGRATION_VALIDATION.md` for the concurrency correction, complete combined validation and the limits of the ownership-only security rules. The historical feature-branch notes below describe the original isolated implementation; the original dirty worktree is still untouched.
+
 ## Scope and Safety
 
 This feature extends Expected Expenses only. It adds no virtual envelopes, bank balance adjustments, credit cards, or automatic merchant classification. FE, EI and UI budgeting arithmetic is unchanged.

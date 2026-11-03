@@ -29,13 +29,15 @@
                     transaction.set(revision,{version:Number(revisionDoc.data()?.version||0)+1});
                 });
             }else{
-                const stored=JSON.parse(localStorage.getItem(STORAGE_PLAN_ITEMS)||'[]');
-                if(signature(normalizePlanItems(stored))!==signature(previous))throw Error('This budget changed in another tab. Reload before saving.');
-                // Merge into raw local records so untouched FE/EI and custom metadata stay byte-equivalent as objects.
-                const updated=stored.map(item=>{const change=changes.find(change=>change.id===String(item.id));return change?{...item,...change}:item;});
-                for(const item of changes)if(!updated.some(plan=>String(plan.id)===item.id))updated.push(item);
-                localStorage.setItem(STORAGE_PLAN_ITEMS,JSON.stringify(updated));planItems=normalizePlanItems(updated);
-                renderPlan();renderDashboard();renderActivity();updateActivitySourceControls();
+                await LedgerMutations.withLocalLock(()=>{
+                    const stored=JSON.parse(localStorage.getItem(STORAGE_PLAN_ITEMS)||'[]');
+                    if(signature(normalizePlanItems(stored))!==signature(previous))throw Error('This budget changed in another tab. Reload before saving.');
+                    // Merge into raw local records so untouched FE/EI and custom metadata stay byte-equivalent as objects.
+                    const updated=stored.map(item=>{const change=changes.find(change=>change.id===String(item.id));return change?{...item,...change}:item;});
+                    for(const item of changes)if(!updated.some(plan=>String(plan.id)===item.id))updated.push(item);
+                    localStorage.setItem(STORAGE_PLAN_ITEMS,JSON.stringify(updated));planItems=normalizePlanItems(updated);
+                    renderPlan();renderDashboard();renderActivity();updateActivitySourceControls();
+                });
             }
         }finally{busy=false;}
     }

@@ -1765,17 +1765,9 @@ function loadPlanItems() {
     planItems = normalizePlanItems(raw ? JSON.parse(raw) : []);
 }
 
-function savePlanItems() {
-    localStorage.setItem(STORAGE_PLAN_ITEMS, JSON.stringify(planItems));
-}
-
 function loadActivityEntries() {
     const raw = localStorage.getItem(STORAGE_ACTIVITY);
     activityEntries = normalizeActivityEntries(raw ? JSON.parse(raw) : []);
-}
-
-function saveActivityEntries() {
-    localStorage.setItem(STORAGE_ACTIVITY, JSON.stringify(activityEntries));
 }
 
 function loadInvestmentSnapshot() {
@@ -2370,20 +2362,14 @@ async function addPlanItem() {
         return;
     }
 
-    if (editingPlanId) {
-        planItems = planItems.map(item => {
-            if (item.id === editingPlanId) {
-                return { ...item, ...payload };
-            }
-            return item;
-        });
-    } else {
-        planItems.push({
-            id: Date.now().toString(),
-            ...payload
-        });
-    }
-    savePlanItems();
+    const id=editingPlanId?String(editingPlanId):crypto.randomUUID();
+    try{await LedgerMutations.withLocalLock(()=>{
+        const stored=JSON.parse(localStorage.getItem(STORAGE_PLAN_ITEMS)||'[]');
+        if(JSON.stringify(normalizePlanItems(stored))!==JSON.stringify(planItems))throw Error('Budgets changed in another tab. Reload before saving.');
+        const updated=stored.map(raw=>String(raw.id)===id?{...raw,...payload}:raw);
+        if(!updated.some(raw=>String(raw.id)===id))updated.push({id,...payload});
+        localStorage.setItem(STORAGE_PLAN_ITEMS,JSON.stringify(updated));planItems=normalizePlanItems(updated);
+    });}catch(error){alert(error.message);return;}
     exitEditMode();
     renderPlan();
     renderDashboard();
@@ -2403,43 +2389,52 @@ async function clearPlan() {
 }
 
 async function deletePlanItemsSafely(ids) {
-    const check=(plans,entries)=>{
-        for(const id of ids){
-            const item=plans.find(plan=>String(plan.id)===id);
-            if(!item)throw Error('A budget changed. Reload before deleting.');
-            const blocked=ExpectedBudget.deletionBlockReason(item,entries,plans);if(blocked)throw Error(blocked);
-        }
-    };
+    const check=LedgerMutations.checkDeletion.bind(null,ids);
     check(planItems,activityEntries);
     if(requireAuthRef&&!currentUser)throw Error('Wait for your account to finish loading.');
     if(isRemoteEnabled()){
-        const user=currentUser;
-        const latest=await planCollection(user).get({source:'server'});
-        const plans=normalizePlanItems(latest.docs.map(doc=>({id:doc.id,...doc.data()})));
-        const history=await activityCollection(user).get({source:'server'});
-        const entries=normalizeActivityEntries(history.docs.map(doc=>({id:doc.id,...doc.data()})));
-        check(plans,entries);
-        await dbRef.runTransaction(async transaction=>{
-            if(authApi.auth?.currentUser?.uid!==user.uid)throw Error('Account changed. Nothing was deleted.');
-            const docs=[];for(const id of ids)docs.push(await transaction.get(planCollection(user).doc(id)));
-            const current=docs.map(doc=>doc.exists?normalizePlanItem({id:doc.id,...doc.data()}):null);
-            check(current.filter(Boolean),entries);
-            for(const item of current){
-                if(JSON.stringify(item)!==JSON.stringify(plans.find(plan=>plan.id===item.id)))throw Error('A budget changed while deleting. Reload and review it.');
-            }
-            for(const id of ids)transaction.delete(planCollection(user).doc(id));
-        });
+        await LedgerMutations.deleteRemote(mutationStore(currentUser),ids);
     }else{
-        const raw=JSON.parse(localStorage.getItem(STORAGE_PLAN_ITEMS)||'[]');
-        const latest=normalizePlanItems(raw);
-        if(JSON.stringify(latest)!==JSON.stringify(planItems))throw Error('Budgets changed in another tab. Reload before deleting.');
-        const history=normalizeActivityEntries(JSON.parse(localStorage.getItem(STORAGE_ACTIVITY)||'[]'));
-        check(latest,history);
-        const remaining=raw.filter(item=>!ids.includes(String(item.id)));
-        localStorage.setItem(STORAGE_PLAN_ITEMS,JSON.stringify(remaining));planItems=normalizePlanItems(remaining);
-        renderPlan();renderDashboard();updateActivitySourceControls();
+        await LedgerMutations.withLocalLock(()=>{
+            const raw=JSON.parse(localStorage.getItem(STORAGE_PLAN_ITEMS)||'[]');
+            const latest=normalizePlanItems(raw);
+            if(JSON.stringify(latest)!==JSON.stringify(planItems))throw Error('Budgets changed in another tab. Reload before deleting.');
+            const history=JSON.parse(localStorage.getItem(STORAGE_ACTIVITY)||'[]').map(normalizeActivityEntry);
+            check(latest,history);
+            const remaining=raw.filter(item=>!ids.includes(String(item.id)));
+            localStorage.setItem(STORAGE_PLAN_ITEMS,JSON.stringify(remaining));planItems=normalizePlanItems(remaining);
+            renderPlan();renderDashboard();updateActivitySourceControls();
+        });
     }
     exitEditMode();
+}
+
+function mutationStore(user){
+    const rows=snapshot=>snapshot.docs.map(doc=>({...doc.data(),id:doc.id}));
+    return {
+        revision:dbRef.collection('users').doc(user.uid).collection('ledgerSettings').doc('eeRevision'),
+        normalizePlan:normalizePlanItem,
+        plan:id=>planCollection(user).doc(id),entry:id=>activityCollection(user).doc(id),
+        listPlans:async()=>normalizePlanItems(rows(await planCollection(user).get({source:'server'}))),
+        listEntries:async()=>rows(await activityCollection(user).get({source:'server'})).map(normalizeActivityEntry),
+        transaction:callback=>dbRef.runTransaction(callback),
+        assertAccount(){if(currentUser?.uid!==user.uid||authApi.auth?.currentUser?.uid!==user.uid)throw Error('Account changed. Nothing was saved or deleted.');}
+    };
+}
+
+async function saveEntriesSafely(entries,editingIds=[]){
+    if(requireAuthRef&&!currentUser)throw Error('Wait for your account to finish loading.');
+    if(isRemoteEnabled())return LedgerMutations.saveRemote(mutationStore(currentUser),entries,editingIds);
+    await LedgerMutations.withLocalLock(()=>{
+        const raw=JSON.parse(localStorage.getItem(STORAGE_ACTIVITY)||'[]');
+        const plans=normalizePlanItems(JSON.parse(localStorage.getItem(STORAGE_PLAN_ITEMS)||'[]'));
+        LedgerMutations.validateEntries(entries,normalizeActivityEntries(raw),plans,editingIds);
+        const ids=new Set(entries.map(row=>String(row.id)));
+        const updated=raw.map(row=>ids.has(String(row.id))?entries.find(entry=>String(entry.id)===String(row.id)):row);
+        for(const entry of entries)if(!raw.some(row=>String(row.id)===String(entry.id)))updated.push(entry);
+        localStorage.setItem(STORAGE_ACTIVITY,JSON.stringify(updated));activityEntries=normalizeActivityEntries(updated);
+        renderActivity();
+    });
 }
 
 async function addActivityEntry() {
@@ -2491,7 +2486,7 @@ async function addActivityEntry() {
     const entry = {
         ...editingEntry,
         ...subcategory,
-        id: editingActivityId || Date.now().toString(),
+        id: editingActivityId || crypto.randomUUID(),
         date,
         type,
         amount: Number(amount.toFixed(2)),
@@ -2507,18 +2502,8 @@ async function addActivityEntry() {
 
     setStoredActivityDate(date);
 
-    if (isRemoteEnabled()) {
-        await activityCollection(currentUser).doc(entry.id).set(entry);
-        resetActivityForm();
-        return;
-    }
-
-    if (editingActivityId) {
-        activityEntries = activityEntries.map(item => String(item.id) === String(editingActivityId) ? entry : item);
-    } else {
-        activityEntries.push(entry);
-    }
-    saveActivityEntries();
+    try{await saveEntriesSafely([entry],editingActivityId?[String(editingActivityId)]:[]);}
+    catch(error){alert(error.code?'Could not verify budgets and save the transaction. Nothing was saved.':error.message);return;}
     resetActivityForm();
     renderActivity();
 }
@@ -2540,18 +2525,8 @@ async function importActivityEntriesFromText() {
         return;
     }
 
-    if (isRemoteEnabled()) {
-        const batch = dbRef.batch();
-        importedEntries.forEach(entry => {
-            const ref = activityCollection(currentUser).doc(entry.id);
-            batch.set(ref, entry);
-        });
-        await batch.commit();
-    } else {
-        activityEntries = normalizeActivityEntries([...activityEntries, ...importedEntries]);
-        saveActivityEntries();
-        renderActivity();
-    }
+    try{await saveEntriesSafely(importedEntries);}
+    catch(error){setActivityImportStatus(error.code?'Could not verify budgets and import. Nothing was saved.':error.message,'error');return;}
 
     setStoredActivityDate(importedEntries[importedEntries.length - 1].date);
     setActivityImportStatus(`Imported ${importedEntries.length} entr${importedEntries.length === 1 ? 'y' : 'ies'}.`, 'success');
@@ -2595,11 +2570,13 @@ async function deleteActivityEntry(id) {
         }
         return;
     }
-    activityEntries = activityEntries.filter(item => item.id !== id);
+    try{await LedgerMutations.withLocalLock(()=>{
+        const raw=JSON.parse(localStorage.getItem(STORAGE_ACTIVITY)||'[]').filter(item=>String(item.id)!==String(id));
+        localStorage.setItem(STORAGE_ACTIVITY,JSON.stringify(raw));activityEntries=normalizeActivityEntries(raw);
+    });}catch(error){alert(error.message);return;}
     if (String(editingActivityId) === String(id)) {
         resetActivityForm();
     }
-    saveActivityEntries();
     renderActivity();
 }
 
