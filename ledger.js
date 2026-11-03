@@ -3055,6 +3055,45 @@ document.querySelectorAll('.exchange-swap-btn').forEach(button => {
     button.addEventListener('click', () => swapExchangePair(button.dataset.pair));
 });
 
+const activityExportForm=document.getElementById('activityExportForm');
+if(activityExportForm){
+    const start=document.getElementById('activityExportStart'),end=document.getElementById('activityExportEnd');
+    const button=document.getElementById('activityExportBtn'),status=document.getElementById('activityExportStatus');
+    const today=getTodayDateString();
+    start.max=today;end.max=today;
+    start.value=today.slice(0,7)+'-01';
+    end.value=today;
+    if(start.value===end.value){
+        const previous=new Date(today+'T12:00:00Z');previous.setUTCMonth(previous.getUTCMonth()-1);
+        start.value=previous.toISOString().slice(0,7)+'-01';
+    }
+    activityExportForm.addEventListener('submit',async event=>{
+        event.preventDefault();
+        const limit=getTodayDateString(),from=start.value,to=end.value;
+        start.max=limit;end.max=limit;
+        if(from>limit||to>limit){status.textContent='Future dates cannot be exported. Choose today or an earlier date.';return;}
+        if(!activityExportForm.reportValidity())return;
+        button.disabled=true;status.textContent='Preparing your Excel file...';
+        try{
+            LedgerExport.select([],from,to);
+            // Read the entire account collection, independent of visible month/type/list filters.
+            let entries=activityEntries;const account=currentUser;
+            if(requireAuthRef&&!account)throw Error('Wait for your account to finish loading.');
+            if(isRemoteEnabled()){
+                const snapshot=await activityCollection(account).get({source:'server'});
+                if(currentUser?.uid!==account.uid||authApi.auth?.currentUser?.uid!==account.uid)throw Error('Account changed. Reload before exporting.');
+                entries=normalizeActivityEntries(snapshot.docs.map(doc=>({...doc.data(),id:doc.id})));
+            }
+            const result=LedgerExport.build(entries,from,to,planItems);
+            const url=URL.createObjectURL(new Blob([result.bytes],{type:result.mime}));
+            const link=document.createElement('a');link.href=url;link.download=result.filename;document.body.append(link);link.click();link.remove();
+            setTimeout(()=>URL.revokeObjectURL(url),60000);
+            status.textContent=`Downloaded ${result.count} entries. Start date included; end date not included.`;
+        }catch(error){status.textContent=error.code?'Could not read your saved entries. Check your connection and retry.':error.message;}
+        finally{button.disabled=false;}
+    });
+}
+
 (function init() {
     EELedger.init();
     setActivityTypeFilter('all');

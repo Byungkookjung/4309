@@ -96,6 +96,7 @@ Main tools and companion views:
 - Fixed expense, expected expense, and expected income planning
 - Activity tracking with category-linked budget items
 - TXT import with validation, preview, shorthand support, and refresh after import
+- Excel Activity Export sits directly below TXT Activity Import. Select an inclusive start and exclusive end date (November 1 to December 1 exports November only); future dates are disabled, and the default is the current month start through today (exclusive), or the previous month on the first day of a month. Download a real `.xlsx` workbook with Activity and Summary sheets, numeric dates/amounts, reasons, details, budget links, shared-expense original/my-share amounts and totals. Export ignores the visible activity filters, reads signed-in records from the server, and builds the file locally without sending data to any conversion service. User text is stored as spreadsheet text, never executed as a formula.
 - TXT imports require FE/EE/EI names to match an existing budget item in that type. Matching ignores case and extra spaces, supports multiword names, and stores the linked item ID. Unknown or ambiguous names block the entire import with a line-numbered error. UI/CE remain unlinked, free-text entries.
 - Budget progress breakdowns
 - Investment tracker

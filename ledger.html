@@ -304,6 +304,17 @@
                         <div id="activityImportBudgetHints" class="activity-import-budget-hints"></div>
                     </div>
                 </section>
+            <section id="activityExportSection" class="activity-import-card activity-export-card" aria-labelledby="activityExportTitle">
+                <h3 id="activityExportTitle">Excel Activity Export</h3>
+                <p class="muted">Download all income and expenses in your selected period as an Excel (.xlsx) file. Dates, amounts, reasons, details and shared expenses are included.</p>
+                <form id="activityExportForm" class="activity-export-grid">
+                    <div class="field"><label for="activityExportStart">Start date (included)</label><input id="activityExportStart" type="date" required /></div>
+                    <div class="field"><label for="activityExportEnd">End date (not included)</label><input id="activityExportEnd" type="date" required /></div>
+                    <button id="activityExportBtn" class="primary-btn" type="submit">Download Excel</button>
+                </form>
+                <p class="activity-export-help">Only today or earlier dates can be selected. The end date is not included, so today's unfinished day is excluded when it is selected. Once November ends, choose November 1 to December 1 for November only. The file includes Activity and Summary sheets in CAD, with original and my-share amounts.</p>
+                <p id="activityExportStatus" role="status" aria-live="polite"></p>
+            </section>
             </section>
 
             <section id="exchangeSection" class="ledger-card exchange-card hidden">
@@ -517,6 +528,7 @@
             }
         })();
     </script>
+    <script src="ledger-export.js?v=20261102"></script>
     <script src="ee-model.js?v=20261102"></script>
     <script src="ee-ui.js?v=20261102"></script>
     <script src="ledger.js?v=20261102-ee"></script>
