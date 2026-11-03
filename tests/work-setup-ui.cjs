@@ -28,7 +28,7 @@ const base=process.env.MOBILE_TEST_URL||'http://localhost:8000';
   assert.equal(pay.monthlyPayDay,'15');assert.equal(pay.monthlyPayMonth,1);
   const expected=await page.evaluate(()=>{const now=new Date();return new Date(now.getFullYear(),now.getMonth()+1,15).toLocaleDateString('en-CA');});
   assert.equal(await page.locator('#payoutDate').inputValue(),expected);
-  await page.evaluate(jobs=>{for(const [i,job] of jobs.entries())localStorage.setItem('weeklySheetPayouts'+job.suffix,JSON.stringify([{id:'p'+i,date:'2026-10-25',amount:100+i}]));},profile.jobs);
+  await page.evaluate(jobs=>{const now=new Date(),date=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;for(const [i,job] of jobs.entries())localStorage.setItem('weeklySheetPayouts'+job.suffix,JSON.stringify([{id:'p'+i,date,amount:100+i}]));},profile.jobs);
   await page.reload();await page.locator('#combinedPayoutStats').filter({hasText:'$303.00'}).waitFor();
   await page.locator('#switchJobBtn').click();await page.locator('#currentJobName').filter({hasText:'Shop'}).waitFor();
   await page.locator('#switchJobBtn').click();await page.locator('#currentJobName').filter({hasText:'Office'}).waitFor();

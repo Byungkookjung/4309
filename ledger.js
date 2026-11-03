@@ -140,6 +140,7 @@ const authApi = window.__ledgerAuth || {};
 const requireAuthRef = authApi.requireAuth;
 const dbRef = authApi.db;
 let currentUser = null;
+let eePlansReady=!requireAuthRef;
 let balancesUnsub = null;
 let balanceHistoryUnsub = null;
 let exchangeHistoryUnsub = null;
@@ -212,6 +213,7 @@ function startLedgerSync(user) {
 
     planUnsub = planCollection(user).onSnapshot(snapshot => {
         planItems = normalizePlanItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        eePlansReady=true;
         renderPlan();
         renderDashboard();
         updateActivitySourceControls();
@@ -465,8 +467,13 @@ function parseActivityImportEntryLine(line, currentDate, lineNumber) {
     let linkedItem = null;
     if ([PLAN_TYPES.fixed, PLAN_TYPES.expected, PLAN_TYPES.income].includes(config.sourceType)) {
         // Match the longest complete budget name; the remaining text is the detail.
-        const matches = getPlanItemsByType(config.sourceType).map(item => {
-            const name = item.label.trim().split(/\s+/).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
+        const candidates=getPlanItemsByType(config.sourceType).flatMap(item=>{
+            if(config.sourceType!=='expected')return [{item,label:item.label}];
+            const template=ExpectedBudget.template.find(row=>ExpectedBudget.canonical(row.label)===ExpectedBudget.canonical(item.label));
+            return [...new Set([item.label,...(template?[template.label,...template.aliases]:[])])].map(label=>({item,label}));
+        });
+        const matches = candidates.map(({item,label}) => {
+            const name = label.trim().split(/\s+/).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
             const match = rawReasonDetail.match(new RegExp(`^${name}(?=\\s|$)`, 'i'));
             return match ? { item, length: match[0].length } : null;
         }).filter(Boolean).sort((a, b) => b.length - a.length);
@@ -811,6 +818,7 @@ function syncActivitySharedControls() {
 }
 
 function resetActivityForm() {
+    const subcategory=document.getElementById('activitySubcategory');if(subcategory)subcategory.value='';
     editingActivityId = null;
     if (activityDateInput) activityDateInput.value = getPreferredActivityDate();
     if (activityAmountInput) activityAmountInput.value = '';
@@ -967,6 +975,15 @@ function buildBudgetProgressRows() {
 
 function renderBudgetProgressTable() {
     if (!budgetProgressRows) return;
+    const note=document.getElementById('budgetProgressPeriodNote');
+    if(note){
+        const {range,now,startOfWeek,endOfWeek}=getSelectedRangeContext();
+        const key=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+        const last=new Date(endOfWeek);last.setDate(last.getDate()-1);
+        const period=range==='week'?`${key(startOfWeek)} to ${key(last)}`:range==='year'?`${now.getFullYear()} (year)`:`${now.getFullYear()}-${String(selectedSummaryMonth).padStart(2,'0')} (month)`;
+        note.textContent=`Spending period: ${period}. Monthly plan is one monthly reference budget. ${range==='month'?'Actuals, percentages and differences compare this month with its monthly plan.':'Week/year budgets are not prorated or multiplied. Percentages and differences compare selected-period actuals with ONE monthly plan, not a weekly/yearly allowance.'}`;
+        note.dataset.range=range;
+    }
     const rows = buildBudgetProgressRows();
     budgetProgressRows.innerHTML = '';
 
@@ -998,6 +1015,7 @@ function renderBudgetProgressTable() {
 }
 
 function getActivityAmountForPlanItem(item) {
+    if(item.type===PLAN_TYPES.expected)return ExpectedBudget.breakdown(item,getEntriesInSelectedRange(),planItems).actual;
     const targetType = isIncomePlanType(item.type) ? 'income' : 'expense';
     return getEntriesInSelectedRange().reduce((sum, entry) => {
         if (entry.type !== targetType) return sum;
@@ -1074,6 +1092,10 @@ function renderPlanDetail() {
     planDetailCard.classList.remove('hidden');
     planDetailRows.innerHTML = '';
 
+    if(selectedPlanDetailType===PLAN_TYPES.expected){
+        const hierarchy=document.createElement('div');hierarchy.id='eeProgressRows';
+        EELedger.renderProgress(hierarchy,getEntriesInSelectedRange());planDetailRows.append(hierarchy);return;
+    }
     if (rows.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'plan-detail-empty';
@@ -1510,18 +1532,19 @@ function normalizeActivitySourceType(value) {
 }
 
 function normalizePlanItem(item) {
-    return {
+    return ExpectedBudget.normalize({
         id: String(item.id || Date.now()),
         type: normalizePlanType(item.type),
         label: String(item.label || '').trim(),
-        amount: Number(Number(item.amount || 0).toFixed(2))
-    };
+        amount: Number(Number(item.amount || 0).toFixed(2)),
+        ...(normalizePlanType(item.type)==='expected'&&Array.isArray(item.subcategories)?{subcategories:item.subcategories}:{})
+    });
 }
 
 function normalizePlanItems(items) {
     return (items || [])
         .map(normalizePlanItem)
-        .filter(item => item.label && item.amount > 0);
+        .filter(item => item.label && (item.amount > 0||ExpectedBudget.hierarchical(item)));
 }
 
 function normalizeActivityEntry(entry) {
@@ -1742,17 +1765,9 @@ function loadPlanItems() {
     planItems = normalizePlanItems(raw ? JSON.parse(raw) : []);
 }
 
-function savePlanItems() {
-    localStorage.setItem(STORAGE_PLAN_ITEMS, JSON.stringify(planItems));
-}
-
 function loadActivityEntries() {
     const raw = localStorage.getItem(STORAGE_ACTIVITY);
     activityEntries = normalizeActivityEntries(raw ? JSON.parse(raw) : []);
-}
-
-function saveActivityEntries() {
-    localStorage.setItem(STORAGE_ACTIVITY, JSON.stringify(activityEntries));
 }
 
 function loadInvestmentSnapshot() {
@@ -1875,6 +1890,7 @@ function renderPlanBucket(listEl, items, amountClass = 'plan-amount') {
         li.appendChild(amount);
         li.appendChild(editBtn);
         listEl.appendChild(li);
+        EELedger.addEditor(li,item);
     });
 }
 
@@ -1917,8 +1933,9 @@ function populateActivityLinkedItems(savedEntry = null) {
     const savedLabel = selection?.linkedPlanItemLabel || selection?.reason || '';
     const normalizeLabel = value => String(value || '').trim().toLocaleLowerCase();
     const matches = savedLabel ? items.filter(item => normalizeLabel(item.label) === normalizeLabel(savedLabel)) : [];
-    const selectedItem = items.find(item => String(item.id) === String(selection?.linkedPlanItemId))
-        || (matches.length === 1 ? matches[0] : null);
+    const selectedItem = sourceType==='expected'&&selection
+        ? ExpectedBudget.resolve({type:'expense',sourceType:'expected',...selection,reason:savedLabel},planItems)
+        : items.find(item => String(item.id) === String(selection?.linkedPlanItemId)) || (matches.length === 1 ? matches[0] : null);
 
     activityLinkedItemSelect.innerHTML = '';
     activityLinkedItemSelect.dataset.sourceType = sourceType;
@@ -1978,6 +1995,7 @@ function updateActivitySourceControls(savedEntry = null) {
     activityReasonInput.parentElement?.classList.toggle('is-disabled', !canWriteReason);
 
     populateActivityLinkedItems(savedEntry);
+    EELedger.updateSelect(savedEntry);
 
     if (usingLinkedItem) {
         activityReasonInput.value = activityLinkedItemSelect.selectedOptions[0]?.dataset.label || '';
@@ -2043,6 +2061,9 @@ function renderActivity() {
                 detail.className = 'activity-detail';
                 detail.textContent = entry.detail;
                 meta.insertBefore(detail, meta.lastElementChild);
+            }
+            if(entry.type==='expense'&&entry.sourceType==='expected'){
+                const sub=document.createElement('div');sub.className='activity-detail';sub.textContent=ExpectedBudget.subcategoryLabel(entry,planItems)+(ExpectedBudget.resolve(entry,planItems)?'':' · 부모 분류 확인 필요');meta.insertBefore(sub,meta.lastElementChild);
             }
 
             if (entry.isShared) {
@@ -2284,10 +2305,13 @@ function enterEditMode(id) {
     if (planTypeSelect) planTypeSelect.value = item.type;
     planItemInput.value = item.label;
     planAmountInput.value = Number(item.amount || 0).toFixed(2);
+    planAmountInput.readOnly=ExpectedBudget.hierarchical(item);
     addPlanItemBtn.textContent = 'Update item';
     if (removePlanItemBtn) {
         removePlanItemBtn.classList.remove('hidden');
-        removePlanItemBtn.disabled = false;
+        const reason=ExpectedBudget.deletionBlockReason(item,activityEntries,planItems);
+        removePlanItemBtn.disabled = Boolean(reason);
+        removePlanItemBtn.title=reason||'Remove budget item';
     }
 }
 
@@ -2296,6 +2320,7 @@ function exitEditMode() {
     if (planTypeSelect) planTypeSelect.value = PLAN_TYPES.fixed;
     planItemInput.value = '';
     planAmountInput.value = '';
+    planAmountInput.readOnly=false;
     addPlanItemBtn.textContent = 'Add item';
     if (removePlanItemBtn) {
         removePlanItemBtn.disabled = true;
@@ -2307,12 +2332,13 @@ async function addPlanItem() {
     const type = planTypeSelect ? normalizePlanType(planTypeSelect.value) : PLAN_TYPES.expected;
     const label = planItemInput.value.trim();
     const amount = parseFloat(planAmountInput.value);
+    const previous=planItems.find(item=>item.id===editingPlanId);
 
     if (!label) {
         alert('Please enter an item name.');
         return;
     }
-    if (isNaN(amount) || amount <= 0) {
+    if (isNaN(amount) || amount < 0 || amount===0&&!ExpectedBudget.hierarchical(previous||{})) {
         alert('Please enter a valid amount greater than 0.');
         return;
     }
@@ -2322,6 +2348,12 @@ async function addPlanItem() {
         label,
         amount: Number(amount.toFixed(2))
     };
+    if(type==='expected'){
+        if(planItems.some(item=>item.type==='expected'&&item.id!==editingPlanId&&ExpectedBudget.canonical(item.label)===ExpectedBudget.canonical(label))){alert('An EE parent with this name or alias already exists.');return;}
+        if(previous&&ExpectedBudget.hierarchical(previous)){
+            await EELedger.save([{...previous,label}]).catch(error=>alert(error.message));exitEditMode();return;
+        }
+    }else if(previous&&ExpectedBudget.hierarchical(previous)){alert('An EE parent with subcategories cannot be converted to another budget type.');return;}
 
     if (isRemoteEnabled()) {
         const id = editingPlanId ? String(editingPlanId) : Date.now().toString();
@@ -2330,20 +2362,14 @@ async function addPlanItem() {
         return;
     }
 
-    if (editingPlanId) {
-        planItems = planItems.map(item => {
-            if (item.id === editingPlanId) {
-                return { ...item, ...payload };
-            }
-            return item;
-        });
-    } else {
-        planItems.push({
-            id: Date.now().toString(),
-            ...payload
-        });
-    }
-    savePlanItems();
+    const id=editingPlanId?String(editingPlanId):crypto.randomUUID();
+    try{await LedgerMutations.withLocalLock(()=>{
+        const stored=JSON.parse(localStorage.getItem(STORAGE_PLAN_ITEMS)||'[]');
+        if(JSON.stringify(normalizePlanItems(stored))!==JSON.stringify(planItems))throw Error('Budgets changed in another tab. Reload before saving.');
+        const updated=stored.map(raw=>String(raw.id)===id?{...raw,...payload}:raw);
+        if(!updated.some(raw=>String(raw.id)===id))updated.push({id,...payload});
+        localStorage.setItem(STORAGE_PLAN_ITEMS,JSON.stringify(updated));planItems=normalizePlanItems(updated);
+    });}catch(error){alert(error.message);return;}
     exitEditMode();
     renderPlan();
     renderDashboard();
@@ -2352,35 +2378,63 @@ async function addPlanItem() {
 
 async function removeEditingPlanItem() {
     if (!editingPlanId) return;
-    if (isRemoteEnabled()) {
-        await planCollection(currentUser).doc(String(editingPlanId)).delete();
-        exitEditMode();
-        return;
-    }
-    planItems = planItems.filter(item => item.id !== editingPlanId);
-    savePlanItems();
-    exitEditMode();
-    renderPlan();
-    renderDashboard();
-    updateActivitySourceControls();
+    try{await deletePlanItemsSafely([String(editingPlanId)]);}catch(error){alert(error.code?'Could not verify budgets and history. Nothing was deleted.':error.message);}
 }
 
 async function clearPlan() {
+    const blocked=planItems.map(item=>ExpectedBudget.deletionBlockReason(item,activityEntries,planItems)).find(Boolean);
+    if(blocked){alert(blocked+' Clear all is blocked; no budgets were deleted.');return;}
     if (!confirm('Clear all budget items?')) return;
-    if (isRemoteEnabled()) {
-        const batch = dbRef.batch();
-        planItems.forEach(item => {
-            const ref = planCollection(currentUser).doc(String(item.id));
-            batch.delete(ref);
+    try{await deletePlanItemsSafely(planItems.map(item=>String(item.id)));}catch(error){alert(error.code?'Could not verify budgets and history. Nothing was deleted.':error.message);}
+}
+
+async function deletePlanItemsSafely(ids) {
+    const check=LedgerMutations.checkDeletion.bind(null,ids);
+    check(planItems,activityEntries);
+    if(requireAuthRef&&!currentUser)throw Error('Wait for your account to finish loading.');
+    if(isRemoteEnabled()){
+        await LedgerMutations.deleteRemote(mutationStore(currentUser),ids);
+    }else{
+        await LedgerMutations.withLocalLock(()=>{
+            const raw=JSON.parse(localStorage.getItem(STORAGE_PLAN_ITEMS)||'[]');
+            const latest=normalizePlanItems(raw);
+            if(JSON.stringify(latest)!==JSON.stringify(planItems))throw Error('Budgets changed in another tab. Reload before deleting.');
+            const history=JSON.parse(localStorage.getItem(STORAGE_ACTIVITY)||'[]').map(normalizeActivityEntry);
+            check(latest,history);
+            const remaining=raw.filter(item=>!ids.includes(String(item.id)));
+            localStorage.setItem(STORAGE_PLAN_ITEMS,JSON.stringify(remaining));planItems=normalizePlanItems(remaining);
+            renderPlan();renderDashboard();updateActivitySourceControls();
         });
-        await batch.commit();
-        return;
     }
-    planItems = [];
-    savePlanItems();
-    renderPlan();
-    renderDashboard();
-    updateActivitySourceControls();
+    exitEditMode();
+}
+
+function mutationStore(user){
+    const rows=snapshot=>snapshot.docs.map(doc=>({...doc.data(),id:doc.id}));
+    return {
+        revision:dbRef.collection('users').doc(user.uid).collection('ledgerSettings').doc('eeRevision'),
+        normalizePlan:normalizePlanItem,
+        plan:id=>planCollection(user).doc(id),entry:id=>activityCollection(user).doc(id),
+        listPlans:async()=>normalizePlanItems(rows(await planCollection(user).get({source:'server'}))),
+        listEntries:async()=>rows(await activityCollection(user).get({source:'server'})).map(normalizeActivityEntry),
+        transaction:callback=>dbRef.runTransaction(callback),
+        assertAccount(){if(currentUser?.uid!==user.uid||authApi.auth?.currentUser?.uid!==user.uid)throw Error('Account changed. Nothing was saved or deleted.');}
+    };
+}
+
+async function saveEntriesSafely(entries,editingIds=[]){
+    if(requireAuthRef&&!currentUser)throw Error('Wait for your account to finish loading.');
+    if(isRemoteEnabled())return LedgerMutations.saveRemote(mutationStore(currentUser),entries,editingIds);
+    await LedgerMutations.withLocalLock(()=>{
+        const raw=JSON.parse(localStorage.getItem(STORAGE_ACTIVITY)||'[]');
+        const plans=normalizePlanItems(JSON.parse(localStorage.getItem(STORAGE_PLAN_ITEMS)||'[]'));
+        LedgerMutations.validateEntries(entries,normalizeActivityEntries(raw),plans,editingIds);
+        const ids=new Set(entries.map(row=>String(row.id)));
+        const updated=raw.map(row=>ids.has(String(row.id))?entries.find(entry=>String(entry.id)===String(row.id)):row);
+        for(const entry of entries)if(!raw.some(row=>String(row.id)===String(entry.id)))updated.push(entry);
+        localStorage.setItem(STORAGE_ACTIVITY,JSON.stringify(updated));activityEntries=normalizeActivityEntries(updated);
+        renderActivity();
+    });
 }
 
 async function addActivityEntry() {
@@ -2397,7 +2451,8 @@ async function addActivityEntry() {
     const linkedItem = (sourceType === 'custom' || sourceType === PLAN_TYPES.unexpectedIncome)
         ? null
         : getPlanItemsByType(normalizePlanType(sourceType)).find(item => item.id === linkedItemId && !savedItem);
-    const reason = linkedItem ? linkedItem.label : activityReasonInput.value.trim();
+    const preserveEE=editingEntry?.sourceType==='expected'&&sourceType==='expected'&&ExpectedBudget.resolve(editingEntry,planItems)?.id===linkedItem?.id;
+    const reason = preserveEE?editingEntry.reason:linkedItem ? linkedItem.label : activityReasonInput.value.trim();
     const detail = activityDetailInput ? activityDetailInput.value.trim() : '';
     const isShared = Boolean(activitySharedInput && activitySharedInput.checked);
 
@@ -2424,8 +2479,14 @@ async function addActivityEntry() {
         }
     }
 
+    let subcategory={subcategoryId:'',subcategoryLabel:''};
+    if(sourceType==='expected'){
+        try{subcategory=EELedger.assignment(linkedItem,editingEntry);}catch(error){alert(error.message);return;}
+    }
     const entry = {
-        id: editingActivityId || Date.now().toString(),
+        ...editingEntry,
+        ...subcategory,
+        id: editingActivityId || crypto.randomUUID(),
         date,
         type,
         amount: Number(amount.toFixed(2)),
@@ -2434,25 +2495,15 @@ async function addActivityEntry() {
         isShared,
         sourceType,
         linkedPlanItemId: linkedItem ? linkedItem.id : (savedItem?.dataset.linkedId || ''),
-        linkedPlanItemLabel: linkedItem ? linkedItem.label : (savedItem?.dataset.label || ''),
+        linkedPlanItemLabel: preserveEE&&editingEntry.linkedPlanItemLabel?editingEntry.linkedPlanItemLabel:linkedItem ? linkedItem.label : (savedItem?.dataset.label || ''),
         createdAt: editingEntry && editingEntry.createdAt ? editingEntry.createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
 
     setStoredActivityDate(date);
 
-    if (isRemoteEnabled()) {
-        await activityCollection(currentUser).doc(entry.id).set(entry);
-        resetActivityForm();
-        return;
-    }
-
-    if (editingActivityId) {
-        activityEntries = activityEntries.map(item => String(item.id) === String(editingActivityId) ? entry : item);
-    } else {
-        activityEntries.push(entry);
-    }
-    saveActivityEntries();
+    try{await saveEntriesSafely([entry],editingActivityId?[String(editingActivityId)]:[]);}
+    catch(error){alert(error.code?'Could not verify budgets and save the transaction. Nothing was saved.':error.message);return;}
     resetActivityForm();
     renderActivity();
 }
@@ -2474,18 +2525,8 @@ async function importActivityEntriesFromText() {
         return;
     }
 
-    if (isRemoteEnabled()) {
-        const batch = dbRef.batch();
-        importedEntries.forEach(entry => {
-            const ref = activityCollection(currentUser).doc(entry.id);
-            batch.set(ref, entry);
-        });
-        await batch.commit();
-    } else {
-        activityEntries = normalizeActivityEntries([...activityEntries, ...importedEntries]);
-        saveActivityEntries();
-        renderActivity();
-    }
+    try{await saveEntriesSafely(importedEntries);}
+    catch(error){setActivityImportStatus(error.code?'Could not verify budgets and import. Nothing was saved.':error.message,'error');return;}
 
     setStoredActivityDate(importedEntries[importedEntries.length - 1].date);
     setActivityImportStatus(`Imported ${importedEntries.length} entr${importedEntries.length === 1 ? 'y' : 'ies'}.`, 'success');
@@ -2529,11 +2570,13 @@ async function deleteActivityEntry(id) {
         }
         return;
     }
-    activityEntries = activityEntries.filter(item => item.id !== id);
+    try{await LedgerMutations.withLocalLock(()=>{
+        const raw=JSON.parse(localStorage.getItem(STORAGE_ACTIVITY)||'[]').filter(item=>String(item.id)!==String(id));
+        localStorage.setItem(STORAGE_ACTIVITY,JSON.stringify(raw));activityEntries=normalizeActivityEntries(raw);
+    });}catch(error){alert(error.message);return;}
     if (String(editingActivityId) === String(id)) {
         resetActivityForm();
     }
-    saveActivityEntries();
     renderActivity();
 }
 
@@ -2861,6 +2904,7 @@ if (activitySharedInput) {
 }
 if (activityLinkedItemSelect) {
     activityLinkedItemSelect.addEventListener('change', () => {
+        EELedger.updateSelect(null,true);
         const label = activityLinkedItemSelect.selectedOptions[0]?.dataset.label;
         if (label && activityReasonInput) {
             activityReasonInput.value = label;
@@ -2988,7 +3032,47 @@ document.querySelectorAll('.exchange-swap-btn').forEach(button => {
     button.addEventListener('click', () => swapExchangePair(button.dataset.pair));
 });
 
+const activityExportForm=document.getElementById('activityExportForm');
+if(activityExportForm){
+    const start=document.getElementById('activityExportStart'),end=document.getElementById('activityExportEnd');
+    const button=document.getElementById('activityExportBtn'),status=document.getElementById('activityExportStatus');
+    const today=getTodayDateString();
+    start.max=today;end.max=today;
+    start.value=today.slice(0,7)+'-01';
+    end.value=today;
+    if(start.value===end.value){
+        const previous=new Date(today+'T12:00:00Z');previous.setUTCMonth(previous.getUTCMonth()-1);
+        start.value=previous.toISOString().slice(0,7)+'-01';
+    }
+    activityExportForm.addEventListener('submit',async event=>{
+        event.preventDefault();
+        const limit=getTodayDateString(),from=start.value,to=end.value;
+        start.max=limit;end.max=limit;
+        if(from>limit||to>limit){status.textContent='Future dates cannot be exported. Choose today or an earlier date.';return;}
+        if(!activityExportForm.reportValidity())return;
+        button.disabled=true;status.textContent='Preparing your Excel file...';
+        try{
+            LedgerExport.select([],from,to);
+            // Read the entire account collection, independent of visible month/type/list filters.
+            let entries=activityEntries;const account=currentUser;
+            if(requireAuthRef&&!account)throw Error('Wait for your account to finish loading.');
+            if(isRemoteEnabled()){
+                const snapshot=await activityCollection(account).get({source:'server'});
+                if(currentUser?.uid!==account.uid||authApi.auth?.currentUser?.uid!==account.uid)throw Error('Account changed. Reload before exporting.');
+                entries=normalizeActivityEntries(snapshot.docs.map(doc=>({...doc.data(),id:doc.id})));
+            }
+            const result=LedgerExport.build(entries,from,to,planItems);
+            const url=URL.createObjectURL(new Blob([result.bytes],{type:result.mime}));
+            const link=document.createElement('a');link.href=url;link.download=result.filename;document.body.append(link);link.click();link.remove();
+            setTimeout(()=>URL.revokeObjectURL(url),60000);
+            status.textContent=`Downloaded ${result.count} entries. Start date included; end date not included.`;
+        }catch(error){status.textContent=error.code?'Could not read your saved entries. Check your connection and retry.':error.message;}
+        finally{button.disabled=false;}
+    });
+}
+
 (function init() {
+    EELedger.init();
     setActivityTypeFilter('all');
     loadActivityListSize();
     applyActivityListSize();

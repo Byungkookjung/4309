@@ -574,6 +574,24 @@ body.ledger-body, body.sheet-body[data-job] {
 .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%);white-space:nowrap!important;border:0!important}
 #activityForm .activity-shared-field{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 #activityForm .activity-shared-field .checkbox-label{margin:0;min-height:44px;display:flex;align-items:center}
+#activityForm{grid-template-columns:repeat(12,minmax(0,1fr))}
+#activityForm>.field{min-width:0}
+#activityForm input:not([type="checkbox"]),#activityForm select{width:100%;min-width:0;box-sizing:border-box}
+#activityForm .activity-shared-field{padding-top:0;min-height:44px}
+#activityForm .activity-shared-field .checkbox-label{flex:0 0 auto;gap:8px;white-space:nowrap}
+#activityForm .checkbox-label input{flex:0 0 auto;width:18px;height:18px;margin:0}
+.activity-export-card{margin-top:20px}
+.activity-export-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) auto;align-items:end;gap:12px}
+.activity-export-grid .field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.activity-export-grid input{box-sizing:border-box;width:100%;min-width:0;min-height:44px;padding:10px;border:2px solid #d4dfc3;border-radius:12px;background:#fff;color:#30422a;font:inherit}
+.activity-export-grid button{min-height:44px}
+.activity-export-help,#activityExportStatus{font-size:.85rem;color:#61734f;line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:760px){.activity-export-grid{grid-template-columns:minmax(0,1fr)}}
+/* Keep all Activity fields on the same grid across the legacy 600/760px breakpoints. */
+@media(max-width:760px){
+ #activityForm{grid-template-columns:minmax(0,1fr)}
+ #activityForm>.field,#activityForm #activityDetailField,#activityForm .activity-shared-field{grid-column:1/-1!important}
+}
 #addActivityBtn{min-width:48px;min-height:48px;padding:10px;justify-content:center;font-size:22px}
 .abbreviations-card summary{cursor:pointer;min-height:44px;display:list-item;padding:10px 0}
 .app-header .header-actions{gap:8px;flex-wrap:wrap}

@@ -10,8 +10,8 @@ const baseURL=process.env.MOBILE_TEST_URL || 'http://localhost:8000';
  window.testFail=false;window.testUser={uid:'fixture'};window.callback=null;
  window.__ledgerAuth={auth:{onAuthStateChanged(cb){window.callback=cb;cb(null)},async signOut(){callback(null)}},
  async signInWithGoogle(){callback(testUser)},db:{collection(){return{doc(){return{collection(name){return{
- async get(){if(testFail)throw Error('offline'); const date=MobileModel.dayKey(new Date());return {docs:(name==='ledgerEntries'?[{date,type:'expense',amount:1505.32},{date,type:'income',amount:0}]:[{date,checkIn:'00:00',checkOut:'23:59'}]).map(data=>({data:()=>data}))}},
- doc(){return{async get(){return{data:()=>({hourlyRate:17})}}}}
+ async get(){if(testFail)throw Error('offline'); const date=MobileModel.dayKey(new Date());return {docs:(name==='ledgerEntries'?[{date,type:'expense',amount:1505.32},{date,type:'income',amount:0}]:name.startsWith('weeklyWorkShifts')?[{date,checkIn:'00:00',checkOut:'23:59'}]:[]).map(data=>({data:()=>data}))}},
+ doc(id){return{async get(){if(testFail)throw Error('offline');return{exists:true,data:()=>id==='jobs'?{version:1,jobs:WorkProfile.legacy}:{hourlyRate:17}}}}}
  }}}}}}}};` }));
  await page.goto(baseURL + '/mobile/');await page.locator('#preview').click();
  await page.locator('#dashboard').waitFor({state:'visible'});
@@ -46,6 +46,6 @@ const baseURL=process.env.MOBILE_TEST_URL || 'http://localhost:8000';
  assert.equal(await p.evaluate(()=>navigator.serviceWorker.controller?.scriptURL.endsWith('/mobile/sw.js')),true);
  const manifest=await (await p.request.get(baseURL + '/mobile/manifest.webmanifest')).json();assert.equal(manifest.display,'standalone');assert.equal(manifest.start_url,'/mobile/');
  await shell.setOffline(true);await p.reload();await p.locator('#preview').click();assert.equal(await p.locator('#sampleBadge').isVisible(),true);
- const cache=await p.evaluate(async()=>{const c=await caches.open('pocket-paws-shell-v4-routine-history');return(await c.keys()).map(r=>r.url)});assert.ok(cache.every(u=>!u.endsWith('/auth.js')&&!u.includes('firestore')));console.log('Manifest, scoped worker, offline shell, no private cache PASS');
+ const cache=await p.evaluate(async()=>{const keys=(await caches.keys()).filter(key=>key.startsWith('pocket-paws-shell-'));if(keys.length!==1)throw Error('Expected one active shell cache');const c=await caches.open(keys[0]);return(await c.keys()).map(r=>r.url)});assert.ok(cache.length>0);assert.ok(cache.every(u=>!u.endsWith('/auth.js')&&!u.includes('firestore')));console.log('Manifest, scoped worker, offline shell, no private cache PASS');
  await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

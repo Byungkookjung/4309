@@ -13,6 +13,9 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
             const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true, serviceWorkers: 'block' });
             await context.route('https://www.gstatic.com/**', route => route.fulfill({ body: '' }));
             await context.route('**/auth.js', route => route.fulfill({ body: 'window.__ledgerAuth={};' }));
+            await context.addInitScript(()=>{
+                if(!localStorage.weeklySheetSettingsIronPeak)localStorage.weeklySheetSettingsIronPeak=JSON.stringify({hourlyRate:20});
+            });
             const page = await context.newPage();
             const errors = [], dialogs = [];
             page.on('pageerror', error => errors.push(error.message));
@@ -69,7 +72,10 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
                     const list = history.querySelector('#payoutList').getBoundingClientRect();
                     const controls = [...card.querySelectorAll('.paystub-controls button')].map(button => button.getBoundingClientRect());
                     return { fullWidth: Math.abs(section.right - main.right) < 1,
-                        noExtraBottom: history.getBoundingClientRect().bottom - list.bottom <= parseFloat(getComputedStyle(history).paddingBottom) + 2,
+                        // Desktop cards intentionally match the adjacent Actual Payout Log height.
+                        noExtraBottom: innerWidth>1180
+                            ? Math.abs(history.getBoundingClientRect().height-document.querySelector('.sheet-log-grid .payout-card').getBoundingClientRect().height)<1
+                            : history.getBoundingClientRect().bottom - list.bottom <= parseFloat(getComputedStyle(history).paddingBottom) + 2,
                         buttonsInside: controls.every(box => box.left >= main.left && box.right <= main.right + 1) };
                 });
                 assert.deepEqual(layout, { fullWidth: true, noExtraBottom: true, buttonsInside: true }, name + ' payout spacing at ' + width);
