@@ -7,7 +7,7 @@
     <link rel="icon" href="favicon-ledger.svg?v=20260911" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css?v=20260803c" />
     <link rel="stylesheet" href="polish.css?v=20261010-header" />
-<link rel="stylesheet" href="frog-theme.css?v=20261016"><link rel="stylesheet" href="ee.css?v=20261103-frog-polish"></head>
+<link rel="stylesheet" href="frog-theme.css?v=20261016"><link rel="stylesheet" href="ee.css?v=20261106-txt-subcategories"></head>
 <body class="ledger-body">
     <div class="container">
         <header class="page-header app-header">
@@ -277,7 +277,7 @@
                     <div class="ledger-row activity-import-header">
                         <div>
                             <h3>TXT Activity Import</h3>
-                            <p class="muted">Upload a `.txt` file and convert lines into activity entries at once.</p>
+                            <p class="muted">TXT를 올리거나 붙여 넣고, 분류 매칭 결과를 확인한 후 가져오세요.</p>
                         </div>
                     </div>
                     <div class="activity-import-grid">
@@ -287,8 +287,9 @@
                         </div>
                         <div class="field wide activity-import-preview-field">
                             <label for="activityImportText">Preview</label>
-                            <textarea id="activityImportText" rows="8" placeholder="7/31&#10;- 3.42 Expected expense food&#10;+ 400 Expected income booster juice&#10;- 8.12 Expected expense shopping"></textarea>
+                            <textarea id="activityImportText" rows="8" placeholder="11/5/2026&#10;- 25 EE 장보기 > 식료품·마트 | 우유, 계란&#10;- 10 EE 장보기 | 기타 구매&#10;+ 50 UI 선물 | 생일"></textarea>
                             <div id="activityImportStatus" class="activity-import-status" aria-live="polite"></div>
+                            <div id="activityImportMatches" class="activity-import-matches" aria-label="가져올 내역의 분류 매칭 결과"></div>
                         </div>
                         <div class="field action">
                             <label aria-hidden="true">&nbsp;</label>
@@ -300,7 +301,14 @@
                     </div>
                     <div class="activity-import-format">
                         <div class="activity-import-format-title">Budget items you can match</div>
-                        <p class="muted">FE, EE and EI must use a name listed under the same type below. Text after the budget name is saved as Detail. UI and CE do not need a budget item.</p>
+                        <p class="muted">날짜는 월/일 또는 월/일/연도입니다. 지출은 -, 수입은 +로 시작합니다.</p>
+                        <pre class="activity-import-rules">- 금액 EE 상위 분류 &gt; 하위 분류 | 상세
+- 금액 EE 상위 분류 | 상세
+- 금액 FE 고정지출 이름 | 상세
++ 금액 EI 예상수입 이름 | 상세
++ 금액 UI 내역 이름 | 상세</pre>
+                        <p class="muted">하위 분류는 EE에서만 선택합니다. 생략하면 미분류이며, 상세가 없으면 |도 생략할 수 있습니다. 상세 앞의 첫 | 뒤는 모두 상세로 저장됩니다. FE·EE·EI 이름은 아래 같은 유형의 목록과 일치해야 합니다. 삭제된 분류는 사용할 수 없습니다. 기존의 공백 구분 형식도 그대로 지원합니다. 한 줄이라도 오류가 있으면 전체 가져오기를 중단합니다.</p>
+                        <p class="muted"><a href="activity-import-sample.txt" download>샘플 TXT 다운로드</a> · 샘플의 분류명은 아래 내 분류 목록의 이름으로 바꿔 주세요.</p>
                         <div id="activityImportBudgetHints" class="activity-import-budget-hints"></div>
                     </div>
                 </section>
@@ -422,7 +430,7 @@
     <script src="ee-model.js?v=20261103-frog-polish"></script>
     <script src="ledger-mutations.js?v=20261103-frog-polish"></script>
     <script src="ee-ui.js?v=20261103-frog-polish"></script>
-    <script src="ledger.js?v=20261103-frog-polish-ee"></script>
+    <script src="ledger.js?v=20261106-txt-edit-scroll"></script>
     <script src="ee-export.js?v=20261103-frog-polish"></script>
 </body>
 </html>
