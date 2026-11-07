@@ -1,5 +1,5 @@
 // Pocket Paws: install this ONE file in Scriptable.
-// Widget parameter: todo-month (Large) or work-week (Medium). Run inside the app to connect.
+// Medium: budget-month, work-week. Large: todo-month. Run in app to connect.
 const WorkProfile=(()=>{const module={exports:{}};
 (function(root){
     const legacy = [
@@ -244,6 +244,125 @@ const MobileModel=(()=>{const module={exports:{}};
 })(globalThis);
 
 return module.exports;})();
+const ExpectedBudget=(()=>{const module={exports:{}};
+(function(root){
+    const definitions=[
+        ['groceries','장보기',[],[['식료품·마트',350],['편의점·간식',30],['커피캡슐·음료재료',40]]],
+        ['dining','외식,카페,배달',['외식'],[['외식·식당',360],['카페·디저트',80],['배달',60]]],
+        ['household','생활용품',[],[['생필품·소모품',70],['주방·집안용품',50]]],
+        ['shopping','개인쇼핑',['쇼핑'],[['의류·패션잡화',120],['뷰티·화장품',100],['취미·디지털',50],['반려동물·수족관',50],['일반쇼핑·기타',130]]],
+        ['transport','택시,기타',['택시'],[['Uber·Lyft',200],['교통 외 기타',30]]],
+        ['special','여행·특별지출',[],[['여행·숙박·관광',150],['가구·고가 구매',100],['행정·일회성 비용',30]]]
+    ];
+    const key=value=>String(value||'').trim().toLocaleLowerCase();
+    const cents=value=>Math.round(Number(value)*100);
+    const template=definitions.map(([id,label,aliases,children])=>({id:'ee_'+id,label,aliases,amount:children.reduce((sum,row)=>sum+row[1],0),subcategories:children.map(([label,amount],i)=>({id:'ee_'+id+'_'+i,label,amount,archived:false}))}));
+    function canonical(label){const match=template.find(item=>[item.label,...item.aliases].some(name=>key(name)===key(label)));return key(match?.label||label);}
+    const hierarchical=plan=>plan.type==='expected'&&Array.isArray(plan.subcategories);
+    function children(plan){
+        const seen=new Set(),names=new Set();
+        if(plan.subcategories&&(!Array.isArray(plan.subcategories)||plan.subcategories.length>100))throw Error('Use at most 100 subcategories per parent.');
+        return (plan.subcategories||[]).map(child=>{
+            if(!child||typeof child.id!=='string'||!child.id||child.id.length>120||seen.has(child.id)||typeof child.label!=='string'||!child.label.trim()||child.label.trim().length>80||!Number.isFinite(Number(child.amount))||Number(child.amount)<0||!Number.isSafeInteger(cents(child.amount)))throw Error('Invalid EE subcategory. Reload or review the budget data.');
+            if(!child.archived&&!child.deleted&&names.has(key(child.label)))throw Error('Active subcategory names must be unique within their parent.');
+            if(child.id==='__unclassified__'||key(child.label)==='미분류')throw Error('미분류 is reserved for unassigned transactions and has no budget.');
+            if(!child.archived&&!child.deleted)names.add(key(child.label));
+            seen.add(child.id);return {id:child.id,label:child.label.trim(),amount:cents(child.amount)/100,archived:child.archived===true,...(child.deleted?{deleted:true}:{})};
+        });
+    }
+    function budget(plan){return plan.deleted?0:hierarchical(plan)?children(plan).filter(child=>!child.archived&&!child.deleted).reduce((sum,child)=>sum+cents(child.amount),0)/100:Number(plan.amount||0);}
+    function normalize(plan){return hierarchical(plan)?{...plan,subcategories:children(plan),amount:budget(plan)}:{...plan};}
+    function resolve(entry,plans){
+        if(entry.type!=='expense'||entry.sourceType!=='expected')return null;
+        const direct=plans.find(plan=>String(plan.id)===String(entry.linkedPlanItemId));
+        if(direct)return direct.type==='expected'?direct:null;
+        const label=entry.linkedPlanItemLabel||entry.reason;
+        const matches=plans.filter(plan=>plan.type==='expected'&&canonical(plan.label)===canonical(label));
+        return matches.length===1?matches[0]:null;
+    }
+    function effective(entry){return cents(entry.isShared?Number((Number(entry.amount)/2).toFixed(2)):Number(entry.amount));}
+    function breakdown(plan,entries,plans){
+        const rows=children(plan).map(child=>({...child,planned:plan.deleted||child.archived||child.deleted?0:child.amount,actual:0}));
+        const unclassified={id:'__unclassified__',label:'미분류',planned:null,actual:0};let total=0;
+        for(const entry of entries){
+            if(resolve(entry,plans)?.id!==plan.id)continue;
+            const value=effective(entry);total+=value;
+            const row=rows.find(child=>child.id===entry.subcategoryId)||unclassified;row.actual+=value;
+        }
+        return {id:plan.id,label:plan.label,planned:budget(plan),actual:total/100,children:[...rows,unclassified].map(row=>({...row,actual:row.actual/100}))};
+    }
+    function subcategoryLabel(entry,plans){
+        if(entry.type!=='expense'||entry.sourceType!=='expected')return '';
+        const parent=resolve(entry,plans),child=parent&&children(parent).find(child=>child.id===entry.subcategoryId);
+        if(child)return child.label+(child.deleted||parent.deleted?' (삭제됨)':child.archived?' (이전 분류)':'');
+        return entry.subcategoryId&&entry.subcategoryLabel?entry.subcategoryLabel+' (확인 필요)':'미분류';
+    }
+    function deletionBlockReason(plan,entries,plans){
+        if(!plan)return '';
+        if(plan.type==='expected')return '';
+        const referenced=entries.some(entry=>String(entry.linkedPlanItemId||'')===String(plan.id)||entry.sourceType===plan.type&&key(entry.linkedPlanItemLabel||entry.reason)===key(plan.label));
+        return referenced?'This budget is referenced by historical transactions and cannot be deleted.':'';
+    }
+    // Keep a non-selectable historical record instead of orphaning existing transaction IDs.
+    function removeParent(plan){return {...plan,deleted:true,amount:0,...(Array.isArray(plan.subcategories)?{subcategories:children(plan).map(child=>({...child,deleted:true}))}:{})};}
+    function allocate(children,total){
+        const target=cents(total),weight=children.reduce((sum,child)=>sum+cents(child.amount),0);
+        const parts=children.map((child,index)=>({index,value:Math.floor(target*cents(child.amount)/weight),remainder:(target*cents(child.amount))%weight}));
+        let left=target-parts.reduce((sum,part)=>sum+part.value,0);
+        for(const part of [...parts].sort((a,b)=>b.remainder-a.remainder||a.index-b.index)){if(left-->0)part.value++;}
+        return children.map((child,index)=>({...child,amount:parts[index].value/100}));
+    }
+    function preview(plans){return template.map(item=>{
+        const matches=plans.filter(plan=>plan.type==='expected'&&canonical(plan.label)===canonical(item.label));
+        return {template:item,existing:matches.length===1?matches[0]:null,conflict:matches.length>1};
+    });}
+    function applyTemplate(plans,choices={}){
+        const previewRows=preview(plans);if(previewRows.some(row=>row.conflict))throw Error('Duplicate or ambiguous EE parents. Review them before applying the template.');
+        return previewRows.map(({template:item,existing})=>{
+            if(!existing&&plans.some(plan=>String(plan.id)===item.id))throw Error('A template ID is already used by another budget. Review it first.');
+            if(existing&&hierarchical(existing))return normalize(existing);
+            const keep=existing&&choices[item.id]!=='recommended';
+            const subcategories=allocate(item.subcategories,keep?existing.amount:item.amount);
+            return normalize({...existing,id:existing?.id||item.id,type:'expected',label:item.label,subcategories});
+        });
+    }
+    const api={template,canonical,hierarchical,children,budget,normalize,resolve,effective,breakdown,subcategoryLabel,deletionBlockReason,removeParent,preview,applyTemplate};
+    if(typeof module!=='undefined')module.exports=api;else root.ExpectedBudget=api;
+})(globalThis);
+
+return module.exports;})();
+const MobileBudget=(()=>{const module={exports:{}};
+const require=id=>{if(id==='../ee-model.js')return ExpectedBudget;if(id==='./model.js')return MobileModel;throw Error('Unknown bundled dependency');};
+(function(root){
+    const ee=typeof module!=='undefined'?require('../ee-model.js'):root.ExpectedBudget;
+    const model=typeof module!=='undefined'?require('./model.js'):root.MobileModel;
+    function summarize(plans,entries,now=new Date()){
+        const today=model.dayKey(now),month=today.slice(0,7);
+        const groups=['fixed','expected'].map(type=>({type,budget:0,spent:0}));
+        for(const plan of plans){
+            if(plan.deleted)continue;
+            const group=groups.find(group=>group.type===(plan.type||'expected'));
+            if(!group)continue;
+            const amount=ee.budget({...plan,type:plan.type||'expected'});
+            if(!Number.isFinite(amount)||amount<0)throw Error('Invalid budget');
+            group.budget+=Math.round(amount*100);
+        }
+        for(const entry of entries){
+            if(entry.type!=='expense'||!/^\d{4}-\d{2}-\d{2}$/.test(entry.date||'')||!entry.date.startsWith(month+'-')||entry.date>today)continue;
+            const instant=Date.parse(entry.date+'T12:00:00Z');
+            if(!Number.isFinite(instant)||new Date(instant).toISOString().slice(0,10)!==entry.date)continue;
+            if(!Number.isFinite(entry.amount)||entry.amount<=0)continue;
+            const group=groups.find(group=>group.type===(entry.sourceType||'expected'));
+            // Count each transaction once, including unclassified and historical categories.
+            if(group)group.spent+=ee.effective(entry);
+        }
+        const finish=group=>({...group,budget:group.budget/100,spent:group.spent/100,remaining:(group.budget-group.spent)/100,ratio:group.budget?Math.min(1,group.spent/group.budget):group.spent?1:0});
+        return {month,groups:groups.map(finish),...finish(groups.reduce((total,group)=>({budget:total.budget+group.budget,spent:total.spent+group.spent}),{budget:0,spent:0}))};
+    }
+    const api={summarize};if(typeof module!=='undefined')module.exports=api;else root.MobileBudget=api;
+})(globalThis);
+
+return module.exports;})();
 const Core=(()=>{const module={exports:{}};
 (function(root){
     function decode(value){
@@ -483,14 +602,57 @@ function frogStamp(tint='#a8c66a'){
 if(typeof module!=='undefined')module.exports=frogStamp;
 
 return module.exports;})();
+const drawMoneyWidget=(()=>{const module={exports:{}};
+// Fixed drawing bounds keep the expense budget widget readable at the Medium size.
+function drawMoneyWidget(kind,snapshot,width,height,error){
+    const ctx=new DrawContext();ctx.size=new Size(width,height);ctx.opaque=false;ctx.respectScreenScale=true;
+    const sx=width/318,sy=height/138,scale=Math.min(sx,sy),state=snapshot.finance;
+    const rect=(x,y,w,h)=>new Rect(x*sx,y*sy,w*sx,h*sy);
+    const money=value=>new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD',currencyDisplay:'narrowSymbol'}).format(value);
+    function label(value,x,y,w,size,color='#30422a',bold=false){
+        value=String(value);
+        const fitted=Math.min(size,w/Math.max(1,Array.from(value).reduce((sum,c)=>sum+(c.codePointAt(0)>255?1:.66),0)));
+        ctx.setTextAlignedLeft();ctx.setTextColor(new Color(color));ctx.setFont(bold?Font.boldSystemFont(fitted*scale):Font.systemFont(fitted*scale));
+        ctx.drawTextInRect(value,rect(x,y,w,size+4));
+    }
+    function tile(x,y,w,h,color){
+        const r=7;ctx.setFillColor(new Color(color));
+        ctx.fillRect(rect(x+r,y,w-2*r,h));ctx.fillRect(rect(x,y+r,w,h-2*r));
+        for(const [a,b] of [[x,y],[x+w-2*r,y],[x,y+h-2*r],[x+w-2*r,y+h-2*r]])ctx.fillEllipse(rect(a,b,2*r,2*r));
+    }
+    label('고정 + 예상 지출',0,0,260,14,'#405d2d',true);
+    label(state.month+' · CAD',0,21,260,9,'#69765c');
+    ctx.drawImageInRect(frogStamp(),rect(293,0,24,22));
+    const ink=state.remaining<0?'#ae4e50':'#405d2d';
+    label(state.remaining<0?'이번 달 초과 지출':'이번 달 남은 예산',0,40,132,10,'#69765c',true);
+    label(money(Math.abs(state.remaining)),0,59,132,28,ink,true);
+    label('사용 '+money(state.spent),0,99,132,9,'#69765c');
+    label('예산 '+money(state.budget),0,113,132,9,'#69765c');
+    state.groups.forEach((group,index)=>{
+        const y=37+index*45,x=145,w=173,color=group.remaining<0?'#ae4e50':'#587b38';
+        tile(x,y,w,40,'#ffffff');
+        label(group.type==='fixed'?'고정':'예상',x+9,y+5,33,10,'#30422a',true);
+        label('사용 '+money(group.spent),x+46,y+4,w-55,12,'#30422a',true);
+        label(money(Math.abs(group.remaining))+(group.remaining<0?' 초과':' 남음'),x+9,y+21,w-18,9,color);
+        ctx.setFillColor(new Color('#e3ead5'));ctx.fillRect(rect(x+9,y+35,w-18,3));
+        if(group.ratio>0){ctx.setFillColor(new Color(color));ctx.fillRect(rect(x+9,y+35,(w-18)*group.ratio,3));}
+    });
+    const updated=new Intl.DateTimeFormat('en-CA',{timeZone:MobileModel.zone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(snapshot.updated));
+    label(error?'오프라인 · '+updated+' 기준':updated+' 업데이트 · 월예산 기준',0,125,318,8,error?'#946319':'#69765c');
+    return ctx.getImage();
+}
+if(typeof module!=='undefined')module.exports=drawMoneyWidget;
+
+return module.exports;})();
 const BASE='https://todo-ledger.web.app';
 const API_KEY='AIzaSyC4i32hyIRXhib_keTTr9zSj3AOolasYLc';
 const CREDENTIALS='pocket-paws-v1-account',PENDING='pocket-paws-v1-pairing';
-const MODES=['todo-month','work-week'];
-const isCalendar=kind=>kind.includes('-');
-const allowedSizes=kind=>kind.endsWith('-month')?['large']:kind.endsWith('-week')?['medium']:['small','medium'];
+const MODES=['todo-month','work-week','budget-month'];
+const isFinance=kind=>kind==='budget-month';
+const isCalendar=kind=>['todo-month','work-week'].includes(kind);
+const allowedSizes=kind=>isFinance(kind)?['medium']:kind.endsWith('-month')?['large']:kind.endsWith('-week')?['medium']:['small','medium'];
 const contentKind=kind=>kind.split('-')[0];
-function clearCaches(){for(const kind of [...MODES,'month','work','todo','work-month','todo-week'])forget('pocket-paws-cache-'+kind);}
+function clearCaches(){for(const kind of [...MODES,'money-month','month','work','todo','work-month','todo-week'])forget('pocket-paws-cache-'+kind);}
 function widgetDimensions(family){
     const width=typeof Device!=='undefined'?Device.screenSize().width:390;
     const sizes=width>=430?[364,382,170]:width>=414?[360,379,169]:width>=390?[338,354,158]:width>=375?[329,345,155]:[292,311,141];
@@ -550,6 +712,10 @@ async function sync(kind){
     const base='https://firestore.googleapis.com/v1/projects/todo-ledger/databases/(default)/documents/users/'+encodeURIComponent(account.uid);
     const get=url=>requestJSON(url,token.id_token);
     let data={};
+    if(isFinance(kind)){
+        data.entries=await Core.list(get,base,'ledgerEntries');
+        data.budgets=await Core.list(get,base,'ledgerPlanItems');
+    }
     if(contentKind(kind)==='work'){
         const profileRequest=new Request(base+'/weeklyWorkMeta/jobs');profileRequest.timeoutInterval=12;profileRequest.headers={Authorization:'Bearer '+token.id_token};
         const profileText=await profileRequest.loadString();
@@ -572,8 +738,9 @@ async function sync(kind){
         );
     }
     if(read(CREDENTIALS)?.connectionID!==account.connectionID)throw Error('auth');
-    const day=MobileModel.dayKey(new Date()),rows=isCalendar(kind)?[]:Core.today(WorkWidgetData,PlannerModel,day,data,kind);
-    const snapshot={layoutVersion:2,uid:account.uid,day,rows:rows.slice(0,50),total:rows.length,updated:Date.now(),...(isCalendar(kind)?{calendar:Core.month(WorkWidgetData,PlannerModel,day,data,contentKind(kind),kind.split('-')[1])}:{})};
+    const now=new Date(),day=MobileModel.dayKey(now),rows=isCalendar(kind)||isFinance(kind)?[]:Core.today(WorkWidgetData,PlannerModel,day,data,kind);
+    const finance=isFinance(kind)?MobileBudget.summarize(data.budgets,data.entries,now):null;
+    const snapshot={layoutVersion:2,uid:account.uid,day,rows:rows.slice(0,50),total:rows.length,updated:Date.now(),...(finance?{finance}:{}),...(isCalendar(kind)?{calendar:Core.month(WorkWidgetData,PlannerModel,day,data,contentKind(kind),kind.split('-')[1])}:{})};
     save('pocket-paws-cache-'+kind,snapshot);return snapshot;
 }
 function text(parent,value,size=14,color='#30422a',bold=false){
@@ -584,13 +751,20 @@ function widget(kind,snapshot,error,family=config.widgetFamily||'medium'){
     const dimensions=widgetDimensions(family),contentWidth=dimensions.width-(small?20:28);
     const w=new ListWidget();w.setPadding(small?10:14,small?10:14,small?8:12,small?10:14);
     const gradient=new LinearGradient();gradient.colors=[new Color('#fffef6'),new Color('#edf1d9')];gradient.locations=[0,1];w.backgroundGradient=gradient;
-    w.url=BASE+(contentKind(kind)==='work'?'/index.html':'/mobile/planner.html')+'?date=today';
+    w.url=isFinance(kind)?BASE+'/ledger.html':BASE+(contentKind(kind)==='work'?'/index.html':'/mobile/planner.html')+'?date=today';
     // Request a refresh just after Edmonton midnight even if the normal interval crosses it.
     w.refreshAfterDate=Core.nextRefresh(MobileModel);
-    if(!MODES.includes(kind)){text(w,'Widget removed',16,'#30422a',true);w.addSpacer(8);text(w,'Use todo-month (Large) or work-week (Medium).',13,'#69765c').lineLimit=3;return w;}
+    if(!MODES.includes(kind)){text(w,'Widget removed',16,'#30422a',true);w.addSpacer(8);text(w,'Use budget-month or work-week (Medium), or todo-month (Large).',13,'#69765c').lineLimit=3;return w;}
     if(!allowedSizes(kind).includes(family)){
         text(w,'Widget size',16,'#30422a',true);w.addSpacer(8);
         text(w,'Choose '+allowedSizes(kind).join(' or ')+'.',14,'#69765c').lineLimit=3;
+        return w;
+    }
+    if(isFinance(kind)&&snapshot){
+        w.setPadding(10,10,10,10);
+        const width=dimensions.width-20,height=dimensions.height-20;
+        const image=w.addImage(drawMoneyWidget(kind,snapshot,width,height,error));
+        image.imageSize=new Size(width,height);image.resizable=true;image.applyFittingContentMode();image.centerAlignImage();
         return w;
     }
     if(isCalendar(kind)&&snapshot){
@@ -614,7 +788,7 @@ function widget(kind,snapshot,error,family=config.widgetFamily||'medium'){
         if(error)text(w,'Offline · Open to sync',10,'#69765c');
         return w;
     }
-    const title=w.addStack();title.centerAlignContent();text(title,isCalendar(kind)?((kind.endsWith('week')?'WEEK':snapshot?.calendar?.month||'MONTH')+' · '+(contentKind(kind)==='work'?'WORK':'TO DO')):kind==='work'?'TODAY · WORK':'TODAY · TO DO',12,'#69765c',true);title.addSpacer();
+    const title=w.addStack();title.centerAlignContent();text(title,isFinance(kind)?'고정 + 예상 지출':isCalendar(kind)?((kind.endsWith('week')?'WEEK':snapshot?.calendar?.month||'MONTH')+' · '+(contentKind(kind)==='work'?'WORK':'TO DO')):kind==='work'?'TODAY · WORK':'TODAY · TO DO',12,'#69765c',true);title.addSpacer();
     const paw=title.addImage(frogStamp());paw.imageSize=new Size(17,17);paw.tintColor=new Color('#789847');
     w.addSpacer(8);
     if(!snapshot){
@@ -631,14 +805,15 @@ async function run(){
         if(args.queryParameters?.state){await acceptConnection();}
         stage='menu';
         const menu=new Alert();menu.title='Pocket Pond';menu.message='Refresh data and preview';
-        menu.addAction('Refresh monthly to do');menu.addAction('Refresh work week');menu.addAction('Connect / switch account');menu.addDestructiveAction('Disconnect');menu.addCancelAction('Cancel');
+        menu.addAction('Refresh monthly to do');menu.addAction('Refresh work week');menu.addAction('고정 + 예상 지출 · Medium');menu.addAction('Connect / switch account');menu.addDestructiveAction('Disconnect');menu.addCancelAction('Cancel');
         const choice=await menu.presentSheet();
         if(choice<0)return;
-        if(choice===2){await connect();return;}
-        if(choice===3){forget(CREDENTIALS);forget(PENDING);clearCaches();return;}
+        if(choice===MODES.length){await connect();return;}
+        if(choice===MODES.length+1){forget(CREDENTIALS);forget(PENDING);clearCaches();return;}
         kind=MODES[choice];family=allowedSizes(kind)[0];
     }
     if(!MODES.includes(kind)){Script.setWidget(widget(kind,null,null,family));return;}
+    if(!allowedSizes(kind).includes(family)){Script.setWidget(widget(kind,null,null,family));return;}
     let snapshot,error;
     try{snapshot=await sync(kind);}catch(e){
         error=e.message==='auth'?'auth':'network';const cached=read('pocket-paws-cache-'+kind),account=read(CREDENTIALS);
