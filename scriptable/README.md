@@ -8,8 +8,13 @@ Install the generated `Pocket Paws.js` in Scriptable. Keep its script name **Poc
 | --- | --- | --- |
 | `todo-month` | Large | Current month's tasks and routines, colored by category |
 | `work-week` | Medium | Today centered between three previous and three following days; work times only |
+| `budget-month` | Medium only | Fixed + expected expenses: monthly budget, used amount, remaining/over-budget amount |
 
-`work`, `todo`, `work-month`, and `todo-week` have been removed. Old parameters show a migration hint without fetching data. Legacy `month` aliases `todo-month`. Unsupported sizes show a size-selection hint.
+The budget widget uses the existing account connection. Replace the installed script with the new generated file; add a **Medium** Scriptable widget, choose **Pocket Paws**, then set Parameter to `budget-month`. The older calendar widgets are unchanged.
+
+`budget-month` shares the mobile dashboard's exact calculation module: active EE subcategory budgets, unclassified and historical spending counted once, and shared expenses reduced to your share. It uses the Edmonton month through today. Tapping the widget opens the ledger. All figures are CAD; no records are written. The update time is displayed, including an offline marker when showing a same-day cached snapshot.
+
+`money-month`, `work`, `todo`, `work-month`, and `todo-week` have been removed. Old parameters show a migration hint without fetching data. Legacy `month` aliases `todo-month`. Unsupported sizes show a size-selection hint.
 
 - All reference dates use `America/Edmonton`, including daylight-saving changes.
 - Work week advances one date per day when refreshed. Saturday shows Wed/Thu/Fri/**Sat**/Sun/Mon/Tue. Green is Iron Peak; purple is Booster Juice. `a` and `p` mean AM and PM.
@@ -33,9 +38,9 @@ The hosted installer is `/scriptable/`. Website deployment does **not** replace 
 
 ## Refresh
 
-Run the script and choose **Refresh monthly to do** or **Refresh work week** to fetch fresh data and open a preview.
+Run the script and choose **Refresh monthly to do**, **Refresh work week**, or **고정 + 예상 지출 · Medium** to fetch fresh data and open a preview.
 
-Both widgets request their next refresh after five minutes, or one second after the next Edmonton midnight if sooner. **iOS decides the actual Home Screen refresh time.** Neither exact midnight redraws nor instant task updates are guaranteed; an already displayed widget may remain stale until iOS runs it again.
+All widgets request their next refresh after five minutes, or one second after the next Edmonton midnight if sooner. **iOS decides the actual Home Screen refresh time.** Neither exact midnight redraws nor instant task updates are guaranteed; an already displayed widget may remain stale until iOS runs it again.
 
 Todo collections are fetched concurrently. A matching account, Edmonton day and layout-version cache may be used after network failures, with an Offline label. Previous-day data and permission-failure caches are never rendered as current data on a new execution.
 

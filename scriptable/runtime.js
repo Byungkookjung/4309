@@ -1,11 +1,12 @@
 const BASE='https://todo-ledger.web.app';
 const API_KEY='AIzaSyC4i32hyIRXhib_keTTr9zSj3AOolasYLc';
 const CREDENTIALS='pocket-paws-v1-account',PENDING='pocket-paws-v1-pairing';
-const MODES=['todo-month','work-week'];
-const isCalendar=kind=>kind.includes('-');
-const allowedSizes=kind=>kind.endsWith('-month')?['large']:kind.endsWith('-week')?['medium']:['small','medium'];
+const MODES=['todo-month','work-week','budget-month'];
+const isFinance=kind=>kind==='budget-month';
+const isCalendar=kind=>['todo-month','work-week'].includes(kind);
+const allowedSizes=kind=>isFinance(kind)?['medium']:kind.endsWith('-month')?['large']:kind.endsWith('-week')?['medium']:['small','medium'];
 const contentKind=kind=>kind.split('-')[0];
-function clearCaches(){for(const kind of [...MODES,'month','work','todo','work-month','todo-week'])forget('pocket-paws-cache-'+kind);}
+function clearCaches(){for(const kind of [...MODES,'money-month','month','work','todo','work-month','todo-week'])forget('pocket-paws-cache-'+kind);}
 function widgetDimensions(family){
     const width=typeof Device!=='undefined'?Device.screenSize().width:390;
     const sizes=width>=430?[364,382,170]:width>=414?[360,379,169]:width>=390?[338,354,158]:width>=375?[329,345,155]:[292,311,141];
@@ -65,6 +66,10 @@ async function sync(kind){
     const base='https://firestore.googleapis.com/v1/projects/todo-ledger/databases/(default)/documents/users/'+encodeURIComponent(account.uid);
     const get=url=>requestJSON(url,token.id_token);
     let data={};
+    if(isFinance(kind)){
+        data.entries=await Core.list(get,base,'ledgerEntries');
+        data.budgets=await Core.list(get,base,'ledgerPlanItems');
+    }
     if(contentKind(kind)==='work'){
         const profileRequest=new Request(base+'/weeklyWorkMeta/jobs');profileRequest.timeoutInterval=12;profileRequest.headers={Authorization:'Bearer '+token.id_token};
         const profileText=await profileRequest.loadString();
@@ -87,8 +92,9 @@ async function sync(kind){
         );
     }
     if(read(CREDENTIALS)?.connectionID!==account.connectionID)throw Error('auth');
-    const day=MobileModel.dayKey(new Date()),rows=isCalendar(kind)?[]:Core.today(WorkWidgetData,PlannerModel,day,data,kind);
-    const snapshot={layoutVersion:2,uid:account.uid,day,rows:rows.slice(0,50),total:rows.length,updated:Date.now(),...(isCalendar(kind)?{calendar:Core.month(WorkWidgetData,PlannerModel,day,data,contentKind(kind),kind.split('-')[1])}:{})};
+    const now=new Date(),day=MobileModel.dayKey(now),rows=isCalendar(kind)||isFinance(kind)?[]:Core.today(WorkWidgetData,PlannerModel,day,data,kind);
+    const finance=isFinance(kind)?MobileBudget.summarize(data.budgets,data.entries,now):null;
+    const snapshot={layoutVersion:2,uid:account.uid,day,rows:rows.slice(0,50),total:rows.length,updated:Date.now(),...(finance?{finance}:{}),...(isCalendar(kind)?{calendar:Core.month(WorkWidgetData,PlannerModel,day,data,contentKind(kind),kind.split('-')[1])}:{})};
     save('pocket-paws-cache-'+kind,snapshot);return snapshot;
 }
 function text(parent,value,size=14,color='#30422a',bold=false){
@@ -99,13 +105,20 @@ function widget(kind,snapshot,error,family=config.widgetFamily||'medium'){
     const dimensions=widgetDimensions(family),contentWidth=dimensions.width-(small?20:28);
     const w=new ListWidget();w.setPadding(small?10:14,small?10:14,small?8:12,small?10:14);
     const gradient=new LinearGradient();gradient.colors=[new Color('#fffef6'),new Color('#edf1d9')];gradient.locations=[0,1];w.backgroundGradient=gradient;
-    w.url=BASE+(contentKind(kind)==='work'?'/index.html':'/mobile/planner.html')+'?date=today';
+    w.url=isFinance(kind)?BASE+'/ledger.html':BASE+(contentKind(kind)==='work'?'/index.html':'/mobile/planner.html')+'?date=today';
     // Request a refresh just after Edmonton midnight even if the normal interval crosses it.
     w.refreshAfterDate=Core.nextRefresh(MobileModel);
-    if(!MODES.includes(kind)){text(w,'Widget removed',16,'#30422a',true);w.addSpacer(8);text(w,'Use todo-month (Large) or work-week (Medium).',13,'#69765c').lineLimit=3;return w;}
+    if(!MODES.includes(kind)){text(w,'Widget removed',16,'#30422a',true);w.addSpacer(8);text(w,'Use budget-month or work-week (Medium), or todo-month (Large).',13,'#69765c').lineLimit=3;return w;}
     if(!allowedSizes(kind).includes(family)){
         text(w,'Widget size',16,'#30422a',true);w.addSpacer(8);
         text(w,'Choose '+allowedSizes(kind).join(' or ')+'.',14,'#69765c').lineLimit=3;
+        return w;
+    }
+    if(isFinance(kind)&&snapshot){
+        w.setPadding(10,10,10,10);
+        const width=dimensions.width-20,height=dimensions.height-20;
+        const image=w.addImage(drawMoneyWidget(kind,snapshot,width,height,error));
+        image.imageSize=new Size(width,height);image.resizable=true;image.applyFittingContentMode();image.centerAlignImage();
         return w;
     }
     if(isCalendar(kind)&&snapshot){
@@ -129,7 +142,7 @@ function widget(kind,snapshot,error,family=config.widgetFamily||'medium'){
         if(error)text(w,'Offline · Open to sync',10,'#69765c');
         return w;
     }
-    const title=w.addStack();title.centerAlignContent();text(title,isCalendar(kind)?((kind.endsWith('week')?'WEEK':snapshot?.calendar?.month||'MONTH')+' · '+(contentKind(kind)==='work'?'WORK':'TO DO')):kind==='work'?'TODAY · WORK':'TODAY · TO DO',12,'#69765c',true);title.addSpacer();
+    const title=w.addStack();title.centerAlignContent();text(title,isFinance(kind)?'고정 + 예상 지출':isCalendar(kind)?((kind.endsWith('week')?'WEEK':snapshot?.calendar?.month||'MONTH')+' · '+(contentKind(kind)==='work'?'WORK':'TO DO')):kind==='work'?'TODAY · WORK':'TODAY · TO DO',12,'#69765c',true);title.addSpacer();
     const paw=title.addImage(frogStamp());paw.imageSize=new Size(17,17);paw.tintColor=new Color('#789847');
     w.addSpacer(8);
     if(!snapshot){
@@ -146,14 +159,15 @@ async function run(){
         if(args.queryParameters?.state){await acceptConnection();}
         stage='menu';
         const menu=new Alert();menu.title='Pocket Pond';menu.message='Refresh data and preview';
-        menu.addAction('Refresh monthly to do');menu.addAction('Refresh work week');menu.addAction('Connect / switch account');menu.addDestructiveAction('Disconnect');menu.addCancelAction('Cancel');
+        menu.addAction('Refresh monthly to do');menu.addAction('Refresh work week');menu.addAction('고정 + 예상 지출 · Medium');menu.addAction('Connect / switch account');menu.addDestructiveAction('Disconnect');menu.addCancelAction('Cancel');
         const choice=await menu.presentSheet();
         if(choice<0)return;
-        if(choice===2){await connect();return;}
-        if(choice===3){forget(CREDENTIALS);forget(PENDING);clearCaches();return;}
+        if(choice===MODES.length){await connect();return;}
+        if(choice===MODES.length+1){forget(CREDENTIALS);forget(PENDING);clearCaches();return;}
         kind=MODES[choice];family=allowedSizes(kind)[0];
     }
     if(!MODES.includes(kind)){Script.setWidget(widget(kind,null,null,family));return;}
+    if(!allowedSizes(kind).includes(family)){Script.setWidget(widget(kind,null,null,family));return;}
     let snapshot,error;
     try{snapshot=await sync(kind);}catch(e){
         error=e.message==='auth'?'auth':'network';const cached=read('pocket-paws-cache-'+kind),account=read(CREDENTIALS);

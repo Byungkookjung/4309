@@ -24,15 +24,20 @@ test('today summary respects pay rates, task rules, moved occurrences and comple
  assert.equal(tasks.length,2);assert.equal(tasks[0].title,'Monthly');
 });
 const source=fs.readFileSync(require.resolve('../scriptable/Pocket Paws.js'),'utf8');
-async function harness(kind,cache=new Map(),failure=false,family='medium',now=null,profile=null){
- const labels=[],requests=[],images=[];let widget;
- class Stack{addText(v){labels.push(v);return{}}addStack(){return new Stack()}addSpacer(){}addImage(){const image={applyFittingContentMode(){},centerAlignImage(){this.alignment='center'}};images.push(image);return image}setPadding(...padding){this.padding=padding}centerAlignContent(){}layoutVertically(){}}
+async function harness(kind,cache=new Map(),failure=false,family='medium',now=null,profile=null,finance=null,appChoice=null){
+ const labels=[],requests=[],images=[],actions=[];let widget;
+ class Stack{addText(v){labels.push(v);return{}}addStack(){return new Stack()}addSpacer(){}addImage(){const image={applyFittingContentMode(){},centerAlignImage(){this.alignment='center'}};images.push(image);return image}setPadding(...padding){this.padding=padding}centerAlignContent(){}layoutVertically(){}async presentMedium(){labels.push('presentMedium')}}
  const Clock=now?class extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return +new Date(now);}}:Date;
  const today=mobile.dayKey(new Clock());
  const doc=(id,fields)=>({name:'x/'+id,fields});
  class Request{constructor(url){this.url=url;requests.push(url)}async loadString(){
   if(failure)throw Error('offline');this.response={statusCode:200};
   if(this.url.includes('securetoken'))return JSON.stringify({user_id:'fixture',id_token:'id-token',refresh_token:'rotated'});
+  if(this.url.includes('/ledgerEntries')||this.url.includes('/ledgerPlanItems')){
+   if(finance?.deny){this.response.statusCode=403;return '{}';}
+   const encode=value=>Array.isArray(value)?{arrayValue:{values:value.map(encode)}}:value&&typeof value==='object'?{mapValue:{fields:Object.fromEntries(Object.entries(value).map(([key,value])=>[key,encode(value)]))}}:typeof value==='boolean'?{booleanValue:value}:typeof value==='number'?{doubleValue:value}:{stringValue:String(value)};
+   return JSON.stringify({documents:(finance?.[this.url.includes('/ledgerEntries')?'entries':'plans']||[]).map((value,index)=>doc(value.id||String(index),encode(value).mapValue.fields))});
+  }
   if(this.url.includes('/weeklyWorkMeta/jobs')){
    if(!profile){this.response.statusCode=404;return '{}';}
    const encode=value=>Array.isArray(value)?{arrayValue:{values:value.map(encode)}}:typeof value==='object'?{mapValue:{fields:Object.fromEntries(Object.entries(value).map(([key,value])=>[key,encode(value)]))}}:typeof value==='boolean'?{booleanValue:value}:typeof value==='number'?{integerValue:String(value)}:{stringValue:value};
@@ -43,10 +48,10 @@ async function harness(kind,cache=new Map(),failure=false,family='medium',now=nu
   if(this.url.includes('/personalTasks'))return JSON.stringify({documents:[doc('task',{date:{stringValue:today},title:{stringValue:'Today fixture task'},completed:{booleanValue:false}})]});
   return JSON.stringify({documents:[]});
  }}
- const sandbox={console,Intl,Date:Clock,URLSearchParams,TextEncoder,TextDecoder,Map,Set,Request,config:{runsInWidget:true,widgetFamily:family},args:{widgetParameter:kind,queryParameters:{}},
- Keychain:{contains:k=>cache.has(k),get:k=>cache.get(k),set:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)},ListWidget:Stack,DrawContext:class{setTextAlignedCenter(){}setTextAlignedLeft(){}setTextColor(){}setFont(){}drawTextInRect(v){labels.push(v)}setFillColor(){}fillRect(){}fillEllipse(){}getImage(){return{}}},Rect:class{},Color:class{},Size:class{constructor(width,height){Object.assign(this,{width,height})}},LinearGradient:class{},Font:{systemFont(){},boldSystemFont(){}},SFSymbol:{named:()=>({image:{}})},URLScheme:{forRunningScript:()=> 'scriptable://run'},DateFormatter:class{string(){return '12:00 PM'}},Script:{setWidget:w=>widget=w,complete(){}}};
+ const sandbox={console,Intl,Date:Clock,URLSearchParams,TextEncoder,TextDecoder,Map,Set,Request,Alert:class{addAction(value){actions.push(value)}addDestructiveAction(value){actions.push(value)}addCancelAction(){}async presentSheet(){return appChoice}async presentAlert(){}},config:{runsInWidget:appChoice===null,widgetFamily:family},args:{widgetParameter:kind,queryParameters:{}},
+ Keychain:{contains:k=>cache.has(k),get:k=>cache.get(k),set:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)},ListWidget:Stack,DrawContext:class{setTextAlignedCenter(){}setTextAlignedLeft(){}setTextColor(){}setFont(){}drawTextInRect(v){labels.push(v)}drawImageInRect(){}setFillColor(){}fillRect(){}fillEllipse(){}getImage(){return{}}},Rect:class{},Color:class{},Size:class{constructor(width,height){Object.assign(this,{width,height})}},LinearGradient:class{},Font:{systemFont(){},boldSystemFont(){}},SFSymbol:{named:()=>({image:{}})},URLScheme:{forRunningScript:()=> 'scriptable://run'},DateFormatter:class{string(){return '12:00 PM'}},Script:{setWidget:w=>widget=w,complete(){}}};
  await vm.runInNewContext('(async()=>{'+source+'})()',sandbox);
- return{labels,requests,widget,cache,images};
+ return{labels,requests,widget,cache,images,actions};
 }
 test('local WebView crypto bridge returns plain values and completes create/decrypt',async()=>{
  const runtime=fs.readFileSync(require.resolve('../scriptable/runtime.js'),'utf8').split('async function connect(){')[0];
@@ -178,8 +183,8 @@ test('monthly label clipping keeps emoji sequences intact, including on older Sc
  }
 });
 
-test('only monthly todo and centered work week remain; removed modes do not fetch',async()=>{
- for(const kind of ['work','todo','work-month','todo-week','unknown','todo-month','work-week']){
+test('legacy modes including money-month do not fetch; existing calendar layouts are preserved',async()=>{
+ for(const kind of ['money-month','work','todo','work-month','todo-week','unknown','todo-month','work-week']){
   const cache=new Map([['pocket-paws-v1-account',JSON.stringify({uid:'fixture',refreshToken:'token',connectionID:'same'})]]);
   const family=kind==='todo-month'?'large':'medium';
   const result=await harness(kind,cache,false,family);
@@ -236,4 +241,68 @@ test('generated work widget changes the centered date after Edmonton midnight',a
  const next=JSON.parse(cache.get('pocket-paws-cache-work-week'));
  assert.equal(next.day,'2026-10-18');assert.equal(next.calendar.days[3].date,'2026-10-18');
  assert.ok(fresh.labels.includes('10월 18일'));
+});
+
+const financeFixtures={plans:[{id:'rent',type:'fixed',label:'Rent',amount:900},{id:'food',type:'expected',label:'Food',amount:999,subcategories:[{id:'a',label:'Groceries',amount:500},{id:'old',label:'Old',amount:90,archived:true}]},{id:'deleted',type:'expected',amount:800,deleted:true}],entries:[
+ {date:'2026-11-07',type:'expense',sourceType:'fixed',amount:900},
+ {date:'2026-11-07',type:'expense',sourceType:'expected',amount:200,isShared:true,subcategoryId:'a'},
+ {date:'2026-11-07',type:'expense',sourceType:'expected',amount:10},
+ {date:'2026-11-07',type:'expense',sourceType:'custom',amount:20},
+ {date:'2026-11-07',type:'income',sourceType:'income',amount:1500}
+]};
+const financeCache=()=>new Map([['pocket-paws-v1-account',JSON.stringify({uid:'fixture',refreshToken:'token',connectionID:'same'})]]);
+test('Medium finance widgets match the mobile calculation modules and only read ledger collections',async()=>{
+ for(const kind of ['budget-month']){
+  const cache=financeCache(),result=await harness(kind,cache,false,'medium','2026-11-07T18:00:00Z',null,financeFixtures);
+  const snapshot=JSON.parse(cache.get('pocket-paws-cache-'+kind));
+  assert.equal(snapshot.finance.month,'2026-11');assert.equal(snapshot.calendar,undefined);
+  assert.equal(result.widget.url,'https://todo-ledger.web.app/ledger.html');
+  assert.equal(result.images.at(-1).imageSize.height,138);assert.ok(!result.labels.includes('Widget size'));
+  assert.ok(result.requests.some(url=>url.includes('/ledgerEntries?')));
+  assert.equal(result.requests.some(url=>url.includes('/ledgerPlanItems?')),kind==='budget-month');
+  assert.ok(!result.requests.some(url=>/weeklyWork|personal/.test(url)));
+  if(kind==='budget-month'){
+   assert.equal(snapshot.finance.budget,1400);assert.equal(snapshot.finance.spent,1010);assert.equal(snapshot.finance.remaining,390);
+   assert.ok(result.labels.includes('$390.00'));assert.ok(result.labels.includes('고정 + 예상 지출'));
+  }
+ }
+});
+test('finance modes reject every size except Medium without fetching private data',async()=>{
+ for(const kind of ['budget-month'])for(const size of ['small','large','extraLarge','accessoryRectangular']){
+  const result=await harness(kind,financeCache(),false,size,'2026-11-07T18:00:00Z',null,financeFixtures);
+  assert.ok(result.labels.includes('Widget size'));assert.equal(result.requests.length,0);
+ }
+});
+test('finance caches are account/day isolated; offline data is marked and permission errors never use it',async()=>{
+ const cache=financeCache();await harness('budget-month',cache,false,'medium','2026-11-07T18:00:00Z',null,financeFixtures);
+ const offline=await harness('budget-month',cache,true,'medium','2026-11-07T19:00:00Z');
+ assert.ok(offline.labels.some(value=>value.includes('오프라인')));assert.ok(offline.labels.includes('$390.00'));
+ const denied=await harness('budget-month',cache,false,'medium','2026-11-07T19:00:00Z',null,{deny:true});
+ assert.ok(denied.labels.includes('Connect your account'));assert.ok(!denied.labels.includes('$390.00'));
+ const nextDay=await harness('budget-month',cache,true,'medium','2026-11-08T18:00:00Z');assert.ok(nextDay.labels.includes('Unable to sync'));
+ const removed=await harness('money-month',cache,false,'medium','2026-11-07T19:00:00Z');assert.ok(removed.labels.includes('Widget removed'));assert.equal(removed.requests.length,0);
+ const stored=JSON.parse(cache.get('pocket-paws-cache-budget-month'));stored.uid='other';cache.set('pocket-paws-cache-budget-month',JSON.stringify(stored));
+ const other=await harness('budget-month',cache,true,'medium','2026-11-07T19:00:00Z');assert.ok(other.labels.includes('Unable to sync'));
+});
+test('finance drawings stay within Medium canvas bounds, including zero budgets, overages and long amounts',()=>{
+ class Rect{constructor(x,y,width,height){Object.assign(this,{x,y,width,height});}}
+ class Drawing{constructor(){this.rects=[];}setTextAlignedLeft(){}setTextColor(){}setFont(){}drawTextInRect(value,rect){this.rects.push(rect);}drawImageInRect(value,rect){this.rects.push(rect);}setFillColor(){}fillRect(rect){this.rects.push(rect);}fillEllipse(rect){this.rects.push(rect);}getImage(){return this;}}
+ const renderer=fs.readFileSync(require.resolve('../scriptable/money.js'),'utf8');
+ const draw=vm.runInNewContext(renderer+';drawMoneyWidget',{module:{exports:{}},DrawContext:Drawing,Rect,Size:class{constructor(width,height){Object.assign(this,{width,height});}},Color:class{},Font:{systemFont(){},boldSystemFont(){}},MobileModel:mobile,Intl,Date,frogStamp:()=>({})});
+ const model=require('../mobile/budget-summary.js');
+ for(const [width,height] of [[272,121],[309,135],[318,138],[344,150]])for(const amount of [0,1500,999999999999.99]){
+  const finance=model.summarize([{type:'fixed',amount:1000},{type:'expected',amount:400}],[{date:'2026-11-07',type:'expense',sourceType:'expected',amount}],new Date('2026-11-07T18:00:00Z'));finance.earned=500;
+  for(const kind of ['budget-month']){
+   const image=draw(kind,{finance,updated:Date.parse('2026-11-07T18:00:00Z')},width,height,'network');
+   for(const rect of image.rects){assert.ok(rect.x>=0&&rect.y>=0&&rect.width>=0&&rect.height>=0);assert.ok(rect.x+rect.width<=width+.001);assert.ok(rect.y+rect.height<=height+.001);}
+  }
+ }
+});
+test('app menu previews the Medium budget widget and keeps disconnect indices correct after money removal',async()=>{
+ const cache=financeCache(),preview=await harness('budget-month',cache,false,'medium','2026-11-07T18:00:00Z',null,financeFixtures,2);
+ assert.deepEqual(preview.actions,['Refresh monthly to do','Refresh work week','고정 + 예상 지출 · Medium','Connect / switch account','Disconnect']);
+ assert.ok(preview.labels.includes('고정 + 예상 지출'));assert.ok(preview.labels.includes('presentMedium'));
+ cache.set('pocket-paws-cache-money-month','old');
+ const disconnected=await harness('budget-month',cache,false,'medium','2026-11-07T18:00:00Z',null,financeFixtures,4);
+ assert.equal(disconnected.requests.length,0);assert.equal(cache.has('pocket-paws-v1-account'),false);assert.equal(cache.has('pocket-paws-cache-budget-month'),false);assert.equal(cache.has('pocket-paws-cache-money-month'),false);
 });
