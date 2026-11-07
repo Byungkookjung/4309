@@ -249,6 +249,7 @@ let selectedSummaryMonth = new Date().getMonth() + 1;
 let balancesCollapsed = false;
 let exchangeCollapsed = true;
 let activityListSize = 'medium';
+let activityImportBusy = false;
 let selectedPlanDetailType = null;
 let exchangeRates = null;
 
@@ -458,6 +459,7 @@ function parseActivityImportEntryLine(line, currentDate, lineNumber) {
     }
 
     let linkedItem = null;
+    let subcategory = null;
     if ([PLAN_TYPES.fixed, PLAN_TYPES.expected, PLAN_TYPES.income].includes(config.sourceType)) {
         // Match the longest complete budget name; the remaining text is the detail.
         const candidates=getPlanItemsByType(config.sourceType).flatMap(item=>{
@@ -467,19 +469,38 @@ function parseActivityImportEntryLine(line, currentDate, lineNumber) {
         });
         const matches = candidates.map(({item,label}) => {
             const name = label.trim().split(/\s+/).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
-            const match = rawReasonDetail.match(new RegExp(`^${name}(?=\\s|$)`, 'i'));
+            const match = rawReasonDetail.match(new RegExp(`^${name}(?=\\s|[>|]|$)`, 'i'));
             return match ? { item, length: match[0].length } : null;
         }).filter(Boolean).sort((a, b) => b.length - a.length);
         const sourceCode = config.sourceType === PLAN_TYPES.fixed ? 'FE' : config.sourceType === PLAN_TYPES.expected ? 'EE' : 'EI';
         if (!matches.length) {
             throw new Error(`Line ${lineNumber}: "${rawReasonDetail}" does not match a ${sourceCode} item in "Budget items you can match".`);
         }
-        if (matches[1]?.length === matches[0].length) {
+        if (matches.some(candidate=>candidate.length===matches[0].length&&candidate.item.id!==matches[0].item.id)) {
             throw new Error(`Line ${lineNumber}: duplicate ${sourceCode} budget name "${matches[0].item.label}". Rename the duplicate budget items first.`);
         }
         linkedItem = matches[0].item;
         reason = linkedItem.label;
         detail = rawReasonDetail.slice(matches[0].length).trim();
+        if(detail.startsWith('>')){
+            if(config.sourceType!==PLAN_TYPES.expected)throw new Error(`Line ${lineNumber}: 하위 분류(>)는 EE에서만 사용할 수 있습니다.`);
+            const path=detail.slice(1),separator=path.indexOf('|');
+            const childName=(separator<0?path:path.slice(0,separator)).trim();
+            if(!childName||childName.includes('>'))throw new Error(`Line ${lineNumber}: "상위 분류 > 하위 분류 | 상세" 형식으로 입력해 주세요.`);
+            const normalize=value=>String(value).normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase();
+            const children=ExpectedBudget.children(linkedItem).filter(child=>normalize(child.label)===normalize(childName));
+            const active=children.filter(child=>!child.deleted&&!child.archived);
+            if(!active.length)throw new Error(`Line ${lineNumber}: "${linkedItem.label}"에서 사용할 수 있는 하위 분류 "${childName}"를 찾지 못했습니다. 삭제·이전 분류는 선택할 수 없습니다. 상세 내용 앞에는 | 를 넣어 주세요.`);
+            if(active.length>1)throw new Error(`Line ${lineNumber}: 하위 분류 "${childName}"가 중복됩니다. 분류 이름을 구분해 주세요.`);
+            subcategory=active[0];
+            detail=separator<0?'':path.slice(separator+1).trim();
+        }else if(detail.startsWith('|'))detail=detail.slice(1).trim();
+    }else{
+        const separator=rawReasonDetail.indexOf('|');
+        if(separator>=0){
+            reason=rawReasonDetail.slice(0,separator).trim();detail=rawReasonDetail.slice(separator+1).trim();
+            if(!reason)throw new Error(`Line ${lineNumber}: | 앞에 내역 이름을 입력해 주세요.`);
+        }
     }
 
     const timestamp = new Date().toISOString();
@@ -494,6 +515,7 @@ function parseActivityImportEntryLine(line, currentDate, lineNumber) {
         sourceType: config.sourceType,
         linkedPlanItemId: linkedItem ? linkedItem.id : '',
         linkedPlanItemLabel: linkedItem ? linkedItem.label : '',
+        ...(subcategory?{subcategoryId:subcategory.id,subcategoryLabel:subcategory.label}:{}),
         createdAt: timestamp,
         updatedAt: timestamp
     };
@@ -550,11 +572,14 @@ function setActivityImportStatus(message = '', tone = '', errorLine = null) {
 
 function setImportActivityButtonState(enabled) {
     if (!importActivityBtn) return;
-    importActivityBtn.disabled = !enabled;
-    importActivityBtn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+    const allowed=enabled&&!activityImportBusy;
+    importActivityBtn.disabled = !allowed;
+    importActivityBtn.setAttribute('aria-disabled', allowed ? 'false' : 'true');
 }
 
 function validateActivityImportPreview() {
+    const matches=document.getElementById('activityImportMatches');
+    if(matches)matches.replaceChildren();
     const rawText = activityImportText ? activityImportText.value : '';
     if (!rawText.trim()) {
         setActivityImportStatus('Paste or upload TXT content to check it before importing.', 'idle');
@@ -564,6 +589,19 @@ function validateActivityImportPreview() {
 
     try {
         const entries = parseActivityImportText(rawText);
+        if(matches){
+            for(const entry of entries.slice(0,50)){
+                const row=document.createElement('div');row.className='activity-import-match';
+                const label=document.createElement('strong');
+                const code={fixed:'FE',expected:'EE',income:'EI',unexpected_income:'UI',custom:'CE'}[entry.sourceType];
+                label.textContent=entry.date+' · '+code+' · '+(entry.linkedPlanItemLabel||entry.reason)+(entry.sourceType===PLAN_TYPES.expected?' > '+(entry.subcategoryLabel||'미분류'):'');
+                const amount=document.createElement('span');amount.textContent=(entry.type==='income'?'+':'−')+formatCurrency(entry.amount);
+                row.append(label,amount);
+                if(entry.detail){const detail=document.createElement('small');detail.textContent=entry.detail;row.append(detail);}
+                matches.append(row);
+            }
+            if(entries.length>50){const more=document.createElement('p');more.textContent=`미리보기는 처음 50개만 표시합니다. 가져오기 대상: 총 ${entries.length}개`;matches.append(more);}
+        }
         setActivityImportStatus(`Ready to import ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}.`, 'success');
         setImportActivityButtonState(true);
         return entries;
@@ -596,9 +634,13 @@ function renderActivityImportBudgetHints() {
         const items = getPlanItemsByType(section.type);
         const value = document.createElement('div');
         value.className = 'activity-import-budget-items';
-        value.textContent = items.length
-            ? items.map(item => item.label).join(' • ')
-            : section.empty;
+        if(!items.length)value.textContent=section.empty;
+        for(const item of items){
+            const row=document.createElement('div');
+            const children=section.type===PLAN_TYPES.expected?ExpectedBudget.children(item).filter(child=>!child.deleted&&!child.archived):[];
+            row.textContent=item.label+(children.length?' > '+children.map(child=>child.label).join(', '):'');
+            value.append(row);
+        }
 
         block.appendChild(title);
         block.appendChild(value);
@@ -2285,6 +2327,12 @@ function enterEditMode(id) {
         removePlanItemBtn.disabled = Boolean(reason);
         removePlanItemBtn.title=reason||'Remove budget item';
     }
+    planItemInput.focus({preventScroll:true});
+    planItemInput.select();
+    planForm?.scrollIntoView({
+        behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',
+        block:'start'
+    });
 }
 
 function exitEditMode() {
@@ -2484,6 +2532,7 @@ async function addActivityEntry() {
 }
 
 async function importActivityEntriesFromText() {
+    if(activityImportBusy)return;
     const rawText = activityImportText ? activityImportText.value : '';
     if (!rawText.trim()) {
         alert('Please upload or paste TXT content first.');
@@ -2500,8 +2549,14 @@ async function importActivityEntriesFromText() {
         return;
     }
 
+    activityImportBusy=true;setImportActivityButtonState(false);
     try{await saveEntriesSafely(importedEntries);}
-    catch(error){setActivityImportStatus(error.code?'Could not verify budgets and import. Nothing was saved.':error.message,'error');return;}
+    catch(error){
+        activityImportBusy=false;
+        const message=error.code?'분류를 확인하거나 내역을 저장하지 못했습니다. 아무 내역도 저장하지 않았습니다.':/subcategory/i.test(error.message)?'하위 분류가 변경되었거나 삭제됐습니다. 새로고침 후 다시 확인해 주세요.':/budget|account/i.test(error.message)?'예산 분류 또는 계정이 변경됐습니다. 새로고침 후 다시 확인해 주세요.':error.message;
+        document.getElementById('activityImportMatches')?.replaceChildren();
+        setActivityImportStatus(message,'error');return;
+    }
 
     setStoredActivityDate(importedEntries[importedEntries.length - 1].date);
     setActivityImportStatus(`Imported ${importedEntries.length} entr${importedEntries.length === 1 ? 'y' : 'ies'}.`, 'success');

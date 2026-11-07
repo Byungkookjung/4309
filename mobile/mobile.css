@@ -9,3 +9,31 @@
 .today-task-list li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; padding: 12px; min-height: 48px; background: #f0f8fd; border-radius: 16px; font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; }
 .today-task-list .completed span:last-child { text-decoration: line-through; color: #526878; }
 .planner-link { display: grid; place-items: center; min-width: 44px; min-height: 44px; font-size: 24px; text-decoration: none; }
+
+/* A small pond ledger: warm outer card, white expense tiles. */
+.expense-budget{background:linear-gradient(145deg,#f0f4df,#f9faef);border-color:#cedbb5;position:relative;overflow:hidden}
+.expense-budget .section-head{position:relative;margin-bottom:18px}
+.expense-budget .section-head img{flex:none;opacity:.85}
+.expense-budget .eyebrow{letter-spacing:1px;font-size:11px}
+.expense-budget h2{font-size:23px}
+.budget-hero{padding:0 2px 20px;position:relative}
+.budget-hero>span{font-size:13px;font-weight:800;color:#65774f}
+.budget-hero>strong{display:block;font-size:clamp(32px,10vw,44px);font-weight:900;letter-spacing:-1.7px;line-height:1.35;color:#405d2d;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.budget-hero>p{font-size:12px;color:var(--muted);margin-top:4px}
+.budget-groups{display:grid;gap:10px}
+.budget-group{min-width:0;background:#ffffffed;border:1px solid #dce5cc;border-radius:18px;padding:15px}
+.budget-group-heading{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:3px 10px}
+.budget-group h3{font-size:15px;margin:0;font-weight:900}
+.budget-group-heading>span{font-size:12px;font-weight:800;color:#587b38;font-variant-numeric:tabular-nums}
+.budget-group-values{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 6px;margin:8px 0 10px;font-variant-numeric:tabular-nums}
+.budget-group-values strong{font-size:25px;line-height:1.25;font-weight:900;letter-spacing:-.7px;overflow-wrap:anywhere}
+.budget-group-values span{font-size:11px;color:var(--muted)}
+.budget-group progress{display:block;width:100%;height:7px;border:none;border-radius:8px;overflow:hidden;accent-color:#8eac61;background:#e8eddc}
+.budget-group progress::-webkit-progress-bar{background:#e8eddc;border-radius:8px}
+.budget-group progress::-webkit-progress-value{background:#8eac61;border-radius:8px}
+.budget-group progress::-moz-progress-bar{background:#8eac61;border-radius:8px}
+.expense-budget .over-budget{color:#ae4e50;accent-color:#ae4e50}
+.budget-group progress.over-budget::-webkit-progress-value{background:#ae4e50}
+.budget-group progress.over-budget::-moz-progress-bar{background:#ae4e50}
+.budget-note{font-size:11px;color:var(--muted);margin:13px 2px 8px}
+.budget-link{display:flex;align-items:center;justify-content:space-between;min-height:44px;font-size:13px;font-weight:900;color:#516d39;border-top:1px solid #d5dfc4;padding-top:9px}
