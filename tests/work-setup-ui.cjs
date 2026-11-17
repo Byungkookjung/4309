@@ -74,6 +74,7 @@ const base=process.env.MOBILE_TEST_URL||'http://localhost:8000';
   await page.getByRole('button',{name:'Save workplaces',exact:true}).click();await page.getByRole('status').filter({hasText:'Hourly rate changed'}).waitFor();
   assert.equal(await page.evaluate(key=>JSON.parse(localStorage.remoteWorkFixture)[key].hourlyRate,payKey),29);
   await page.getByRole('button',{name:'Cancel',exact:true}).click();await page.locator('.sheet-container').waitFor();
+  await page.locator('#currentHourlyRate').filter({hasText:'29.00'}).waitFor();
   await page.evaluate(()=>{localStorage.setItem('remoteWorkFixture',JSON.stringify({'users/test-owner/weeklyWorkMeta/settings':{hourlyRate:19},'users/test-owner/weeklyWorkMeta/settingsIronPeak':{hourlyRate:28,periodAnchor:'2026-10-05',payoutDelay:5,payrollScheduleVersion:1}}));});
   await page.goto(base+'/index.html?job=iron');await page.locator('#currentHourlyRate').filter({hasText:'28.00'}).waitFor();
   assert.equal(await page.locator('.work-setup').isVisible(),false);
