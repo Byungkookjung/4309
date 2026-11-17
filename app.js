@@ -62,6 +62,7 @@ window.addEventListener('pageshow', event => {
 });
 let isEditingRate = false;
 let editingPayoutId = null;
+let regularPayManual = false;
 
 const currentHourlyRate = document.getElementById('currentHourlyRate');
 const currentHolidayRate = document.getElementById('currentHolidayRate');
@@ -105,6 +106,7 @@ const payoutPeriodStartInput = document.getElementById('payoutPeriodStart');
 const payoutPeriodEndInput = document.getElementById('payoutPeriodEnd');
 const payoutHoursInput = document.getElementById('payoutHours');
 const payoutRegularPayInput = document.getElementById('payoutRegularPay');
+const payoutRegularPayMode = document.getElementById('payoutRegularPayMode');
 const payoutHolidayWorkPayInput = document.getElementById('payoutHolidayWorkPay');
 const payoutStatHolidayPayInput = document.getElementById('payoutStatHolidayPay');
 const payoutTipsInput = document.getElementById('payoutTips');
@@ -1204,6 +1206,7 @@ async function deletePayout(id) {
 
 function resetPayoutForm() {
     editingPayoutId = null;
+    regularPayManual = false;
     const { blockDates } = getBlockWeeks(weekBlockOffset);
     payoutForm.reset();
     payoutDateInput.value = getBlockPayoutDate(blockDates);
@@ -1223,6 +1226,9 @@ function startEditPayout(id) {
     payoutPeriodStartInput.value = item.payPeriodStart || '';
     payoutPeriodEndInput.value = item.payPeriodEnd || '';
     payoutHoursInput.value = item.hours ? String(item.hours) : '';
+    // Editing a stored payout must not recalculate its historical pay at today's rate.
+    regularPayManual = true;
+    payoutRegularPayInput.value = Number(item.regularPay || 0).toFixed(2);
     payoutHolidayWorkPayInput.value = item.holidayWorkPay ? String(item.holidayWorkPay) : '';
     payoutStatHolidayPayInput.value = item.statHolidayPay ? String(item.statHolidayPay) : '';
     payoutTipsInput.value = item.tips ? String(item.tips) : '';
@@ -1235,8 +1241,9 @@ function startEditPayout(id) {
 
 function refreshPayoutTotals() {
     const hours = Number(payoutHoursInput.value || 0);
-    const regularPay = computeRegularPay(hours, settings.hourlyRate);
-    payoutRegularPayInput.value = regularPay.toFixed(2);
+    const regularPay = regularPayManual ? Number(payoutRegularPayInput.value || 0) : computeRegularPay(hours, settings.hourlyRate);
+    if(!regularPayManual)payoutRegularPayInput.value = regularPay.toFixed(2);
+    payoutRegularPayMode.textContent = regularPayManual ? '직접 입력 · Hours/시급 변경 시 유지' : '자동 계산 · Hours × 시급';
     const holidayWorkPay = Number(payoutHolidayWorkPayInput.value || 0);
     const statHolidayPay = Number(payoutStatHolidayPayInput.value || 0);
     const tips = activeJob.tips ? Number(payoutTipsInput.value || 0) : 0;
@@ -1293,12 +1300,13 @@ function isTypingTarget(element) {
 }
 
 async function handleSavePayout() {
-    if (paystubBusy) return;
+    if (paystubBusy || !payoutForm.reportValidity()) return;
+    refreshPayoutTotals();
     const date = payoutDateInput.value;
     const payPeriodStart = payoutPeriodStartInput.value;
     const payPeriodEnd = payoutPeriodEndInput.value;
     const hours = Number(payoutHoursInput.value || 0);
-    const regularPay = computeRegularPay(hours, settings.hourlyRate);
+    const regularPay = Number(payoutRegularPayInput.value);
     const holidayWorkPay = Number(payoutHolidayWorkPayInput.value || 0);
     const statHolidayPay = Number(payoutStatHolidayPayInput.value || 0);
     const tips = activeJob.tips ? Number(payoutTipsInput.value || 0) : 0;
@@ -1306,7 +1314,7 @@ async function handleSavePayout() {
     const deductions = Number(payoutDeductionsInput.value || 0);
     const grossPay = computeGrossPay(regularPay, holidayWorkPay, statHolidayPay, tips, vacationPayout);
     const amount = computeNetPay(grossPay, deductions);
-    if (!date || !payPeriodStart || !payPeriodEnd || amount <= 0) {
+    if (!date || !payPeriodStart || !payPeriodEnd || ![hours,regularPay,holidayWorkPay,statHolidayPay,tips,vacationPayout,deductions,grossPay,amount].every(value=>Number.isFinite(value)&&value>=0) || amount <= 0) {
         alert('Please enter a pay date, pay period, and valid paystub amounts.');
         return;
     }
@@ -1410,7 +1418,7 @@ function startRemoteSync(user) {
         } else {
             settings = normalizeSettings(doc.data());
         }
-        if (!editingPayoutId && !payoutHoursInput.value) resetPayoutForm();
+        if (!editingPayoutId && !payoutHoursInput.value && !regularPayManual) resetPayoutForm();
         refreshPayoutTotals();
         renderAll();
     });
@@ -1437,6 +1445,7 @@ rateForm.addEventListener('submit', saveHourlyRate);
 editRateBtn.addEventListener('click', openRateEditor);
 cancelRateEditBtn.addEventListener('click', closeRateEditor);
 payoutForm.addEventListener('submit', handleSavePayout);
+payoutRegularPayInput.addEventListener('input',()=>{regularPayManual=true;refreshPayoutTotals();});
 [payoutHoursInput, payoutHolidayWorkPayInput, payoutStatHolidayPayInput, payoutTipsInput, payoutVacationInput, payoutDeductionsInput].forEach(input => {
     input.addEventListener('input', refreshPayoutTotals);
 });

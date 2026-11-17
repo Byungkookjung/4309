@@ -1,6 +1,7 @@
 // Expense Ledger (balances + spending plan)
 
 const setupSection = document.getElementById('setupSection');
+const setupForm = document.getElementById('setupForm');
 const dashboardSection = document.getElementById('dashboardSection');
 const investmentHubSection = document.getElementById('investmentHubSection');
 const exchangeSection = document.getElementById('exchangeSection');
@@ -188,6 +189,8 @@ function startLedgerSync(user) {
 
     balancesUnsub = balancesDoc(user).onSnapshot(doc => {
         balances = doc.exists ? doc.data() : null;
+        // Reconnect/cache snapshots must not close the form or discard an in-progress draft.
+        if (editingBalances) return;
         if (hasBalances()) {
             showDashboard();
         } else {
@@ -250,6 +253,7 @@ let balancesCollapsed = false;
 let exchangeCollapsed = true;
 let activityListSize = 'medium';
 let activityImportBusy = false;
+let editingBalances = false, balanceEditBaseline = null, balanceSaving = false;
 let selectedPlanDetailType = null;
 let exchangeRates = null;
 
@@ -1059,7 +1063,9 @@ function getActivityAmountForPlanItem(item) {
         const isLabelMatch = !entry.linkedPlanItemId && (
             String(entry.linkedPlanItemLabel || '').trim() === item.label ||
             String(entry.reason || '').trim() === item.label
-        );
+        ) && (item.type!==PLAN_TYPES.fixed||planItems.filter(plan=>plan.type===PLAN_TYPES.fixed&&(
+            String(entry.linkedPlanItemLabel||'').trim()===plan.label||String(entry.reason||'').trim()===plan.label
+        )).length===1);
         if (!isLinkedMatch && !isLabelMatch) return sum;
         return sum + getEntryEffectiveAmount(entry);
     }, 0);
@@ -1947,9 +1953,12 @@ function populateActivityLinkedItems(savedEntry = null) {
     const savedLabel = selection?.linkedPlanItemLabel || selection?.reason || '';
     const normalizeLabel = value => String(value || '').trim().toLocaleLowerCase();
     const matches = savedLabel ? items.filter(item => normalizeLabel(item.label) === normalizeLabel(savedLabel)) : [];
+    const deletedFixedAssignment=sourceType===PLAN_TYPES.fixed&&selection&&planItems.some(item=>item.type===PLAN_TYPES.fixed&&item.deleted&&(
+        selection.linkedPlanItemId?String(item.id)===String(selection.linkedPlanItemId):normalizeLabel(item.label)===normalizeLabel(savedLabel)
+    ));
     const selectedItem = sourceType==='expected'&&selection
         ? items.find(item=>item.id===ExpectedBudget.resolve({type:'expense',sourceType:'expected',...selection,reason:savedLabel},planItems)?.id)
-        : items.find(item => String(item.id) === String(selection?.linkedPlanItemId)) || (matches.length === 1 ? matches[0] : null);
+        : items.find(item => String(item.id) === String(selection?.linkedPlanItemId)) || (!deletedFixedAssignment&&matches.length === 1 ? matches[0] : null);
 
     activityLinkedItemSelect.innerHTML = '';
     activityLinkedItemSelect.dataset.sourceType = sourceType;
@@ -2178,7 +2187,9 @@ function setActivityTypeFilter(filter) {
     renderActivity();
 }
 
-function showSetup() {
+function showSetup(focus = false) {
+    editingBalances = true;
+    balanceEditBaseline = balances ? {...balances} : null;
     setupSection.classList.remove('hidden');
     dashboardSection.classList.add('hidden');
     if (investmentHubSection) investmentHubSection.classList.add('hidden');
@@ -2199,6 +2210,10 @@ function showSetup() {
         checkingInput.value = '';
         etcInput.value = '';
     }
+    if(focus){
+        setupSection.scrollIntoView({behavior:'smooth',block:'start'});
+        checkingInput.focus({preventScroll:true});checkingInput.select();
+    }
 }
 
 function handleSetupBack() {
@@ -2210,6 +2225,7 @@ function handleSetupBack() {
 }
 
 function showDashboard() {
+    editingBalances = false;balanceEditBaseline = null;
     setupSection.classList.add('hidden');
     dashboardSection.classList.remove('hidden');
     if (investmentHubSection) investmentHubSection.classList.remove('hidden');
@@ -2273,6 +2289,8 @@ function showExchangeHistory() {
 }
 
 async function saveBalancesFromInputs() {
+    if(balanceSaving||!setupForm.reportValidity())return;
+    if(requireAuthRef&&!currentUser){alert('계정 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');return;}
     const saving = parseFloat(savingInput.value);
     const checking = parseFloat(checkingInput.value);
     const etc = parseFloat(etcInput.value);
@@ -2283,6 +2301,7 @@ async function saveBalancesFromInputs() {
         checking: isNaN(checking) ? 0 : Number(checking.toFixed(2)),
         etc: isNaN(etc) ? 0 : Number(etc.toFixed(2))
     };
+    if(!Object.values(parsed).every(Number.isFinite)){alert('올바른 잔액을 입력해 주세요.');return;}
 
     if (parsed.saving === 0 && parsed.checking === 0 && parsed.etc === 0) {
         if (!confirm('All balances are zero. Continue?')) return;
@@ -2290,17 +2309,28 @@ async function saveBalancesFromInputs() {
 
     if (!confirm('Save these balance changes?')) return;
 
-    balances = parsed;
+    const baseline=balanceEditBaseline;
+    balanceSaving=true;saveBalancesBtn.disabled=true;
     try {
         const shouldRecordHistory = !areBalancesEqual(parsed, previousBalances);
         if (isRemoteEnabled()) {
-            await balancesDoc(currentUser).set(balances);
-            if (shouldRecordHistory) {
-                await recordBalanceHistory(parsed);
-            }
+            const account=currentUser;
+            const assertAccount=()=>{if(!account||currentUser?.uid!==account.uid||authApi.auth?.currentUser?.uid!==account.uid)throw Error('계정이 변경됐습니다. 새로고침 후 다시 수정해 주세요.');};
+            assertAccount();
+            const history=shouldRecordHistory?buildBalanceHistoryEntry(parsed):null;
+            await dbRef.runTransaction(async tx=>{
+                assertAccount();const ref=balancesDoc(account),doc=await tx.get(ref),latest=doc.exists?doc.data():null;
+                if((latest||baseline)&&!areBalancesEqual(latest,baseline))throw Error('잔액이 다른 화면에서 변경됐습니다. 뒤로 돌아가 다시 확인해 주세요.');
+                assertAccount();tx.set(ref,{...(latest||{}),...parsed});
+                if(history)tx.set(balanceHistoryCollection(account).doc(history.id),history);
+            });
+            balances=parsed;
             showDashboard();
             return;
         }
+        const latest=JSON.parse(localStorage.getItem(STORAGE_BALANCES)||'null');
+        if((latest||baseline)&&!areBalancesEqual(latest,baseline))throw Error('잔액이 다른 화면에서 변경됐습니다. 뒤로 돌아가 다시 확인해 주세요.');
+        balances={...(latest||{}),...parsed};
         saveBalances();
         if (shouldRecordHistory) {
             await recordBalanceHistory(parsed);
@@ -2309,7 +2339,7 @@ async function saveBalancesFromInputs() {
     } catch (error) {
         balances = previousBalances;
         alert(error && error.message ? error.message : 'Failed to save balances.');
-    }
+    } finally {balanceSaving=false;saveBalancesBtn.disabled=false;}
 }
 
 function enterEditMode(id) {
@@ -2424,7 +2454,7 @@ async function deletePlanItemsSafely(ids) {
             if(JSON.stringify(latest)!==JSON.stringify(planItems))throw Error('Budgets changed in another tab. Reload before deleting.');
             const history=JSON.parse(localStorage.getItem(STORAGE_ACTIVITY)||'[]').map(normalizeActivityEntry);
             check(latest,history);
-            const remaining=raw.flatMap(item=>!ids.includes(String(item.id))?[item]:normalizePlanType(item.type)==='expected'?[ExpectedBudget.removeParent(item)]:[]);
+            const remaining=raw.flatMap(item=>!ids.includes(String(item.id))?[item]:['expected','fixed'].includes(normalizePlanType(item.type))?[ExpectedBudget.removeParent(item)]:[]);
             localStorage.setItem(STORAGE_PLAN_ITEMS,JSON.stringify(remaining));planItems=normalizePlanItems(remaining);
             renderPlan();renderDashboard();updateActivitySourceControls();
         });
@@ -2879,7 +2909,7 @@ function renderReasonChart(range, now, startOfWeek, endOfWeek) {
 
 if (saveBalancesBtn) saveBalancesBtn.addEventListener('click', saveBalancesFromInputs);
 if (setupBackBtn) setupBackBtn.addEventListener('click', handleSetupBack);
-if (editBalancesBtn) editBalancesBtn.addEventListener('click', showSetup);
+if (editBalancesBtn) editBalancesBtn.addEventListener('click', () => showSetup(true));
 if (toggleBalancesBtn) toggleBalancesBtn.addEventListener('click', toggleBalancesPanel);
 if (toggleExchangeBtn) toggleExchangeBtn.addEventListener('click', toggleExchangePanel);
 if (exchangePanelHeader) {

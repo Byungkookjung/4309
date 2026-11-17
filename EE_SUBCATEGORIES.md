@@ -16,7 +16,9 @@ An EE parent's Edit action allows deletion, including when it has children or hi
 
 Deletion is represented by a `deleted: true` historical record, rather than erasing the referenced Firestore document. Parent deletion marks all its children deleted and removes the parent from active totals, budget setup and new-transaction choices. Child deletion excludes only that child from the active budget and choices. The original IDs, names and child amounts remain available for historical transaction labels and exports. This is internal history retention, not a user-facing Archive feature. Existing transaction dates, amounts, shared flags, details and balances are not rewritten.
 
-Budget Progress retains spending from deleted categories, marked as deleted, without inventing an active budget allowance. Transactions lacking child assignments remain under 미분류 with no assigned budget. Parent and child spending are never counted as two separate expenses. New transactions cannot select deleted parents or children; an existing historical transaction may keep its unchanged assignment or be moved manually. FE/EI calculations and their existing deletion safeguards are unchanged.
+Budget Progress retains spending from deleted EE categories, marked as deleted, without inventing an active budget allowance. Transactions lacking child assignments remain under 미분류 with no assigned budget. Parent and child spending are never counted as two separate expenses. New transactions cannot select deleted parents or children; an existing historical transaction may keep its unchanged assignment or be moved manually. FE/EI calculations are unchanged.
+
+Fixed expense parents can also be deleted after confirmation. They retain their original IDs and metadata in a `deleted: true`, zero-budget historical record; their transactions are never removed or rewritten, and they are excluded from active budget lists and new-transaction options. Income-parent deletion safeguards remain unchanged. Fixed deletion uses the same revision fence and local Web Lock as EE deletion.
 
 ## Concurrency and Security
 

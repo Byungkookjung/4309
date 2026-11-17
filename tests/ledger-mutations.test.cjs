@@ -15,12 +15,12 @@ test('archived/missing children are allowed only on unchanged historical assignm
  assert.doesNotThrow(()=>M.validateEntries([entry],[entry],[plan],['e']));
  assert.throws(()=>M.validateEntries([{...entry,subcategoryId:'missing'}],[entry],[plan],['e']),/subcategory is unavailable/);
 });
-test('referenced FE/EI budgets stay protected; EE uses history-preserving deletion',()=>{
+test('referenced income budgets stay protected; fixed and EE use history-preserving deletion',()=>{
  assert.doesNotThrow(()=>M.checkDeletion(['p'],[parent],[record]));
  const removed=EE.removeParent(parent);
  assert.throws(()=>M.validateEntries([record],[],[removed]),/budget was deleted/);
  assert.doesNotThrow(()=>M.validateEntries([record],[record],[removed],['e']));
- for(const type of ['fixed','income']){
+ for(const type of ['income']){
   assert.throws(()=>M.checkDeletion(['p'],[{...parent,type}],[{...record,sourceType:type}]),/historical/);
   assert.doesNotThrow(()=>M.checkDeletion(['p'],[{...parent,type}],[]));
  }
@@ -38,4 +38,18 @@ test('new budget-linked records require an explicit parent ID; legacy unlinked e
  assert.throws(()=>M.validateEntries([legacy],[],[parent]),/Choose an existing budget/);
  assert.doesNotThrow(()=>M.validateEntries([legacy],[legacy],[],['e']));
  assert.throws(()=>M.validateEntries([{...legacy,reason:'Another category'}],[legacy],[],['e']),/Choose an existing budget/);
+});
+
+test('fixed expense deletion retains parent metadata and historical transaction links',()=>{
+ const fixed={...parent,type:'fixed',customMetadata:'keep'},entry={...record,sourceType:'fixed'};
+ assert.doesNotThrow(()=>M.checkDeletion(['p'],[fixed],[entry]));
+ const removed=EE.removeParent(fixed);assert.equal(removed.deleted,true);assert.equal(removed.amount,0);assert.equal(removed.customMetadata,'keep');
+ assert.throws(()=>M.validateEntries([{...entry,id:'new'}],[],[removed]),/budget was deleted/);
+ assert.doesNotThrow(()=>M.validateEntries([entry],[entry],[removed],['e']));
+});
+test('remote fixed deletion writes a tombstone and revision atomically, never deletes history',async()=>{
+ const fixed={...parent,type:'fixed',metadata:'keep'},history=[{...record,sourceType:'fixed'}],writes=[],deletes=[];
+ const snapshot={id:'p',exists:true,data:()=>({...fixed})},revision={get:async()=>({data:()=>({version:4})})},ref={id:'p'};
+ const store={revision,plan:()=>ref,listPlans:async()=>[fixed],listEntries:async()=>history,assertAccount(){},transaction:async fn=>fn({get:async r=>r===revision?{data:()=>({version:4})}:snapshot,set:(r,value)=>writes.push({r,value}),delete:r=>deletes.push(r)})};
+ await M.deleteRemote(store,['p']);assert.equal(deletes.length,0);assert.equal(writes[0].value.deleted,true);assert.equal(writes[0].value.metadata,'keep');assert.equal(writes[1].value.version,5);assert.equal(history[0].linkedPlanItemId,'p');
 });
