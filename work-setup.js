@@ -10,7 +10,7 @@
     function start(){
         window.__workJobs=profile.jobs;window.__workUser=user;
         section.hidden=true;shell.hidden=false;
-        const script=document.createElement('script');script.src='app.js?v=20261025-workplaces';document.body.append(script);
+        const script=document.createElement('script');script.src='app.js?v=20261116-manual-regular-pay';document.body.append(script);
         const time=document.createElement('script');time.src='mobile-time.js?v=20260911a';script.onload=()=>document.body.append(time);
     }
     try{
@@ -25,10 +25,19 @@
     if(profile&&!manage){start();return;}
     section.hidden=false;
     status.textContent=profile?'Your saved shifts, payouts and pay settings will be kept.':'Set up your workplaces to start tracking shifts and pay.';
+    const savedSettings=new Map();
+    try{
+        for(const job of profile?.jobs||[]){
+            const value=owner?(await owner.collection('weeklyWorkMeta').doc('settings'+job.suffix).get({source:'server'})).data():JSON.parse(localStorage.getItem('weeklySheetSettings'+job.suffix)||'{}');
+            savedSettings.set(job.id,value||{});
+        }
+        if(user&&auth.auth?.currentUser?.uid!==user.uid)throw Error('Account changed');
+    }catch(error){status.textContent='Could not load pay settings. Reload to retry. No records have been changed.';return;}
     const form=document.createElement('form');
     const list=document.createElement('div');
     const countLabel=document.createElement('label');countLabel.textContent='Number of workplaces';
     const count=document.createElement('input');count.type='number';count.min=String(profile?.jobs.length||1);count.max='10';count.value=String(profile?.jobs.length||1);count.required=true;countLabel.append(count);
+    count.step='1';count.inputMode='numeric';
     const drafts=[];
     function field(row,label,type,value,options={}){
         const wrap=document.createElement('label');wrap.textContent=label;
@@ -40,8 +49,8 @@
         const name=field(row,'Name','text',job?.name||'',{required:true,maxLength:80});
         const tips=field(row,'Include tips','checkbox',job?.tips??false);
         const draft={row,job,name,tips};
+        draft.rate=field(row,'Hourly rate (CAD)','number',String(job?(savedSettings.get(job.id)?.hourlyRate??15):15),{required:true,min:'0',max:'100000',step:'0.01',inputMode:'decimal'});
         if(!job){
-            draft.rate=field(row,'Hourly rate (CAD)','number','15',{required:true,min:'0',max:'100000',step:'0.01'});
             draft.holiday=field(row,'Holiday multiplier','number','1.5',{required:true,min:'1',max:'10',step:'0.1'});
             draft.anchor=field(row,'2-week period start','date',new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),{required:true});
             draft.delay=field(row,'Payday: days after period ends','number','7',{required:true,min:'0',max:'60',step:'1'});
@@ -60,7 +69,7 @@
                 for(const input of [draft.payday,draft.payMonth]){input.disabled=!monthly;input.parentElement.hidden=!monthly;}
             };
             draft.frequency.addEventListener('change',update);update();
-        }else{const note=document.createElement('p');note.textContent='Existing pay settings are preserved. Change the hourly rate under Pay Settings on the work sheet.';row.append(note);}
+        }else{const note=document.createElement('p');note.textContent='Edit the hourly rate here. Your pay cycle, shifts, payouts and other settings stay unchanged.';row.append(note);}
         drafts.push(draft);list.append(row);
     }
     function resize(){
@@ -79,7 +88,11 @@
         try{
             const settings=[];
             const jobs=drafts.slice(0,Number(count.value)).map((draft,index)=>{
-                if(draft.job)return {...draft.job,name:draft.name.value,tips:draft.tips.checked};
+                if(draft.job){
+                    const expected=savedSettings.get(draft.job.id)||{},rate=Number(draft.rate.value);
+                    if(rate!==Number(expected.hourlyRate??15))settings.push({job:draft.job,existing:true,expected,value:{hourlyRate:rate}});
+                    return {...draft.job,name:draft.name.value,tips:draft.tips.checked};
+                }
                 const id='job_'+crypto.randomUUID().replaceAll('-','');
                 const job={id,suffix:'Job_'+id.slice(4),name:draft.name.value,tips:draft.tips.checked,color:WorkProfile.colors[index%WorkProfile.colors.length]};
                 settings.push({job,value:{hourlyRate:Number(draft.rate.value),holidayMultiplier:Number(draft.holiday.value),periodAnchor:draft.anchor.value,payoutDelay:Number(draft.delay.value),payrollScheduleVersion:1,
@@ -94,11 +107,25 @@
                     const current=await transaction.get(ref);
                     if(current.exists&&JSON.stringify(WorkProfile.validate(current.data()))!==JSON.stringify(profile))throw Error('Workplaces changed in another tab. Reload before saving.');
                     if(!current.exists&&profile&&!profile.jobs.every(job=>WorkProfile.legacy.some(old=>old.id===job.id)))throw Error('Reload before saving.');
+                    const pay=[];
+                    for(const item of settings){
+                        const ref=owner.collection('weeklyWorkMeta').doc('settings'+item.job.suffix);
+                        const doc=await transaction.get(ref),latest=doc.exists?doc.data():{};
+                        if(item.existing&&Number(latest.hourlyRate??15)!==Number(item.expected.hourlyRate??15))throw Error('Hourly rate changed in another tab. Reload before saving.');
+                        if(!item.existing&&doc.exists)throw Error('Workplace settings already exist. Reload before saving.');
+                        pay.push({ref,value:item.existing?{...latest,...item.value}:item.value});
+                    }
+                    if(auth.auth?.currentUser?.uid!==user.uid)throw Error('Account changed');
                     transaction.set(ref,next);
-                    for(const item of settings)transaction.set(owner.collection('weeklyWorkMeta').doc('settings'+item.job.suffix),item.value);
+                    for(const item of pay)transaction.set(item.ref,item.value);
                 });
             }else{
-                for(const item of settings)localStorage.setItem('weeklySheetSettings'+item.job.suffix,JSON.stringify(item.value));
+                const pay=settings.map(item=>{
+                    const key='weeklySheetSettings'+item.job.suffix,latest=JSON.parse(localStorage.getItem(key)||'{}');
+                    if(item.existing&&Number(latest.hourlyRate??15)!==Number(item.expected.hourlyRate??15))throw Error('Hourly rate changed in another tab. Reload before saving.');
+                    return {key,value:item.existing?{...latest,...item.value}:item.value};
+                });
+                for(const item of pay)localStorage.setItem(item.key,JSON.stringify(item.value));
                 localStorage.setItem('weeklyWorkProfile',JSON.stringify(next));
             }
             profile=next;const url=new URL(location.href);url.searchParams.delete('setup');url.searchParams.set('job',next.jobs[0].id);location.assign(url.href);

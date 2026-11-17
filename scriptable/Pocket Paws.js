@@ -299,7 +299,7 @@ const ExpectedBudget=(()=>{const module={exports:{}};
     }
     function deletionBlockReason(plan,entries,plans){
         if(!plan)return '';
-        if(plan.type==='expected')return '';
+        if(plan.type==='expected'||plan.type==='fixed')return '';
         const referenced=entries.some(entry=>String(entry.linkedPlanItemId||'')===String(plan.id)||entry.sourceType===plan.type&&key(entry.linkedPlanItemLabel||entry.reason)===key(plan.label));
         return referenced?'This budget is referenced by historical transactions and cannot be deleted.':'';
     }

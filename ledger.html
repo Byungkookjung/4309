@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Expense Ledger</title>
     <link rel="icon" href="favicon-ledger.svg?v=20260911" type="image/svg+xml" />
-    <link rel="stylesheet" href="style.css?v=20260803c" />
+    <link rel="stylesheet" href="style.css?v=20261116-mobile-controls" />
     <link rel="stylesheet" href="polish.css?v=20261010-header" />
 <link rel="stylesheet" href="frog-theme.css?v=20261016"><link rel="stylesheet" href="ee.css?v=20261106-txt-subcategories"></head>
 <body class="ledger-body">
@@ -34,15 +34,15 @@
                 <form id="setupForm" class="ledger-grid" onsubmit="return false;">
                     <div class="field">
                         <label for="checkingBalance">Checking</label>
-                        <input id="checkingBalance" type="number" step="0.01" placeholder="0.00" />
+                        <input id="checkingBalance" type="number" inputmode="decimal" step="0.01" placeholder="0.00" />
                     </div>
                     <div class="field">
                         <label for="savingBalance">Saving</label>
-                        <input id="savingBalance" type="number" step="0.01" placeholder="0.00" />
+                        <input id="savingBalance" type="number" inputmode="decimal" step="0.01" placeholder="0.00" />
                     </div>
                     <div class="field">
                         <label for="etcBalance">Etc</label>
-                        <input id="etcBalance" type="number" step="0.01" placeholder="0.00" />
+                        <input id="etcBalance" type="number" inputmode="decimal" step="0.01" placeholder="0.00" />
                     </div>
                     <div class="field action">
                         <label aria-hidden="true">&nbsp;</label>
@@ -427,10 +427,10 @@
         })();
     </script>
     <script src="ledger-export.js?v=20261103-frog-polish"></script>
-    <script src="ee-model.js?v=20261103-frog-polish"></script>
-    <script src="ledger-mutations.js?v=20261103-frog-polish"></script>
+    <script src="ee-model.js?v=20261116-mobile-settings"></script>
+    <script src="ledger-mutations.js?v=20261116-mobile-settings"></script>
     <script src="ee-ui.js?v=20261103-frog-polish"></script>
-    <script src="ledger.js?v=20261106-txt-edit-scroll"></script>
+    <script src="ledger.js?v=20261116-mobile-settings"></script>
     <script src="ee-export.js?v=20261103-frog-polish"></script>
 </body>
 </html>

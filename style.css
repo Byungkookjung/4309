@@ -872,7 +872,7 @@ button,
 /* iOS Safari optimizations */
 @supports (-webkit-touch-callout: none) {
     /* iOS-specific styles */
-    input, button, textarea {
+    input:not([type="checkbox"]):not([type="radio"]), button, textarea {
         -webkit-appearance: none;
         appearance: none;
         -webkit-tap-highlight-color: transparent;
@@ -1543,7 +1543,7 @@ body.ledger-body .container {
 }
 
 .balance-panel.collapsed .balance-edit-btn {
-    display: none;
+    display: inline-flex;
 }
 
 .balance-panel-content {

@@ -33,7 +33,7 @@ const base=process.env.MOBILE_TEST_URL||'http://127.0.0.1:8006';
     const [saved,deleted]=[await a.evaluate(()=>window.result),await b.evaluate(()=>window.result)];
     const data=await a.evaluate(()=>({plans:JSON.parse(localStorage.ledgerPlanItems),entries:JSON.parse(localStorage.ledgerActivity)}));
     if(first==='save'){
-     assert.equal(saved.ok,true);if(type==='expected'){assert.equal(deleted.ok,true);assert.equal(data.plans.find(row=>row.id==='parent').deleted,true);}else assert.match(deleted.error,/historical/);
+     assert.equal(saved.ok,true);if(['expected','fixed'].includes(type)){assert.equal(deleted.ok,true);assert.equal(data.plans.find(row=>row.id==='parent').deleted,true);}else assert.match(deleted.error,/historical/);
      assert.equal(data.entries[0].linkedPlanItemId,'parent');assert.equal(data.plans.find(row=>row.id==='parent').customMetadata,'keep');
     }else{assert.equal(deleted.ok,true);assert.match(saved.error,/budget was deleted/);assert.equal(data.entries.length,0);assert.equal(data.plans.some(row=>row.id==='parent'&&!row.deleted),false);}
     console.log(name+' '+type+' '+first+' first: actual app, two tabs, no broken link PASS');

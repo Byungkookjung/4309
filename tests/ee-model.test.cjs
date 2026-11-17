@@ -10,7 +10,7 @@ test('EE deletion hides parents and children without orphaning historical record
  const flat={id:'old',type:'expected',label:'쇼핑',amount:450};
  for(const record of [entry(flat,1),{type:'expense',sourceType:'expected',reason:'개인쇼핑',amount:1}])assert.equal(EE.deletionBlockReason(flat,[record],[flat]),'');
  assert.equal(EE.deletionBlockReason(flat,[],[flat]),'');
- for(const type of ['fixed','income','unexpected_income']){
+ for(const type of ['income','unexpected_income']){
   assert.match(EE.deletionBlockReason({...flat,type},[entry(flat,1)],[flat]),/historical/);
   assert.equal(EE.deletionBlockReason({...flat,type},[],[flat]),'');
  }

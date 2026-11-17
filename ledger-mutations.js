@@ -69,7 +69,7 @@
                 if(JSON.stringify(normalize(parent))!==JSON.stringify(normalize(plans.find(row=>String(row.id)===String(parent.id)))))throw Error('A budget changed while deleting. Reload and review it.');
             }
             for(const parent of current){
-                if(parent.type==='expected')tx.set(store.plan(String(parent.id)),model.removeParent(parent));
+                if(['expected','fixed'].includes(parent.type))tx.set(store.plan(String(parent.id)),model.removeParent(parent));
                 else tx.delete(store.plan(String(parent.id)));
             }
             tx.set(store.revision,{version:version(revision)+1});
